@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Pengguna{% endblock %}
+{% block page_title %}Manajemen Pengguna{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <p class="text-muted mb-0" style="font-size:.85rem">Daftar pengguna terdaftar di sistem smart door lock.</p>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTambah">
+    <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
+  </button>
+</div>
+
+<div class="tbl-wrap">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Nama</th>
+        <th>NIM / NIP</th>
+        <th>Role</th>
+        <th>Fingerprint ID</th>
+        <th>Face Encoding</th>
+        <th>Status</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="userBody">
+      <tr><td colspan="8" class="text-center py-4 text-muted">Memuat...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Modal Tambah Pengguna ── -->
+<div class="modal fade" id="modalTambah" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--navy); color:#fff">
+        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Tambah Pengguna</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-600">Nama Lengkap</label>
+          <input type="text" class="form-control" id="inputNama" placeholder="contoh: Fatah Alfi Syahri">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">NIM / NIP</label>
+          <input type="text" class="form-control" id="inputNimNip" placeholder="contoh: 062330701514">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Role</label>
+          <select class="form-select" id="inputRole">
+            <option value="mahasiswa">Mahasiswa</option>
+            <option value="dosen">Dosen</option>
+            <option value="teknisi">Teknisi</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Fingerprint ID <small class="text-muted">(opsional)</small></label>
+          <input type="number" class="form-control" id="inputFpId" placeholder="ID di perangkat fingerprint">
+        </div>
+        <div id="alertTambah"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="tambahUser()">
+          <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const roleBadge = {
+  admin:     'bg-danger',
+  teknisi:   'bg-warning text-dark',
+  dosen:     'bg-primary',
+  mahasiswa: 'bg-secondary',
+};
+
+async function loadUsers() {
+  const res  = await fetch('/users/');
+  const data = await res.json();
+  const tbody = document.getElementById('userBody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada pengguna</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td class="text-muted" style="font-size:.78rem">${u.id}</td>
+      <td><strong>${u.nama}</strong></td>
+      <td><code style="font-size:.8rem">${u.nim_nip}</code></td>
+      <td><span class="badge ${roleBadge[u.role] || 'bg-secondary'}">${u.role}</span></td>
+      <td>${u.fingerprint_id !== null
+        ? `<span class="badge-role">ID: ${u.fingerprint_id}</span>`
+        : '<span class="text-muted">—</span>'}</td>
+      <td>${u.face_encoding !== undefined && u.face_encoding !== null
+        ? '<span class="badge-ok"><i class="bi bi-check"></i> Terdaftar</span>'
+        : '<span class="badge bg-warning bg-opacity-20 text-warning" style="font-size:.72rem">Belum</span>'}</td>
+      <td>${u.aktif
+        ? '<span class="badge-ok">Aktif</span>'
+        : '<span class="badge-no">Nonaktif</span>'}</td>
+      <td>
+        <button class="btn btn-outline-danger btn-sm" onclick="hapusUser(${u.id}, '${u.nama}')">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+async function tambahUser() {
+  const nama     = document.getElementById('inputNama').value.trim();
+  const nim_nip  = document.getElementById('inputNimNip').value.trim();
+  const role     = document.getElementById('inputRole').value;
+  const fpId     = document.getElementById('inputFpId').value;
+  const alertEl  = document.getElementById('alertTambah');
+
+  if (!nama || !nim_nip) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
+    return;
+  }
+
+  const body = { nama, nim_nip, role, ruangan_id: 1 };
+  if (fpId) body.fingerprint_id = parseInt(fpId);
+
+  // Update user (patch fingerprint) perlu endpoint terpisah
+  const res = await fetch('/users/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (res.ok) {
+    // Jika ada fingerprint_id, update setelah create
+    if (fpId) {
+      const created = await res.clone().json();
+      await fetch(`/users/${created.id}/fingerprint?fingerprint_id=${fpId}`, { method: 'PATCH' });
+    }
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Pengguna berhasil ditambahkan!</div>';
+    loadUsers();
+    setTimeout(() => {
+      bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
+      alertEl.innerHTML = '';
+    }, 1200);
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function hapusUser(id, nama) {
+  if (!confirm(`Nonaktifkan user "${nama}"?`)) return;
+  await fetch(`/users/${id}`, { method: 'DELETE' });
+  loadUsers();
+}
+
+loadUsers();
+</script>
+{% endblock %}

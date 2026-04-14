@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Inventaris{% endblock %}
+{% block page_title %}Inventaris Alat{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <p class="text-muted mb-0 me-auto" style="font-size:.85rem">Kelola peralatan komputer Ruang Multimedia.</p>
+  <div class="input-group input-group-sm" style="width:240px">
+    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+    <input type="text" class="form-control" id="scanInput" placeholder="Scan / ketik barcode...">
+  </div>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAlat">
+    <i class="bi bi-plus-lg me-1"></i>Tambah Alat
+  </button>
+</div>
+
+<!-- Hasil scan -->
+<div id="scanResult" class="alert alert-info d-none mb-3"></div>
+
+<div class="tbl-wrap">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>Barcode</th>
+        <th>Nama Alat</th>
+        <th>Jumlah</th>
+        <th>Status</th>
+        <th>Keterangan</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="invBody">
+      <tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal Tambah -->
+<div class="modal fade" id="modalAlat" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--navy); color:#fff">
+        <h5 class="modal-title"><i class="bi bi-box-seam me-2"></i>Tambah Alat</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-600">Kode Barcode</label>
+          <input class="form-control" id="iBarcode" placeholder="KMP-PC-001">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Nama Alat</label>
+          <input class="form-control" id="iNama" placeholder="Komputer Desktop HP">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Jumlah</label>
+          <input type="number" class="form-control" id="iJumlah" value="1" min="1">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Keterangan</label>
+          <input class="form-control" id="iKet" placeholder="opsional">
+        </div>
+        <div id="alertAlat"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="tambahAlat()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const statusBadge = {
+  tersedia: 'badge-ok',
+  dipinjam: 'badge" style="background:#fef9c3;color:#a16207',
+  rusak:    'badge-no',
+};
+
+async function loadInv() {
+  const res  = await fetch('/inventaris/');
+  const data = await res.json();
+  const tbody = document.getElementById('invBody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data inventaris</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(a => `
+    <tr>
+      <td><code style="font-size:.8rem">${a.kode_barcode}</code></td>
+      <td><strong>${a.nama_alat}</strong></td>
+      <td>${a.jumlah}</td>
+      <td><span class="${statusBadge[a.status] || 'badge-ok'}">${a.status}</span></td>
+      <td style="font-size:.8rem; color:#64748b">${a.keterangan || '—'}</td>
+      <td>
+        <select class="form-select form-select-sm w-auto d-inline" onchange="updateStatus(${a.id}, this.value)">
+          <option value="tersedia"  ${a.status==='tersedia' ?'selected':''}>Tersedia</option>
+          <option value="dipinjam"  ${a.status==='dipinjam' ?'selected':''}>Dipinjam</option>
+          <option value="rusak"     ${a.status==='rusak'    ?'selected':''}>Rusak</option>
+        </select>
+      </td>
+    </tr>`).join('');
+}
+
+async function tambahAlat() {
+  const body = {
+    kode_barcode: document.getElementById('iBarcode').value.trim(),
+    nama_alat:    document.getElementById('iNama').value.trim(),
+    jumlah:       parseInt(document.getElementById('iJumlah').value),
+    keterangan:   document.getElementById('iKet').value.trim() || null,
+    ruangan_id:   1,
+  };
+  const alertEl = document.getElementById('alertAlat');
+  if (!body.kode_barcode || !body.nama_alat) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Barcode dan nama wajib diisi.</div>';
+    return;
+  }
+  const res = await fetch('/inventaris/', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Alat berhasil ditambahkan!</div>';
+    loadInv();
+    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('modalAlat')).hide(); alertEl.innerHTML=''; }, 1200);
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function updateStatus(id, status) {
+  await fetch(`/inventaris/${id}/status?status=${status}`, { method: 'PATCH' });
+}
+
+// Scan barcode dengan keyboard (Enter)
+document.getElementById('scanInput').addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const kode = e.target.value.trim();
+  if (!kode) return;
+  const res  = await fetch(`/inventaris/barcode/${kode}`);
+  const el   = document.getElementById('scanResult');
+  if (res.ok) {
+    const alat = await res.json();
+    el.className = 'alert alert-success mb-3';
+    el.innerHTML = `<strong><i class="bi bi-check-circle me-2"></i>${alat.nama_alat}</strong> — Barcode: ${alat.kode_barcode} | Status: <strong>${alat.status}</strong>`;
+  } else {
+    el.className = 'alert alert-danger mb-3';
+    el.innerHTML = `<i class="bi bi-x-circle me-2"></i>Barcode <strong>${kode}</strong> tidak ditemukan.`;
+  }
+  e.target.value = '';
+});
+
+loadInv();
+</script>
+{% endblock %}

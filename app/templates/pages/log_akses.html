@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Log Akses{% endblock %}
+{% block page_title %}Log Akses{% endblock %}
+
+{% block content %}
+<div class="section-card p-0">
+  <!-- Filter bar -->
+  <div class="d-flex flex-wrap align-items-center gap-2 px-4 py-3 border-bottom">
+    <h6 class="mb-0 me-auto fw-600" style="color:#1e293b">
+      <i class="bi bi-clock-history me-2 text-primary"></i>Riwayat Akses Pintu
+    </h6>
+    <select class="form-select form-select-sm w-auto" id="filterStatus">
+      <option value="">Semua Status</option>
+      <option value="berhasil">Berhasil</option>
+      <option value="ditolak">Ditolak</option>
+    </select>
+    <select class="form-select form-select-sm w-auto" id="filterMetode">
+      <option value="">Semua Metode</option>
+      <option value="face">Face Recognition</option>
+      <option value="fingerprint">Fingerprint</option>
+    </select>
+    <button class="btn btn-sm btn-primary" onclick="loadLog()">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Waktu Akses</th>
+          <th>User ID</th>
+          <th>Metode</th>
+          <th>Status</th>
+          <th>Keterangan</th>
+        </tr>
+      </thead>
+      <tbody id="logBody">
+        <tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="px-4 py-2 border-top d-flex justify-content-between align-items-center">
+    <small class="text-muted" id="logInfo">—</small>
+    <small class="text-muted">Auto-refresh 15 detik</small>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function fmtTime(iso) {
+  return new Date(iso).toLocaleString('id-ID', {
+    day:'2-digit', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+}
+
+async function loadLog() {
+  const status  = document.getElementById('filterStatus').value;
+  const metode  = document.getElementById('filterMetode').value;
+  let url = '/log-akses/?limit=100&ruangan_id=1';
+  if (status) url += '&status=' + status;
+
+  try {
+    const res  = await fetch(url);
+    let   data = await res.json();
+
+    // filter metode di client karena API belum punya param metode
+    if (metode) data = data.filter(l => l.metode === metode);
+
+    document.getElementById('logInfo').textContent = `Menampilkan ${data.length} entri`;
+
+    const tbody = document.getElementById('logBody');
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((l, i) => `
+      <tr>
+        <td class="text-muted" style="font-size:.78rem">${l.id}</td>
+        <td style="white-space:nowrap; font-size:.82rem">${fmtTime(l.waktu_akses)}</td>
+        <td>${l.user_id
+          ? `<span class="badge-role">User #${l.user_id}</span>`
+          : '<span class="text-muted">—</span>'}</td>
+        <td>${l.metode === 'face'
+          ? '<span class="badge bg-primary bg-opacity-10 text-primary"><i class="bi bi-camera me-1"></i>Face</span>'
+          : l.metode === 'fingerprint'
+          ? '<span class="badge bg-success bg-opacity-10 text-success"><i class="bi bi-fingerprint me-1"></i>Fingerprint</span>'
+          : '<span class="badge bg-secondary bg-opacity-10 text-secondary">' + l.metode + '</span>'}</td>
+        <td>${l.status === 'berhasil'
+          ? '<span class="badge-ok"><i class="bi bi-check-lg"></i> Berhasil</span>'
+          : '<span class="badge-no"><i class="bi bi-x-lg"></i> Ditolak</span>'}</td>
+        <td style="font-size:.8rem; color:#64748b">${l.keterangan || '—'}</td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('logBody').innerHTML =
+      '<tr><td colspan="6" class="text-center py-4 text-danger">Gagal memuat data</td></tr>';
+  }
+}
+
+loadLog();
+setInterval(loadLog, 15000);
+
+document.getElementById('filterStatus').addEventListener('change', loadLog);
+document.getElementById('filterMetode').addEventListener('change', loadLog);
+</script>
+{% endblock %}

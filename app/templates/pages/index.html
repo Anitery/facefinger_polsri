@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ── Stat Cards ── -->
+<div class="row g-3 mb-4" id="statCards">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card shadow-sm" style="background:#fff">
+      <div class="icon" style="background:#dbeafe; color:#1d4ed8"><i class="bi bi-check-circle"></i></div>
+      <div>
+        <div class="val text-primary" id="statBerhasil">—</div>
+        <div class="lbl">Akses Berhasil Hari Ini</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card shadow-sm" style="background:#fff">
+      <div class="icon" style="background:#fee2e2; color:#b91c1c"><i class="bi bi-x-circle"></i></div>
+      <div>
+        <div class="val text-danger" id="statDitolak">—</div>
+        <div class="lbl">Akses Ditolak Hari Ini</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card shadow-sm" style="background:#fff">
+      <div class="icon" style="background:#dcfce7; color:#15803d"><i class="bi bi-people"></i></div>
+      <div>
+        <div class="val text-success" id="statUser">—</div>
+        <div class="lbl">Total Pengguna Aktif</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card shadow-sm" style="background:#fff">
+      <div class="icon" style="background:#fef9c3; color:#a16207"><i class="bi bi-box-seam"></i></div>
+      <div>
+        <div class="val text-warning" id="statAlat">—</div>
+        <div class="lbl">Item Inventaris</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Log Akses Terbaru ── -->
+<div class="row g-3">
+  <div class="col-12 col-xl-8">
+    <div class="section-card p-0">
+      <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+        <h6 class="mb-0 fw-600" style="color:#1e293b">
+          <i class="bi bi-clock-history me-2 text-primary"></i>Log Akses Terbaru
+        </h6>
+        <span class="badge bg-primary bg-opacity-10 text-primary" id="autoRefreshBadge">
+          Auto-refresh 10s
+        </span>
+      </div>
+      <div class="tbl-wrap">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Nama</th>
+              <th>Metode</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="logTbody">
+            <tr><td colspan="4" class="text-center text-muted py-4">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-2 border-top">
+        <a href="/dashboard/log-akses" class="text-primary text-decoration-none" style="font-size:.82rem;">
+          Lihat semua log <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Info Sistem ── -->
+  <div class="col-12 col-xl-4">
+    <div class="section-card p-4 mb-3">
+      <h6 class="fw-600 mb-3" style="color:#1e293b">
+        <i class="bi bi-info-circle me-2 text-primary"></i>Info Sistem
+      </h6>
+      <div class="d-flex flex-column gap-2" style="font-size:.85rem;">
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Ruangan</span>
+          <span class="fw-600">Ruang Multimedia</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Lokasi</span>
+          <span class="fw-600">Lantai 2</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Server</span>
+          <span class="badge-ok">Online</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Database</span>
+          <span class="badge-ok">Terhubung</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Versi</span>
+          <span class="fw-600">v1.0.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metode Autentikasi Chart -->
+    <div class="section-card p-4">
+      <h6 class="fw-600 mb-3" style="color:#1e293b">
+        <i class="bi bi-pie-chart me-2 text-primary"></i>Metode Autentikasi Hari Ini
+      </h6>
+      <div id="metodeChart" style="font-size:.85rem;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span><i class="bi bi-camera me-1 text-primary"></i>Face Recognition</span>
+          <span class="fw-600" id="countFace">—</span>
+        </div>
+        <div class="progress mb-3" style="height:6px;">
+          <div class="progress-bar bg-primary" id="barFace" style="width:0%"></div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span><i class="bi bi-fingerprint me-1 text-success"></i>Fingerprint</span>
+          <span class="fw-600" id="countFinger">—</span>
+        </div>
+        <div class="progress mb-3" style="height:6px;">
+          <div class="progress-bar bg-success" id="barFinger" style="width:0%"></div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span><i class="bi bi-x-circle me-1 text-danger"></i>Ditolak</span>
+          <span class="fw-600" id="countTolak">—</span>
+        </div>
+        <div class="progress" style="height:6px;">
+          <div class="progress-bar bg-danger" id="barTolak" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const RUANGAN_ID = 1;
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('id-ID', {
+    day:'2-digit', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+}
+
+function metodeBadge(m) {
+  if (m === 'face')        return '<span class="badge bg-primary bg-opacity-10 text-primary">Face</span>';
+  if (m === 'fingerprint') return '<span class="badge bg-success bg-opacity-10 text-success">Fingerprint</span>';
+  return '<span class="badge bg-secondary bg-opacity-10 text-secondary">' + m + '</span>';
+}
+
+async function loadDashboard() {
+  try {
+    // Log akses
+    const logRes = await fetch(`/log-akses/?ruangan_id=${RUANGAN_ID}&limit=10`);
+    const logs   = await logRes.json();
+
+    // Stat cards
+    const today = new Date().toDateString();
+    const todayLogs = logs.filter(l => new Date(l.waktu_akses).toDateString() === today);
+    const berhasil  = todayLogs.filter(l => l.status === 'berhasil').length;
+    const ditolak   = todayLogs.filter(l => l.status === 'ditolak').length;
+
+    document.getElementById('statBerhasil').textContent = berhasil;
+    document.getElementById('statDitolak').textContent  = ditolak;
+
+    // Tabel log
+    const tbody = document.getElementById('logTbody');
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Belum ada log akses</td></tr>';
+    } else {
+      tbody.innerHTML = logs.map(l => `
+        <tr>
+          <td style="white-space:nowrap; color:#64748b; font-size:.78rem">${fmtTime(l.waktu_akses)}</td>
+          <td><span class="fw-600">${l.user_id ? 'User #' + l.user_id : '<span class=text-muted>Tidak dikenal</span>'}</span></td>
+          <td>${metodeBadge(l.metode)}</td>
+          <td>${l.status === 'berhasil'
+            ? '<span class="badge-ok"><i class="bi bi-check"></i> Berhasil</span>'
+            : '<span class="badge-no"><i class="bi bi-x"></i> Ditolak</span>'}</td>
+        </tr>`).join('');
+    }
+
+    // Metode chart
+    const faceCount   = todayLogs.filter(l => l.metode === 'face').length;
+    const fingerCount = todayLogs.filter(l => l.metode === 'fingerprint').length;
+    const tolakCount  = ditolak;
+    const total = faceCount + fingerCount + tolakCount || 1;
+
+    document.getElementById('countFace').textContent   = faceCount;
+    document.getElementById('countFinger').textContent = fingerCount;
+    document.getElementById('countTolak').textContent  = tolakCount;
+    document.getElementById('barFace').style.width     = (faceCount/total*100)   + '%';
+    document.getElementById('barFinger').style.width   = (fingerCount/total*100) + '%';
+    document.getElementById('barTolak').style.width    = (tolakCount/total*100)  + '%';
+
+    // Users & inventaris
+    const [usersRes, invRes] = await Promise.all([
+      fetch('/users/'), fetch('/inventaris/')
+    ]);
+    const usersData = await usersRes.json();
+    const invData   = await invRes.json();
+    document.getElementById('statUser').textContent = Array.isArray(usersData) ? usersData.length : '—';
+    document.getElementById('statAlat').textContent = Array.isArray(invData)   ? invData.length   : '—';
+
+  } catch(e) {
+    console.error('Error load dashboard:', e);
+  }
+}
+
+loadDashboard();
+setInterval(loadDashboard, 10000); // auto-refresh tiap 10 detik
+</script>
+{% endblock %}

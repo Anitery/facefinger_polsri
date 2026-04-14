@@ -1,0 +1,33 @@
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database lokal (jangan di-push, nanti Railway punya sendiri)
+*.db
+*.sqlite3
+
+# Environment variables (RAHASIA - jangan pernah di-push!)
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Uvicorn log
+*.log
+
+# Upload temp files
+uploads/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
