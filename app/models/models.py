@@ -27,9 +27,10 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     nama = Column(String(100), nullable=False)
     nim_nip = Column(String(20), unique=True, index=True)
-    role = Column(String(20), default="mahasiswa")  # mahasiswa/dosen/teknisi/admin
-    face_encoding = Column(Text, nullable=True)       # JSON string vektor 128-dim
-    fingerprint_id = Column(Integer, nullable=True)   # ID di perangkat fingerprint
+    role = Column(String(20), default="mahasiswa")
+    face_encoding = Column(Text, nullable=True)
+    fingerprint_id = Column(Integer, nullable=True)
+    password_hash = Column(String(255), nullable=True)  # ← TAMBAH INI
     ruangan_id = Column(Integer, ForeignKey("ruangan.id"), nullable=True)
     aktif = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -82,3 +83,19 @@ class InventarisAlat(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     ruangan = relationship("Ruangan", back_populates="inventaris")
+
+class JadwalRuangan(Base):
+    __tablename__ = "jadwal_ruangan"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    ruangan_id  = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
+    nama_kegiatan = Column(String(150), nullable=False)
+    dosen       = Column(String(100), nullable=True)
+    mata_kuliah = Column(String(100), nullable=True)
+    tanggal     = Column(String(20), nullable=False)   # format: YYYY-MM-DD
+    jam_mulai   = Column(String(10), nullable=False)   # format: HH:MM
+    jam_selesai = Column(String(10), nullable=False)
+    keterangan  = Column(Text, nullable=True)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+    ruangan = relationship("Ruangan", backref="jadwal")

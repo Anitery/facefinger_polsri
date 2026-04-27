@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Jadwal Ruangan{% endblock %}
+{% block page_title %}Jadwal Penggunaan Ruangan{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <p class="text-muted mb-0 me-auto" style="font-size:.85rem;">
+    Jadwal penggunaan Ruang Multimedia — Jurusan Teknik Komputer.
+  </p>
+  <!-- Navigasi bulan -->
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-outline-secondary" onclick="prevMonth()">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <span id="labelBulan" class="fw-600" style="min-width:130px; text-align:center; font-size:.9rem;"></span>
+    <button class="btn btn-sm btn-outline-secondary" onclick="nextMonth()">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+  </div>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalJadwal">
+    <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
+  </button>
+</div>
+
+<div class="row g-3">
+  <!-- Kalender -->
+  <div class="col-12 col-xl-8">
+    <div class="section-card p-3">
+      <!-- Header hari -->
+      <div class="row g-0 mb-1" id="hdrHari">
+        {% for h in ['Min','Sen','Sel','Rab','Kam','Jum','Sab'] %}
+        <div class="col text-center py-1" style="font-size:.75rem; font-weight:700; color:#64748b;">{{h}}</div>
+        {% endfor %}
+      </div>
+      <!-- Grid kalender -->
+      <div id="kalenderGrid"></div>
+    </div>
+  </div>
+
+  <!-- Daftar jadwal bulan ini -->
+  <div class="col-12 col-xl-4">
+    <div class="section-card p-0">
+      <div class="px-3 py-3 border-bottom">
+        <h6 class="mb-0 fw-700" style="color:#1e293b; font-size:.9rem;">
+          <i class="bi bi-list-ul me-2 text-primary"></i>
+          <span id="labelListJadwal">Jadwal Bulan Ini</span>
+        </h6>
+      </div>
+      <div id="listJadwal" style="max-height:420px; overflow-y:auto;">
+        <div class="text-center text-muted py-4" style="font-size:.85rem;">Memuat...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tambah Jadwal -->
+<div class="modal fade" id="modalJadwal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Tambah Jadwal</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-600">Nama Kegiatan / Mata Kuliah</label>
+          <input class="form-control" id="jNama" placeholder="contoh: Praktikum Jaringan Komputer">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Dosen Pengampu</label>
+          <input class="form-control" id="jDosen" placeholder="contoh: Dr. Slamet Widodo">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Tanggal</label>
+          <input type="date" class="form-control" id="jTanggal">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col">
+            <label class="form-label fw-600">Jam Mulai</label>
+            <input type="time" class="form-control" id="jMulai" value="08:00">
+          </div>
+          <div class="col">
+            <label class="form-label fw-600">Jam Selesai</label>
+            <input type="time" class="form-control" id="jSelesai" value="10:00">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600">Keterangan</label>
+          <textarea class="form-control" id="jKet" rows="2" placeholder="opsional"></textarea>
+        </div>
+        <div id="alertJadwal"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="tambahJadwal()">
+          <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BULAN_NAMA = ['Januari','Februari','Maret','April','Mei','Juni',
+                    'Juli','Agustus','September','Oktober','November','Desember'];
+let curYear  = new Date().getFullYear();
+let curMonth = new Date().getMonth(); // 0-based
+let allJadwal = [];
+
+function padZ(n) { return String(n).padStart(2,'0'); }
+function bulanStr() { return `${curYear}-${padZ(curMonth+1)}`; }
+
+function prevMonth() { curMonth--; if(curMonth<0){curMonth=11;curYear--;} render(); }
+function nextMonth() { curMonth++; if(curMonth>11){curMonth=0;curYear++;} render(); }
+
+async function loadJadwal() {
+  const res  = await fetch(`/jadwal/?ruangan_id=1&bulan=${bulanStr()}`);
+  allJadwal  = await res.json();
+}
+
+function renderKalender() {
+  const firstDay = new Date(curYear, curMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+  const today = new Date().toISOString().slice(0,10);
+
+  let html = '<div class="row g-1">';
+  // Kosong sebelum hari pertama
+  for(let i=0;i<firstDay;i++){
+    html += '<div class="col p-1"><div style="min-height:64px;"></div></div>';
+  }
+  for(let d=1;d<=daysInMonth;d++){
+    const dateStr = `${curYear}-${padZ(curMonth+1)}-${padZ(d)}`;
+    const isToday = dateStr===today;
+    const events  = allJadwal.filter(j=>j.tanggal===dateStr);
+    const hasEvent = events.length > 0;
+
+    html += `<div class="col p-1">
+      <div onclick="showDay('${dateStr}')" style="
+        min-height:64px; border-radius:8px; padding:6px;
+        background:${isToday?'#1F3864': hasEvent?'#eff6ff':'#f8fafc'};
+        border:1.5px solid ${isToday?'#1F3864': hasEvent?'#bfdbfe':'#e2e8f0'};
+        cursor:pointer; transition:.15s;
+      " onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+        <div style="font-size:.78rem; font-weight:700;
+                    color:${isToday?'#fff': hasEvent?'#1d4ed8':'#374151'};">
+          ${d}
+        </div>
+        ${events.slice(0,2).map(e=>`
+          <div style="background:${isToday?'rgba(255,255,255,.2)':'#dbeafe'};
+                      color:${isToday?'#fff':'#1e40af'};
+                      font-size:.6rem; border-radius:3px;
+                      padding:1px 4px; margin-top:2px;
+                      overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+            ${e.jam_mulai} ${e.nama_kegiatan}
+          </div>`).join('')}
+        ${events.length>2?`<div style="font-size:.6rem;color:#64748b;">+${events.length-2} lagi</div>`:''}
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('kalenderGrid').innerHTML = html;
+}
+
+function renderList(filterDate=null) {
+  const data = filterDate
+    ? allJadwal.filter(j=>j.tanggal===filterDate)
+    : allJadwal;
+
+  const label = filterDate
+    ? `Jadwal ${filterDate}`
+    : `Jadwal ${BULAN_NAMA[curMonth]} ${curYear}`;
+  document.getElementById('labelListJadwal').textContent = label;
+
+  if(!data.length){
+    document.getElementById('listJadwal').innerHTML =
+      '<div class="text-center text-muted py-4" style="font-size:.84rem;">Tidak ada jadwal</div>';
+    return;
+  }
+
+  document.getElementById('listJadwal').innerHTML = data.map(j=>`
+    <div class="px-3 py-3 border-bottom d-flex gap-3 align-items-start">
+      <div style="min-width:44px; text-align:center; background:#eff6ff;
+                  border-radius:8px; padding:6px 4px;">
+        <div style="font-size:.7rem; color:#64748b;">${BULAN_NAMA[parseInt(j.tanggal.slice(5,7))-1].slice(0,3)}</div>
+        <div style="font-size:1.1rem; font-weight:700; color:#1d4ed8; line-height:1;">
+          ${j.tanggal.slice(8,10)}
+        </div>
+      </div>
+      <div class="flex-grow-1 min-w-0">
+        <div class="fw-600" style="font-size:.85rem; color:#1e293b;">
+          ${j.nama_kegiatan}
+        </div>
+        <div style="font-size:.77rem; color:#64748b;" class="mt-1">
+          <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
+          ${j.dosen?`&nbsp;·&nbsp;<i class="bi bi-person me-1"></i>${j.dosen}`:''}
+        </div>
+        ${j.keterangan?`<div style="font-size:.75rem;color:#94a3b8;margin-top:2px;">${j.keterangan}</div>`:''}
+      </div>
+      <button class="btn btn-sm" style="color:#ef4444; padding:2px 6px;"
+              onclick="hapusJadwal(${j.id})">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>`).join('');
+}
+
+function showDay(dateStr) {
+  renderList(dateStr);
+}
+
+async function render() {
+  document.getElementById('labelBulan').textContent =
+    `${BULAN_NAMA[curMonth]} ${curYear}`;
+  await loadJadwal();
+  renderKalender();
+  renderList();
+}
+
+async function tambahJadwal() {
+  const body = {
+    ruangan_id:    1,
+    nama_kegiatan: document.getElementById('jNama').value.trim(),
+    dosen:         document.getElementById('jDosen').value.trim() || null,
+    tanggal:       document.getElementById('jTanggal').value,
+    jam_mulai:     document.getElementById('jMulai').value,
+    jam_selesai:   document.getElementById('jSelesai').value,
+    keterangan:    document.getElementById('jKet').value.trim() || null,
+  };
+  const alertEl = document.getElementById('alertJadwal');
+
+  if(!body.nama_kegiatan || !body.tanggal) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Nama kegiatan dan tanggal wajib diisi.</div>';
+    return;
+  }
+
+  const res = await fetch('/jadwal/', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+
+  if(res.ok){
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Jadwal berhasil ditambahkan!</div>';
+    await render();
+    setTimeout(()=>{
+      bootstrap.Modal.getInstance(document.getElementById('modalJadwal')).hide();
+      alertEl.innerHTML='';
+    }, 1000);
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function hapusJadwal(id) {
+  if(!confirm('Hapus jadwal ini?')) return;
+  await fetch(`/jadwal/${id}`, {method:'DELETE'});
+  await render();
+}
+
+// Set default tanggal ke hari ini
+document.getElementById('jTanggal').value = new Date().toISOString().slice(0,10);
+
+render();
+</script>
+{% endblock %}

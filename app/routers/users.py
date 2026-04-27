@@ -4,6 +4,16 @@ import json
 from app.database import get_db
 from app.models.models import User
 from app.schemas import UserCreate, UserOut
+import bcrypt
+
+def _hash_pw(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def _verify_pw(plain: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except Exception:
+        return False
 
 router = APIRouter(prefix="/users", tags=["Pengguna"])
 
@@ -63,3 +73,34 @@ def deactivate_user(user_id: int, db: Session = Depends(get_db)):
     user.aktif = False
     db.commit()
     return {"pesan": f"User {user.nama} dinonaktifkan"}
+
+@router.patch("/{user_id}/password")
+def update_password(
+    user_id: int,
+    password_lama: str,
+    password_baru: str,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if user.password_hash and not _verify_pw(password_lama, user.password_hash):
+        raise HTTPException(status_code=400, detail="Password lama salah")
+    user.password_hash = _hash_pw(password_baru)
+    db.commit()
+    return {"pesan": "Password berhasil diperbarui"}
+
+
+@router.post("/{user_id}/set-password")
+def set_password_admin(
+    user_id: int,
+    password_baru: str,
+    db: Session = Depends(get_db)
+):
+    """Khusus admin — set password tanpa perlu password lama."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    user.password_hash = _hash_pw(password_baru)
+    db.commit()
+    return {"pesan": f"Password {user.nama} berhasil di-set"}

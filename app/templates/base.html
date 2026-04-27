@@ -5,167 +5,285 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}Smart Door Lock{% endblock %} — Ruang Multimedia Polsri</title>
 
-  <!-- Bootstrap 5 -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet"/>
-  <!-- Bootstrap Icons -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
 
   <style>
     :root {
       --sidebar-w: 240px;
       --navy:      #1F3864;
-      --navy-dark: #152849;
       --accent:    #2E75B6;
     }
 
-    body { background: #f0f4f8; font-family: 'Segoe UI', sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      background: #f0f4f8;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0; padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; width: 100%; }
 
     /* ── Sidebar ── */
     #sidebar {
       width: var(--sidebar-w);
-      min-height: 100vh;
+      min-width: var(--sidebar-w);
       background: var(--navy);
-      position: fixed;
-      top: 0; left: 0;
       display: flex;
       flex-direction: column;
-      z-index: 100;
-      transition: width .25s;
+      flex-shrink: 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 1030;
+      overflow-y: auto;
+      transition: transform 0.28s cubic-bezier(.4,0,.2,1);
     }
+
+    @media (max-width: 991.98px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.show { transform: translateX(0); }
+    }
+
     #sidebar .brand {
-      padding: 20px 16px 16px;
+      padding: 18px 16px 14px;
       border-bottom: 1px solid rgba(255,255,255,.12);
+      flex-shrink: 0;
     }
-    #sidebar .brand h6 {
-      color: #fff;
-      font-weight: 700;
-      font-size: .85rem;
-      margin: 0;
-      line-height: 1.3;
-    }
-    #sidebar .brand small { color: rgba(255,255,255,.55); font-size: .7rem; }
+    #sidebar .brand h6 { color:#fff; font-weight:700; font-size:.85rem; margin:0; line-height:1.3; }
+    #sidebar .brand small { color:rgba(255,255,255,.55); font-size:.7rem; }
 
     #sidebar .nav-link {
       color: rgba(255,255,255,.75);
-      padding: 10px 16px;
-      border-radius: 6px;
-      margin: 2px 8px;
-      font-size: .875rem;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: background .15s, color .15s;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin: 2px 10px;
+      font-size: .86rem;
+      display: flex; align-items: center; gap: 10px;
+      transition: all .18s ease;
+      text-decoration: none;
+      white-space: nowrap;
     }
     #sidebar .nav-link:hover,
     #sidebar .nav-link.active {
-      background: rgba(255,255,255,.12);
+      background: rgba(255,255,255,.15);
       color: #fff;
     }
-    #sidebar .nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
+    #sidebar .nav-link i { font-size:1.05rem; width:20px; text-align:center; flex-shrink:0; }
     #sidebar .nav-section {
-      color: rgba(255,255,255,.35);
-      font-size: .65rem;
-      font-weight: 700;
-      letter-spacing: .08em;
+      color: rgba(255,255,255,.38);
+      font-size: .65rem; font-weight:700; letter-spacing:.09em;
       text-transform: uppercase;
-      padding: 16px 24px 4px;
+      padding: 14px 22px 5px;
+    }
+    #sidebar .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,.1);
+      margin-top: auto; flex-shrink:0;
     }
 
-    /* ── Main content ── */
+    /* ── Main ── */
     #main {
       margin-left: var(--sidebar-w);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+      width: calc(100% - var(--sidebar-w));
+    }
+    @media (max-width: 991.98px) {
+      #main { margin-left: 0 !important; width: 100% !important; }
     }
 
     /* ── Topbar ── */
     #topbar {
       background: #fff;
       border-bottom: 1px solid #e2e8f0;
-      padding: 12px 24px;
+      padding: 0 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 50;
+      gap: 8px;
+      position: sticky; top: 0; z-index: 1020;
+      height: 56px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.07);
     }
-    #topbar .page-title { font-weight: 600; color: var(--navy); margin: 0; font-size: 1rem; }
 
-    /* ── Cards ── */
-    .stat-card {
-      border: none;
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
+    /* Kiri: toggle + judul */
+    .topbar-left {
+      display: flex; align-items: center;
+      gap: 10px; flex: 1; min-width: 0;
     }
-    .stat-card .icon {
-      width: 52px; height: 52px;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.4rem;
+    .page-title {
+      font-weight: 600; color: var(--navy);
+      margin: 0; font-size: .95rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Kanan: aksi (bell + user) — selalu rapat */
+    .topbar-right {
+      display: flex; align-items: center;
+      gap: 6px; flex-shrink: 0;
+    }
+
+    /* Clock + status — HANYA muncul di desktop (≥ lg) */
+    .topbar-meta {
+      display: flex; align-items: center; gap: 8px;
       flex-shrink: 0;
     }
-    .stat-card .val { font-size: 1.6rem; font-weight: 700; line-height: 1; }
-    .stat-card .lbl { font-size: .78rem; color: #64748b; margin-top: 4px; }
+    @media (max-width: 991.98px) {
+      .topbar-meta { display: none !important; }
+    }
+
+    /* Mobile toggle */
+    .mobile-toggle {
+      background: none; border: none;
+      color: var(--navy); font-size: 1.3rem;
+      padding: 6px 8px; border-radius: 8px;
+      line-height: 1; cursor: pointer;
+      display: none; flex-shrink: 0;
+    }
+    @media (max-width: 991.98px) {
+      .mobile-toggle { display: block; }
+    }
+    .mobile-toggle:hover { background: #f1f5f9; }
+
+    /* Bell button */
+    .notif-btn {
+      position: relative;
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--navy); font-size: 1rem;
+      transition: all .18s ease; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .notif-btn:hover { background: var(--accent); color: #fff; }
+    .notif-badge {
+      position: absolute; top: -3px; right: -3px;
+      background: #dc3545; color: #fff;
+      border-radius: 50%; width: 17px; height: 17px;
+      font-size: .6rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* User avatar */
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--navy), var(--accent));
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .85rem; flex-shrink: 0; cursor: pointer;
+    }
+
+    /* User info teks — sembunyikan di mobile kecil */
+    .user-text { line-height: 1.2; }
+    .user-text .u-name { font-weight:600; color:var(--navy); font-size:.82rem; white-space:nowrap; }
+    .user-text .u-role { font-size:.68rem; color:#64748b; white-space:nowrap; }
+    @media (max-width: 575.98px) { .user-text { display: none; } }
+
+    /* ── Content ── */
+    .content-area { padding: 20px; flex: 1; }
+    @media (max-width: 767.98px) { .content-area { padding: 14px; } }
+    @media (max-width: 575.98px) { .content-area { padding: 10px; } }
+
+    /* ── Stat cards ── */
+    .stat-card {
+      border:none; border-radius:12px; padding:18px;
+      display:flex; align-items:center; gap:14px;
+      background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.07);
+      height:100%; transition: transform .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card .icon {
+      width:50px; height:50px; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.35rem; flex-shrink:0;
+    }
+    .stat-card .val { font-size:1.55rem; font-weight:700; line-height:1; }
+    .stat-card .lbl { font-size:.76rem; color:#64748b; margin-top:3px; }
 
     /* ── Table ── */
-    .tbl-wrap { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-    .tbl-wrap table { margin: 0; }
-    .tbl-wrap thead th { background: var(--navy); color: #fff; font-weight: 600; font-size: .8rem; border: none; padding: 12px 16px; }
-    .tbl-wrap tbody tr:hover { background: #f8fafc; }
-    .tbl-wrap td { font-size: .85rem; padding: 10px 16px; vertical-align: middle; border-color: #f1f5f9; }
+    .tbl-wrap { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+    .tbl-wrap table { margin:0; }
+    .tbl-wrap thead th {
+      background:var(--navy); color:#fff; font-weight:600;
+      font-size:.8rem; border:none; padding:12px 14px; white-space:nowrap;
+    }
+    .tbl-wrap tbody tr:hover { background:#f8fafc; }
+    .tbl-wrap td { font-size:.83rem; padding:10px 14px; vertical-align:middle; border-color:#f1f5f9; }
+    @media (max-width: 575.98px) {
+      .tbl-wrap td, .tbl-wrap thead th { padding: 8px 10px; font-size:.76rem; }
+    }
 
-    /* ── Badge status ── */
-    .badge-ok  { background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
-    .badge-no  { background: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
-    .badge-role { background: #eff6ff; color: #1d4ed8; padding: 3px 9px; border-radius: 20px; font-size: .72rem; }
+    /* ── Badges ── */
+    .badge-ok  { background:#dcfce7; color:#15803d; padding:3px 9px; border-radius:20px; font-size:.73rem; font-weight:600; }
+    .badge-no  { background:#fee2e2; color:#b91c1c; padding:3px 9px; border-radius:20px; font-size:.73rem; font-weight:600; }
+    .badge-role{ background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:20px; font-size:.7rem; }
 
     /* ── Section card ── */
-    .section-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .section-card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.07); }
 
-    /* ── Responsive ── */
-    @media (max-width: 768px) {
-      #sidebar { width: 0; overflow: hidden; }
-      #main { margin-left: 0; }
+    /* ── Backdrop mobile ── */
+    .sidebar-backdrop {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,.5); z-index:1025;
+      opacity:0; visibility:hidden; transition:all .28s ease;
+      display:none;
     }
+    @media (max-width: 991.98px) { .sidebar-backdrop { display:block; } }
+    .sidebar-backdrop.show { opacity:1; visibility:visible; }
   </style>
 
   {% block extra_head %}{% endblock %}
 </head>
 <body>
+<div class="layout">
 
-<!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+<!-- ══ BACKDROP ══ -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- ══ SIDEBAR ══ -->
 <nav id="sidebar">
   <div class="brand">
     <div class="d-flex align-items-center gap-2 mb-1">
-      <i class="bi bi-shield-lock-fill text-white fs-4"></i>
+      <i class="bi bi-shield-lock-fill text-white" style="font-size:1.3rem;"></i>
       <h6>Smart Door Lock</h6>
     </div>
     <small>Ruang Multimedia Polsri</small>
   </div>
 
-  <div class="py-2 flex-grow-1 overflow-auto">
+  <div class="py-2 flex-grow-1">
     <div class="nav-section">Menu Utama</div>
-    <a href="/dashboard"            class="nav-link {% if active=='home' %}active{% endif %}">
+    <a href="/dashboard"           class="nav-link {% if active=='home'      %}active{% endif %}">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
-    <a href="/dashboard/log-akses"  class="nav-link {% if active=='log' %}active{% endif %}">
+    <a href="/dashboard/log-akses" class="nav-link {% if active=='log'       %}active{% endif %}">
       <i class="bi bi-clock-history"></i> Log Akses
     </a>
-    <a href="/dashboard/kamera"     class="nav-link {% if active=='kamera' %}active{% endif %}">
+    <a href="/dashboard/jadwal"    class="nav-link {% if active=='jadwal'    %}active{% endif %}">
+      <i class="bi bi-calendar3"></i> Jadwal Ruangan
+    </a>
+    <a href="/dashboard/kamera"    class="nav-link {% if active=='kamera'    %}active{% endif %}">
       <i class="bi bi-camera-video"></i> Kamera Monitoring
     </a>
 
     <div class="nav-section">Manajemen</div>
-    <a href="/dashboard/pengguna"   class="nav-link {% if active=='pengguna' %}active{% endif %}">
+
+    {# Tombol Pengguna HANYA muncul untuk admin #}
+    {% if user and user.role == 'admin' %}
+    <a href="/dashboard/pengguna"  class="nav-link {% if active=='pengguna'  %}active{% endif %}">
       <i class="bi bi-people"></i> Pengguna
     </a>
+    {% endif %}
+
     <a href="/dashboard/inventaris" class="nav-link {% if active=='inventaris' %}active{% endif %}">
       <i class="bi bi-box-seam"></i> Inventaris Alat
+    </a>
+
+    <div class="nav-section">Akun</div>
+    <a href="/dashboard/profil"    class="nav-link {% if active=='profil'    %}active{% endif %}">
+      <i class="bi bi-person-circle"></i> Profil Saya
     </a>
 
     <div class="nav-section">Sistem</div>
@@ -174,42 +292,200 @@
     </a>
   </div>
 
-  <div style="padding:12px 16px; border-top:1px solid rgba(255,255,255,.1);">
-    <small style="color:rgba(255,255,255,.4); font-size:.7rem;">v1.0.0 — Lokal</small>
+  <div class="sidebar-footer">
+    <small style="color:rgba(255,255,255,.38); font-size:.68rem;">v1.0.0</small>
   </div>
 </nav>
 
-<!-- ══ MAIN ═════════════════════════════════════════════ -->
+<!-- ══ MAIN ══ -->
 <div id="main">
+
+  <!-- TOPBAR -->
   <div id="topbar">
-    <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
-    <div class="d-flex align-items-center gap-3">
-      <span id="clock" style="font-size:.85rem; color:#64748b;"></span>
-      <span class="badge" style="background:#dcfce7; color:#15803d; font-size:.75rem;">
-        <i class="bi bi-circle-fill" style="font-size:.5rem;"></i> Server Online
+
+    <!-- Kiri: hamburger + judul -->
+    <div class="topbar-left">
+      <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+    </div>
+
+    <!-- Tengah: clock + status — HANYA desktop -->
+    <div class="topbar-meta">
+      <span id="clock" style="font-size:.8rem; color:#64748b;"></span>
+      <span class="badge-ok" style="font-size:.72rem;">
+        <i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>Online
       </span>
     </div>
-  </div>
 
-  <div class="p-4 flex-grow-1">
+    <!-- Kanan: bell + user -->
+    <div class="topbar-right">
+      {% if user %}
+
+      <!-- Bell -->
+      <div class="dropdown">
+        <button class="notif-btn" id="notifBtn" data-bs-toggle="dropdown"
+                aria-label="Notifikasi">
+          <i class="bi bi-bell"></i>
+          <span class="notif-badge d-none" id="notifBadge">0</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow p-0"
+            style="min-width:300px; max-height:380px; overflow-y:auto; border-radius:12px;">
+          <li class="px-3 py-2 border-bottom">
+            <span style="font-size:.82rem; font-weight:700; color:#1e293b;">Notifikasi Akses</span>
+          </li>
+          <li id="notifEmpty" class="text-center text-muted py-4"
+              style="font-size:.82rem;">
+            <i class="bi bi-bell-slash d-block mb-1" style="font-size:1.5rem;"></i>
+            Tidak ada notifikasi baru
+          </li>
+          <ul id="notifList" class="list-unstyled mb-0"></ul>
+        </ul>
+      </div>
+
+      <!-- User dropdown -->
+      <div class="dropdown">
+        <button class="d-flex align-items-center gap-2 p-0"
+                style="background:none; border:none; cursor:pointer;"
+                data-bs-toggle="dropdown">
+          <div class="user-avatar">{{ user.nama[0]|upper }}</div>
+          <div class="user-text d-none d-sm-block">
+            <div class="u-name">{{ user.nama }}</div>
+            <div class="u-role">{{ user.role }}</div>
+          </div>
+          <i class="bi bi-chevron-down d-none d-sm-block"
+             style="font-size:.65rem; color:#94a3b8;"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow"
+            style="min-width:190px; border-radius:10px; font-size:.85rem;">
+          <li class="px-3 py-2 border-bottom">
+            <div style="font-weight:700; color:#1e293b; font-size:.85rem;">
+              {{ user.nama }}
+            </div>
+            <div style="font-size:.72rem; color:#64748b;">{{ user.nim_nip }}</div>
+          </li>
+          <li>
+            <a class="dropdown-item py-2" href="/dashboard/profil">
+              <i class="bi bi-person-circle me-2 text-primary"></i>Profil Saya
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li>
+            <a class="dropdown-item py-2 text-danger" href="/logout">
+              <i class="bi bi-box-arrow-right me-2"></i>Keluar
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      {% endif %}
+    </div>
+  </div>
+  <!-- END TOPBAR -->
+
+  <div class="content-area">
     {% block content %}{% endblock %}
   </div>
-</div>
 
-<!-- Bootstrap JS -->
+</div><!-- end #main -->
+</div><!-- end .layout -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
-
 <script>
-  // Jam real-time di topbar
-  function updateClock() {
-    const now = new Date();
-    document.getElementById('clock').textContent = now.toLocaleString('id-ID', {
-      weekday:'short', day:'numeric', month:'short', year:'numeric',
-      hour:'2-digit', minute:'2-digit', second:'2-digit'
+// ── Sidebar mobile ───────────────────────────────────────
+const sidebar  = document.getElementById('sidebar');
+const backdrop = document.getElementById('sidebarBackdrop');
+const toggle   = document.getElementById('mobileToggle');
+
+function openSidebar()  { sidebar.classList.add('show');    backdrop.classList.add('show'); }
+function closeSidebar() { sidebar.classList.remove('show'); backdrop.classList.remove('show'); }
+function isMobile()     { return window.innerWidth <= 991.98; }
+
+toggle?.addEventListener('click', () => {
+  isMobile() ? (sidebar.classList.contains('show') ? closeSidebar() : openSidebar()) : null;
+});
+backdrop?.addEventListener('click', closeSidebar);
+window.addEventListener('resize', () => { if (!isMobile()) closeSidebar(); });
+
+// ── Clock (HANYA update teks, elemen sudah ada) ──────────
+function updateClock() {
+  const el = document.getElementById('clock');
+  if (!el) return;
+  el.textContent = new Date().toLocaleString('id-ID', {
+    weekday:'short', day:'numeric', month:'short',
+    hour:'2-digit', minute:'2-digit'
+  });
+}
+updateClock();
+setInterval(updateClock, 30000); // update tiap 30 detik cukup
+
+// ── Notifikasi ───────────────────────────────────────────
+let lastLogId   = 0;
+let unreadCount = 0;
+
+async function checkNotif() {
+  try {
+    const res  = await fetch('/log-akses/?ruangan_id=1&limit=5');
+    const logs = await res.json();
+    if (!Array.isArray(logs) || !logs.length) return;
+
+    const newest = logs[0];
+    if (lastLogId === 0) { lastLogId = newest.id; return; }
+    if (newest.id <= lastLogId) return;
+
+    const newLogs = logs.filter(l => l.id > lastLogId);
+    lastLogId = newest.id;
+    unreadCount += newLogs.length;
+
+    // Badge
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      badge.classList.toggle('d-none', unreadCount === 0);
+    }
+
+    // Sembunyikan "kosong"
+    const empty = document.getElementById('notifEmpty');
+    if (empty) empty.style.display = 'none';
+
+    // Tambah item ke list
+    const list = document.getElementById('notifList');
+    if (!list) return;
+    newLogs.forEach(log => {
+      const time = new Date(log.waktu_akses).toLocaleTimeString('id-ID', {
+        hour:'2-digit', minute:'2-digit'
+      });
+      const isOk   = log.status === 'berhasil';
+      const nama   = log.nama_user || 'Tidak dikenal';
+      const li     = document.createElement('li');
+      li.innerHTML = `
+        <a class="dropdown-item py-2 px-3 d-flex align-items-start gap-2"
+           href="/dashboard/log-akses" style="font-size:.82rem;">
+          <i class="bi ${isOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} mt-1"
+             style="font-size:.9rem; flex-shrink:0;"></i>
+          <div>
+            <div class="fw-600">${nama}</div>
+            <div class="text-muted" style="font-size:.73rem;">
+              ${log.metode} &middot; ${log.status} &middot; ${time}
+            </div>
+          </div>
+        </a>`;
+      list.prepend(li);
     });
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
+
+  } catch(e) { /* silent fail */ }
+}
+
+function markRead() {
+  unreadCount = 0;
+  const badge = document.getElementById('notifBadge');
+  if (badge) badge.classList.add('d-none');
+}
+document.getElementById('notifBtn')?.addEventListener('click', markRead);
+
+setTimeout(checkNotif, 2000);
+setInterval(checkNotif, 8000);
 </script>
 
 {% block extra_js %}{% endblock %}

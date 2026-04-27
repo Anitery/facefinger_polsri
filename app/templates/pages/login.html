@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — Smart Door Lock Polsri</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <style>
+    body {
+      background: linear-gradient(135deg, #1F3864 0%, #2E75B6 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+    .login-card .logo {
+      width: 64px; height: 64px;
+      background: #1F3864;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .login-card h4 {
+      color: #1F3864;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .login-card .subtitle {
+      color: #64748b;
+      font-size: .85rem;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .form-label { font-weight: 600; font-size: .875rem; color: #374151; }
+    .form-control {
+      border-radius: 8px;
+      border: 1.5px solid #e2e8f0;
+      padding: 10px 14px;
+      font-size: .9rem;
+    }
+    .form-control:focus {
+      border-color: #2E75B6;
+      box-shadow: 0 0 0 3px rgba(46,117,182,.15);
+    }
+    .btn-login {
+      background: #1F3864;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-weight: 600;
+      font-size: .95rem;
+      width: 100%;
+      transition: background .2s;
+    }
+    .btn-login:hover { background: #152849; color: #fff; }
+    .alert-error {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: .85rem;
+      margin-bottom: 16px;
+    }
+    .role-info {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: .78rem;
+      color: #0369a1;
+      margin-top: 16px;
+    }
+    .input-icon { position: relative; }
+    .input-icon i {
+      position: absolute;
+      left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      font-size: 1rem;
+    }
+    .input-icon input { padding-left: 36px; }
+    .toggle-pw {
+      position: absolute;
+      right: 12px; top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #9ca3af;
+      font-size: 1rem;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="login-card">
+
+  <!-- Logo -->
+  <div class="logo">
+    <i class="bi bi-shield-lock-fill text-white fs-3"></i>
+  </div>
+
+  <h4>Smart Door Lock</h4>
+  <p class="subtitle">Ruang Multimedia — Jurusan Teknik Komputer Polsri</p>
+
+  <!-- Error message -->
+  {% if error %}
+  <div class="alert-error">
+    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+  </div>
+  {% endif %}
+
+  <!-- Form Login -->
+  <form method="POST" action="/login">
+    <div class="mb-3">
+      <label class="form-label">NIM / NIP</label>
+      <div class="input-icon">
+        <i class="bi bi-person"></i>
+        <input
+          type="text"
+          name="nim_nip"
+          class="form-control"
+          placeholder="Masukkan NIM atau NIP"
+          required
+          autocomplete="username"
+        />
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label">Password</label>
+      <div class="input-icon">
+        <i class="bi bi-lock"></i>
+        <input
+          type="password"
+          name="password"
+          id="passwordInput"
+          class="form-control"
+          placeholder="Masukkan password"
+          required
+          autocomplete="current-password"
+        />
+        <button type="button" class="toggle-pw" onclick="togglePw()">
+          <i class="bi bi-eye" id="eyeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-login">
+      <i class="bi bi-box-arrow-in-right me-2"></i>Masuk
+    </button>
+  </form>
+
+  <div class="role-info">
+    <i class="bi bi-info-circle me-1"></i>
+    Dashboard hanya dapat diakses oleh <strong>Admin</strong>,
+    <strong>Teknisi</strong>, dan <strong>Dosen</strong>.
+    Hubungi administrator untuk mendapatkan akses.
+  </div>
+</div>
+
+<script>
+function togglePw() {
+  const input = document.getElementById('passwordInput');
+  const icon  = document.getElementById('eyeIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+</script>
+</body>
+</html>
