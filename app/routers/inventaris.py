@@ -39,3 +39,25 @@ def update_status(alat_id: int, status: str, db: Session = Depends(get_db)):
     alat.status = status
     db.commit()
     return {"pesan": f"Status {alat.nama_alat} diperbarui ke '{status}'"}
+
+@router.put("/{alat_id}")
+def update_alat(alat_id: int, payload: InventarisCreate, db: Session = Depends(get_db)):
+    alat = db.query(InventarisAlat).filter(InventarisAlat.id == alat_id).first()
+    if not alat:
+        raise HTTPException(status_code=404, detail="Alat tidak ditemukan")
+    alat.kode_barcode = payload.kode_barcode
+    alat.nama_alat    = payload.nama_alat
+    alat.jumlah       = payload.jumlah
+    alat.keterangan   = payload.keterangan
+    db.commit()
+    db.refresh(alat)
+    return alat
+
+@router.delete("/{alat_id}")
+def delete_alat(alat_id: int, db: Session = Depends(get_db)):
+    alat = db.query(InventarisAlat).filter(InventarisAlat.id == alat_id).first()
+    if not alat:
+        raise HTTPException(status_code=404, detail="Alat tidak ditemukan")
+    db.delete(alat)
+    db.commit()
+    return {"pesan": "Alat dihapus"}

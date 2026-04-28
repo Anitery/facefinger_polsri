@@ -3,52 +3,62 @@
 {% block page_title %}Manajemen Pengguna{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <p class="text-muted mb-0" style="font-size:.85rem">Daftar pengguna terdaftar di sistem smart door lock.</p>
-  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTambah">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0" style="font-size:.84rem;">
+    Kelola akun pengguna yang dapat mengakses Ruang Multimedia.
+  </p>
+  <button class="btn btn-primary btn-sm" onclick="openModal()">
     <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
   </button>
 </div>
 
-<div class="tbl-wrap">
-  <table class="table table-hover">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Nama</th>
-        <th>NIM / NIP</th>
-        <th>Role</th>
-        <th>Fingerprint ID</th>
-        <th>Face Encoding</th>
-        <th>Status</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
-    <tbody id="userBody">
-      <tr><td colspan="8" class="text-center py-4 text-muted">Memuat...</td></tr>
-    </tbody>
-  </table>
+<!-- Desktop table -->
+<div class="tbl-wrap d-none d-md-block">
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0" style="min-width:680px;">
+      <thead>
+        <tr>
+          <th>#</th><th>Nama</th><th>NIM / NIP</th>
+          <th>Role</th><th>Fingerprint</th><th>Wajah</th>
+          <th>Status</th><th style="text-align:center;">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="userBodyDesktop">
+        <tr><td colspan="8" class="text-center py-4 text-muted">Memuat...</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<!-- ── Modal Tambah Pengguna ── -->
-<div class="modal fade" id="modalTambah" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header" style="background:var(--navy); color:#fff">
-        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Tambah Pengguna</h5>
+<!-- Mobile cards -->
+<div id="userBodyMobile" class="d-md-none d-flex flex-column gap-2">
+  <div class="text-center text-muted py-4">Memuat...</div>
+</div>
+
+<!-- ═══ Modal Tambah / Edit ═══ -->
+<div class="modal fade" id="modalUser" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;" id="modalUserTitle">
+          <i class="bi bi-person-plus me-2"></i>Tambah Pengguna
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body p-4">
+        <input type="hidden" id="editUserId">
         <div class="mb-3">
-          <label class="form-label fw-600">Nama Lengkap</label>
-          <input type="text" class="form-control" id="inputNama" placeholder="contoh: Fatah Alfi Syahri">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Nama Lengkap</label>
+          <input type="text" class="form-control" id="inputNama"
+                 placeholder="contoh: Fatah Alfi Syahri">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-600">NIM / NIP</label>
-          <input type="text" class="form-control" id="inputNimNip" placeholder="contoh: 062330701514">
+          <label class="form-label fw-bold" style="font-size:.85rem;">NIM / NIP</label>
+          <input type="text" class="form-control" id="inputNimNip"
+                 placeholder="contoh: 062330701514">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-600">Role</label>
+          <label class="form-label fw-bold" style="font-size:.85rem;">Role</label>
           <select class="form-select" id="inputRole">
             <option value="mahasiswa">Mahasiswa</option>
             <option value="dosen">Dosen</option>
@@ -56,16 +66,76 @@
             <option value="admin">Admin</option>
           </select>
         </div>
-        <div class="mb-3">
-          <label class="form-label fw-600">Fingerprint ID <small class="text-muted">(opsional)</small></label>
-          <input type="number" class="form-control" id="inputFpId" placeholder="ID di perangkat fingerprint">
+        <div class="mb-3" id="sectionFp">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Fingerprint ID <small class="text-muted fw-normal">(opsional)</small>
+          </label>
+          <input type="number" class="form-control" id="inputFpId"
+                 placeholder="ID di perangkat fingerprint">
         </div>
-        <div id="alertTambah"></div>
+        <div class="mb-3" id="sectionPw">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Password
+            <small class="text-muted fw-normal" id="pwHint">
+              (wajib untuk admin/teknisi/dosen)
+            </small>
+          </label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="inputPassword"
+                   placeholder="Minimal 6 karakter">
+            <button class="btn btn-outline-secondary" type="button"
+                    onclick="togglePw('inputPassword','eyePw')">
+              <i class="bi bi-eye" id="eyePw"></i>
+            </button>
+          </div>
+          <div class="form-text" id="pwEditNote" style="display:none;">
+            Kosongkan jika tidak ingin mengubah password.
+          </div>
+        </div>
+        <div id="alertModal"></div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer px-4">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-        <button class="btn btn-primary" onclick="tambahUser()">
+        <button class="btn btn-primary" id="btnSimpanUser" onclick="simpanUser()">
           <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Reset Password (admin) -->
+<div class="modal fade" id="modalResetPw" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;">
+          <i class="bi bi-key me-2"></i>Reset Password
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p style="font-size:.85rem; color:#64748b;" class="mb-3">
+          Reset password untuk: <strong id="resetNama"></strong>
+        </p>
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Password Baru</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="resetPwInput"
+                   placeholder="Minimal 6 karakter">
+            <button class="btn btn-outline-secondary" type="button"
+                    onclick="togglePw('resetPwInput','eyeReset')">
+              <i class="bi bi-eye" id="eyeReset"></i>
+            </button>
+          </div>
+        </div>
+        <input type="hidden" id="resetUserId">
+        <div id="alertResetPw"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-warning" onclick="doResetPassword()">
+          <i class="bi bi-key me-1"></i>Reset
         </button>
       </div>
     </div>
@@ -82,43 +152,57 @@ const roleBadge = {
   mahasiswa: 'bg-secondary',
 };
 
-async function loadUsers() {
-  const res  = await fetch('/users/');
-  const data = await res.json();
-  const tbody = document.getElementById('userBody');
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada pengguna</td></tr>';
-    return;
-  }
-  tbody.innerHTML = data.map(u => `
-    <tr>
-      <td class="text-muted" style="font-size:.78rem">${u.id}</td>
-      <td><strong>${u.nama}</strong></td>
-      <td><code style="font-size:.8rem">${u.nim_nip}</code></td>
-      <td><span class="badge ${roleBadge[u.role] || 'bg-secondary'}">${u.role}</span></td>
-      <td>${u.fingerprint_id !== null
-        ? `<span class="badge-role">ID: ${u.fingerprint_id}</span>`
-        : '<span class="text-muted">—</span>'}</td>
-      <td>${u.face_encoding !== undefined && u.face_encoding !== null
-        ? '<span class="badge-ok"><i class="bi bi-check"></i> Terdaftar</span>'
-        : '<span class="badge bg-warning bg-opacity-20 text-warning" style="font-size:.72rem">Belum</span>'}</td>
-      <td>${u.aktif
-        ? '<span class="badge-ok">Aktif</span>'
-        : '<span class="badge-no">Nonaktif</span>'}</td>
-      <td>
-        <button class="btn btn-outline-danger btn-sm" onclick="hapusUser(${u.id}, '${u.nama}')">
-          <i class="bi bi-trash"></i>
-        </button>
-      </td>
-    </tr>`).join('');
+let editMode = false;
+
+function togglePw(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon  = document.getElementById(iconId);
+  input.type  = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
 }
 
-async function tambahUser() {
+// Buka modal mode Tambah
+function openModal() {
+  editMode = false;
+  document.getElementById('editUserId').value   = '';
+  document.getElementById('inputNama').value    = '';
+  document.getElementById('inputNimNip').value  = '';
+  document.getElementById('inputRole').value    = 'mahasiswa';
+  document.getElementById('inputFpId').value    = '';
+  document.getElementById('inputPassword').value = '';
+  document.getElementById('alertModal').innerHTML = '';
+  document.getElementById('modalUserTitle').innerHTML =
+    '<i class="bi bi-person-plus me-2"></i>Tambah Pengguna';
+  document.getElementById('pwHint').textContent = '(wajib untuk admin/teknisi/dosen)';
+  document.getElementById('pwEditNote').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalUser')).show();
+}
+
+// Buka modal mode Edit
+function openEdit(u) {
+  editMode = true;
+  document.getElementById('editUserId').value   = u.id;
+  document.getElementById('inputNama').value    = u.nama;
+  document.getElementById('inputNimNip').value  = u.nim_nip;
+  document.getElementById('inputRole').value    = u.role;
+  document.getElementById('inputFpId').value    = u.fingerprint_id || '';
+  document.getElementById('inputPassword').value = '';
+  document.getElementById('alertModal').innerHTML = '';
+  document.getElementById('modalUserTitle').innerHTML =
+    '<i class="bi bi-pencil me-2"></i>Edit Pengguna';
+  document.getElementById('pwHint').textContent = '(opsional — kosongkan jika tidak diubah)';
+  document.getElementById('pwEditNote').style.display = 'block';
+  new bootstrap.Modal(document.getElementById('modalUser')).show();
+}
+
+async function simpanUser() {
+  const id       = document.getElementById('editUserId').value;
   const nama     = document.getElementById('inputNama').value.trim();
   const nim_nip  = document.getElementById('inputNimNip').value.trim();
   const role     = document.getElementById('inputRole').value;
   const fpId     = document.getElementById('inputFpId').value;
-  const alertEl  = document.getElementById('alertTambah');
+  const password = document.getElementById('inputPassword').value;
+  const alertEl  = document.getElementById('alertModal');
 
   if (!nama || !nim_nip) {
     alertEl.innerHTML = '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
@@ -126,37 +210,175 @@ async function tambahUser() {
   }
 
   const body = { nama, nim_nip, role, ruangan_id: 1 };
-  if (fpId) body.fingerprint_id = parseInt(fpId);
 
-  // Update user (patch fingerprint) perlu endpoint terpisah
-  const res = await fetch('/users/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  let res;
+  if (editMode) {
+    // Mode edit
+    res = await fetch(`/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } else {
+    // Mode tambah
+    if (['admin','teknisi','dosen'].includes(role) && password.length < 6) {
+      alertEl.innerHTML = '<div class="alert alert-danger py-2">Password minimal 6 karakter.</div>';
+      return;
+    }
+    res = await fetch('/users/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
 
   if (res.ok) {
-    // Jika ada fingerprint_id, update setelah create
+    const saved = await res.json();
+    const userId = editMode ? id : saved.id;
+
+    // Update fingerprint
     if (fpId) {
-      const created = await res.clone().json();
-      await fetch(`/users/${created.id}/fingerprint?fingerprint_id=${fpId}`, { method: 'PATCH' });
+      await fetch(`/users/${userId}/fingerprint?fingerprint_id=${fpId}`, { method:'PATCH' });
     }
-    alertEl.innerHTML = '<div class="alert alert-success py-2">Pengguna berhasil ditambahkan!</div>';
+    // Set password (tambah) atau update (edit jika diisi)
+    if (password && password.length >= 6) {
+      const endpoint = editMode
+        ? `/users/${userId}/set-password?password_baru=${encodeURIComponent(password)}`
+        : `/users/${saved.id}/set-password?password_baru=${encodeURIComponent(password)}`;
+      await fetch(endpoint, { method:'POST' });
+    }
+
+    alertEl.innerHTML = `<div class="alert alert-success py-2">
+      ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}
+    </div>`;
     loadUsers();
     setTimeout(() => {
-      bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
-      alertEl.innerHTML = '';
-    }, 1200);
+      bootstrap.Modal.getInstance(document.getElementById('modalUser')).hide();
+    }, 1000);
   } else {
     const err = await res.json();
     alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
   }
 }
 
-async function hapusUser(id, nama) {
-  if (!confirm(`Nonaktifkan user "${nama}"?`)) return;
-  await fetch(`/users/${id}`, { method: 'DELETE' });
+// Reset password (admin)
+function openResetPw(id, nama) {
+  document.getElementById('resetUserId').value  = id;
+  document.getElementById('resetNama').textContent = nama;
+  document.getElementById('resetPwInput').value = '';
+  document.getElementById('alertResetPw').innerHTML = '';
+  new bootstrap.Modal(document.getElementById('modalResetPw')).show();
+}
+async function doResetPassword() {
+  const id  = document.getElementById('resetUserId').value;
+  const pw  = document.getElementById('resetPwInput').value;
+  const alertEl = document.getElementById('alertResetPw');
+  if (pw.length < 6) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Minimal 6 karakter.</div>';
+    return;
+  }
+  const res = await fetch(`/users/${id}/set-password?password_baru=${encodeURIComponent(pw)}`,
+    { method:'POST' });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Password berhasil direset!</div>';
+    setTimeout(() => {
+      bootstrap.Modal.getInstance(document.getElementById('modalResetPw')).hide();
+    }, 1000);
+  } else {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Gagal reset password.</div>';
+  }
+}
+
+async function toggleAktif(id, nama, aktif) {
+  const aksi = aktif ? 'nonaktifkan' : 'aktifkan';
+  if (!confirm(`${aksi.charAt(0).toUpperCase()+aksi.slice(1)} user "${nama}"?`)) return;
+  await fetch(`/users/${id}`, { method: aktif ? 'DELETE' : 'PATCH' });
   loadUsers();
+}
+
+async function loadUsers() {
+  const res  = await fetch('/users/');
+  const data = await res.json();
+
+  const desktop = document.getElementById('userBodyDesktop');
+  const mobile  = document.getElementById('userBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada pengguna</td></tr>';
+    mobile.innerHTML  = '<div class="text-center text-muted py-4">Belum ada pengguna</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map(u => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${u.id}</td>
+      <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
+      <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
+      <td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>
+      <td>${u.fingerprint_id != null
+            ? `<span class="badge-role">ID: ${u.fingerprint_id}</span>`
+            : '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
+      <td>${u.face_encoding != null
+            ? '<span class="badge-ok"><i class="bi bi-check"></i> Ada</span>'
+            : '<span style="background:#fef9c3;color:#a16207;padding:3px 8px;border-radius:20px;font-size:.72rem;">Belum</span>'}</td>
+      <td>${u.aktif
+            ? '<span class="badge-ok">Aktif</span>'
+            : '<span class="badge-no">Nonaktif</span>'}</td>
+      <td>
+        <div class="d-flex gap-1 justify-content-center">
+          <button class="btn btn-outline-primary btn-sm" title="Edit"
+                  onclick='openEdit(${JSON.stringify(u)})'>
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-outline-warning btn-sm" title="Reset Password"
+                  onclick="openResetPw(${u.id},'${u.nama.replace("'","\\'")}')">
+            <i class="bi bi-key"></i>
+          </button>
+          <button class="btn ${u.aktif ? 'btn-outline-danger':'btn-outline-success'} btn-sm"
+                  title="${u.aktif ? 'Nonaktifkan':'Aktifkan'}"
+                  onclick="toggleAktif(${u.id},'${u.nama.replace("'","\\'")}',${u.aktif})">
+            <i class="bi ${u.aktif ? 'bi-person-dash':'bi-person-check'}"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map(u => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold" style="font-size:.88rem;">${u.nama}</div>
+          <code style="font-size:.74rem;color:#64748b;">${u.nim_nip}</code>
+        </div>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span>
+          ${u.aktif
+            ? '<span class="badge-ok" style="font-size:.7rem;">Aktif</span>'
+            : '<span class="badge-no" style="font-size:.7rem;">Nonaktif</span>'}
+        </div>
+      </div>
+      <div style="font-size:.77rem;color:#64748b;" class="mb-2">
+        <i class="bi bi-fingerprint me-1"></i>
+        ${u.fingerprint_id != null ? `ID: ${u.fingerprint_id}` : 'Belum'}
+        &nbsp;·&nbsp;
+        <i class="bi bi-camera me-1"></i>
+        ${u.face_encoding != null ? 'Wajah ada' : 'Wajah belum'}
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm flex-fill"
+                onclick='openEdit(${JSON.stringify(u)})'>
+          <i class="bi bi-pencil me-1"></i>Edit
+        </button>
+        <button class="btn btn-outline-warning btn-sm flex-fill"
+                onclick="openResetPw(${u.id},'${u.nama.replace("'","\\'")}')">
+          <i class="bi bi-key me-1"></i>Reset PW
+        </button>
+        <button class="btn ${u.aktif?'btn-outline-danger':'btn-outline-success'} btn-sm"
+                onclick="toggleAktif(${u.id},'${u.nama.replace("'","\\'")}',${u.aktif})">
+          <i class="bi ${u.aktif?'bi-person-dash':'bi-person-check'}"></i>
+        </button>
+      </div>
+    </div>`).join('');
 }
 
 loadUsers();

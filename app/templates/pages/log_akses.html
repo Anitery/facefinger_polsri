@@ -3,38 +3,49 @@
 {% block page_title %}Log Akses{% endblock %}
 
 {% block content %}
-<div class="section-card p-0">
-  <!-- Filter bar -->
-  <div class="d-flex flex-wrap align-items-center gap-2 px-4 py-3 border-bottom">
-    <h6 class="mb-0 me-auto fw-600" style="color:#1e293b">
-      <i class="bi bi-clock-history me-2 text-primary"></i>Riwayat Akses Pintu
-    </h6>
-    <select class="form-select form-select-sm w-auto" id="filterStatus">
-      <option value="">Semua Status</option>
-      <option value="berhasil">Berhasil</option>
-      <option value="ditolak">Ditolak</option>
-    </select>
-    <select class="form-select form-select-sm w-auto" id="filterMetode">
-      <option value="">Semua Metode</option>
-      <option value="face">Face Recognition</option>
-      <option value="fingerprint">Fingerprint</option>
-    </select>
-    <button class="btn btn-sm btn-primary" onclick="loadLog()">
-      <i class="bi bi-arrow-clockwise"></i> Refresh
-    </button>
-    <a href="/log-akses/export/excel?ruangan_id=1"
-      class="btn btn-sm btn-success">
-      <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
-    </a>
-  </div>
 
-  <div class="tbl-wrap">
-    <table class="table table-hover">
+<!-- Filter bar — stack di mobile -->
+<div class="section-card mb-3 p-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-sm-auto">
+      <label class="form-label mb-1" style="font-size:.78rem; color:#64748b;">Status</label>
+      <select class="form-select form-select-sm" id="filterStatus">
+        <option value="">Semua</option>
+        <option value="berhasil">Berhasil</option>
+        <option value="ditolak">Ditolak</option>
+      </select>
+    </div>
+    <div class="col-6 col-sm-auto">
+      <label class="form-label mb-1" style="font-size:.78rem; color:#64748b;">Metode</label>
+      <select class="form-select form-select-sm" id="filterMetode">
+        <option value="">Semua</option>
+        <option value="face">Face</option>
+        <option value="fingerprint">Fingerprint</option>
+      </select>
+    </div>
+    <div class="col-auto ms-auto d-flex gap-2">
+      <button class="btn btn-sm btn-primary" onclick="loadLog()">
+        <i class="bi bi-arrow-clockwise"></i>
+        <span class="d-none d-sm-inline ms-1">Refresh</span>
+      </button>
+      <a href="/log-akses/export/excel?ruangan_id=1"
+         class="btn btn-sm btn-success">
+        <i class="bi bi-file-earmark-excel"></i>
+        <span class="d-none d-sm-inline ms-1">Excel</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Tabel -->
+<div class="tbl-wrap">
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0" style="min-width:520px;">
       <thead>
         <tr>
           <th>#</th>
-          <th>Waktu Akses</th>
-          <th>User ID</th>
+          <th>Waktu</th>
+          <th>Nama</th>
           <th>Metode</th>
           <th>Status</th>
           <th>Keterangan</th>
@@ -45,10 +56,9 @@
       </tbody>
     </table>
   </div>
-
-  <div class="px-4 py-2 border-top d-flex justify-content-between align-items-center">
-    <small class="text-muted" id="logInfo">—</small>
-    <small class="text-muted">Auto-refresh 15 detik</small>
+  <div class="px-3 py-2 border-top d-flex justify-content-between align-items-center">
+    <small class="text-muted" id="logInfo" style="font-size:.76rem;">—</small>
+    <small class="text-muted" style="font-size:.73rem;">Auto-refresh 15s</small>
   </div>
 </div>
 {% endblock %}
@@ -63,42 +73,57 @@ function fmtTime(iso) {
 }
 
 async function loadLog() {
-  const status  = document.getElementById('filterStatus').value;
-  const metode  = document.getElementById('filterMetode').value;
+  const status = document.getElementById('filterStatus').value;
+  const metode = document.getElementById('filterMetode').value;
   let url = '/log-akses/?limit=100&ruangan_id=1';
   if (status) url += '&status=' + status;
+  if (metode) url += '&metode=' + metode;
 
   try {
     const res  = await fetch(url);
-    let   data = await res.json();
-
-    // filter metode di client karena API belum punya param metode
-    if (metode) data = data.filter(l => l.metode === metode);
-
-    document.getElementById('logInfo').textContent = `Menampilkan ${data.length} entri`;
+    const data = await res.json();
+    document.getElementById('logInfo').textContent = `${data.length} entri`;
 
     const tbody = document.getElementById('logBody');
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data</td></tr>';
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted">
+        <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;"></i>Tidak ada data
+      </td></tr>`;
       return;
     }
 
-    tbody.innerHTML = data.map((l, i) => `
+    tbody.innerHTML = data.map(l => `
       <tr>
-        <td class="text-muted" style="font-size:.78rem">${l.id}</td>
-        <td style="white-space:nowrap; font-size:.82rem">${fmtTime(l.waktu_akses)}</td>
-        <td>${l.user_id
-          ? `<span class="badge-role">User #${l.user_id}</span>`
-          : '<span class="text-muted">—</span>'}</td>
-        <td>${l.metode === 'face'
-          ? '<span class="badge bg-primary bg-opacity-10 text-primary"><i class="bi bi-camera me-1"></i>Face</span>'
-          : l.metode === 'fingerprint'
-          ? '<span class="badge bg-success bg-opacity-10 text-success"><i class="bi bi-fingerprint me-1"></i>Fingerprint</span>'
-          : '<span class="badge bg-secondary bg-opacity-10 text-secondary">' + l.metode + '</span>'}</td>
-        <td>${l.status === 'berhasil'
-          ? '<span class="badge-ok"><i class="bi bi-check-lg"></i> Berhasil</span>'
-          : '<span class="badge-no"><i class="bi bi-x-lg"></i> Ditolak</span>'}</td>
-        <td style="font-size:.8rem; color:#64748b">${l.keterangan || '—'}</td>
+        <td class="text-muted" style="font-size:.75rem;">${l.id}</td>
+        <td style="white-space:nowrap; font-size:.78rem;">${fmtTime(l.waktu_akses)}</td>
+        <td>
+          <div class="fw-bold" style="font-size:.83rem;">
+            ${l.nama_user || '<span class="text-muted">Tidak dikenal</span>'}
+          </div>
+          ${l.nim_nip
+            ? `<div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip}</div>`
+            : ''}
+        </td>
+        <td>
+          ${l.metode === 'face'
+            ? `<span class="badge-role"><i class="bi bi-camera me-1"></i>Face</span>`
+            : l.metode === 'fingerprint'
+            ? `<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">
+                <i class="bi bi-fingerprint me-1"></i>FP
+               </span>`
+            : `<span style="background:#f1f5f9;color:#64748b;padding:3px 9px;border-radius:20px;font-size:.72rem;">
+                ${l.metode}
+               </span>`}
+        </td>
+        <td>
+          ${l.status === 'berhasil'
+            ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>Berhasil</span>'
+            : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Ditolak</span>'}
+        </td>
+        <td style="font-size:.78rem; color:#64748b; max-width:180px;
+                   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          ${l.keterangan || '—'}
+        </td>
       </tr>`).join('');
   } catch(e) {
     document.getElementById('logBody').innerHTML =
@@ -108,7 +133,6 @@ async function loadLog() {
 
 loadLog();
 setInterval(loadLog, 15000);
-
 document.getElementById('filterStatus').addEventListener('change', loadLog);
 document.getElementById('filterMetode').addEventListener('change', loadLog);
 </script>

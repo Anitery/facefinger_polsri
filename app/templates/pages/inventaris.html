@@ -3,68 +3,141 @@
 {% block page_title %}Inventaris Alat{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-  <p class="text-muted mb-0 me-auto" style="font-size:.85rem">Kelola peralatan komputer Ruang Multimedia.</p>
-  <div class="input-group input-group-sm" style="width:240px">
-    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
-    <input type="text" class="form-control" id="scanInput" placeholder="Scan / ketik barcode...">
+
+<!-- Toolbar -->
+<div class="section-card p-3 mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-sm">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text bg-white">
+          <i class="bi bi-upc-scan text-primary"></i>
+        </span>
+        <input type="text" class="form-control" id="scanInput"
+               placeholder="Scan / ketik barcode lalu tekan Enter...">
+      </div>
+    </div>
+    <div class="col-auto d-flex gap-2">
+      <button class="btn btn-primary btn-sm" onclick="openModalAlat()">
+        <i class="bi bi-plus-lg me-1"></i>
+        <span class="d-none d-sm-inline">Tambah Alat</span>
+        <span class="d-sm-none">Tambah</span>
+      </button>
+    </div>
   </div>
-  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAlat">
-    <i class="bi bi-plus-lg me-1"></i>Tambah Alat
-  </button>
+  <div id="scanResult" class="mt-2 d-none"></div>
 </div>
 
-<!-- Hasil scan -->
-<div id="scanResult" class="alert alert-info d-none mb-3"></div>
-
-<div class="tbl-wrap">
-  <table class="table table-hover">
-    <thead>
-      <tr>
-        <th>Barcode</th>
-        <th>Nama Alat</th>
-        <th>Jumlah</th>
-        <th>Status</th>
-        <th>Keterangan</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
-    <tbody id="invBody">
-      <tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr>
-    </tbody>
-  </table>
+<!-- Stat ringkasan -->
+<div class="row g-2 mb-3" id="invStats">
+  <div class="col-4">
+    <div class="section-card p-3 text-center">
+      <div class="fw-bold text-success" id="statTersedia" style="font-size:1.4rem;">—</div>
+      <div style="font-size:.73rem;color:#64748b;">Tersedia</div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="section-card p-3 text-center">
+      <div class="fw-bold text-warning" id="statDipinjam" style="font-size:1.4rem;">—</div>
+      <div style="font-size:.73rem;color:#64748b;">Dipinjam</div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="section-card p-3 text-center">
+      <div class="fw-bold text-danger" id="statRusak" style="font-size:1.4rem;">—</div>
+      <div style="font-size:.73rem;color:#64748b;">Rusak</div>
+    </div>
+  </div>
 </div>
 
-<!-- Modal Tambah -->
+<!-- Desktop table -->
+<div class="tbl-wrap d-none d-md-block">
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0" style="min-width:560px;">
+      <thead>
+        <tr>
+          <th>Barcode</th><th>Nama Alat</th><th>Jumlah</th>
+          <th>Status</th><th>Keterangan</th>
+          <th style="text-align:center;">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="invBodyDesktop">
+        <tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mobile cards -->
+<div id="invBodyMobile" class="d-md-none d-flex flex-column gap-2">
+  <div class="text-center text-muted py-4">Memuat...</div>
+</div>
+
+<!-- ═══ Modal Tambah / Edit ═══ -->
 <div class="modal fade" id="modalAlat" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header" style="background:var(--navy); color:#fff">
-        <h5 class="modal-title"><i class="bi bi-box-seam me-2"></i>Tambah Alat</h5>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;" id="modalAlatTitle">
+          <i class="bi bi-box-seam me-2"></i>Tambah Alat
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body p-4">
+        <input type="hidden" id="editAlatId">
         <div class="mb-3">
-          <label class="form-label fw-600">Kode Barcode</label>
+          <label class="form-label fw-bold" style="font-size:.85rem;">Kode Barcode</label>
           <input class="form-control" id="iBarcode" placeholder="KMP-PC-001">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-600">Nama Alat</label>
+          <label class="form-label fw-bold" style="font-size:.85rem;">Nama Alat</label>
           <input class="form-control" id="iNama" placeholder="Komputer Desktop HP">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-600">Jumlah</label>
+          <label class="form-label fw-bold" style="font-size:.85rem;">Jumlah</label>
           <input type="number" class="form-control" id="iJumlah" value="1" min="1">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-600">Keterangan</label>
-          <input class="form-control" id="iKet" placeholder="opsional">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Keterangan</label>
+          <input class="form-control" id="iKet" placeholder="opsional — lokasi, kondisi, dll">
         </div>
         <div id="alertAlat"></div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer px-4">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-        <button class="btn btn-primary" onclick="tambahAlat()">Simpan</button>
+        <button class="btn btn-primary" onclick="simpanAlat()">
+          <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ubah Status -->
+<div class="modal fade" id="modalStatus" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;">
+          <i class="bi bi-arrow-left-right me-2"></i>Ubah Status
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="mb-3" style="font-size:.85rem;">
+          Alat: <strong id="statusNama"></strong>
+        </p>
+        <input type="hidden" id="statusAlatId">
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-success" onclick="setStatus('tersedia')">
+            <i class="bi bi-check-circle me-2"></i>Tersedia
+          </button>
+          <button class="btn btn-outline-warning" onclick="setStatus('dipinjam')">
+            <i class="bi bi-arrow-left-right me-2"></i>Dipinjam
+          </button>
+          <button class="btn btn-outline-danger" onclick="setStatus('rusak')">
+            <i class="bi bi-exclamation-triangle me-2"></i>Rusak
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -73,38 +146,49 @@
 
 {% block extra_js %}
 <script>
-const statusBadge = {
-  tersedia: 'badge-ok',
-  dipinjam: 'badge" style="background:#fef9c3;color:#a16207',
-  rusak:    'badge-no',
-};
+let editAlatMode = false;
 
-async function loadInv() {
-  const res  = await fetch('/inventaris/');
-  const data = await res.json();
-  const tbody = document.getElementById('invBody');
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data inventaris</td></tr>';
-    return;
-  }
-  tbody.innerHTML = data.map(a => `
-    <tr>
-      <td><code style="font-size:.8rem">${a.kode_barcode}</code></td>
-      <td><strong>${a.nama_alat}</strong></td>
-      <td>${a.jumlah}</td>
-      <td><span class="${statusBadge[a.status] || 'badge-ok'}">${a.status}</span></td>
-      <td style="font-size:.8rem; color:#64748b">${a.keterangan || '—'}</td>
-      <td>
-        <select class="form-select form-select-sm w-auto d-inline" onchange="updateStatus(${a.id}, this.value)">
-          <option value="tersedia"  ${a.status==='tersedia' ?'selected':''}>Tersedia</option>
-          <option value="dipinjam"  ${a.status==='dipinjam' ?'selected':''}>Dipinjam</option>
-          <option value="rusak"     ${a.status==='rusak'    ?'selected':''}>Rusak</option>
-        </select>
-      </td>
-    </tr>`).join('');
+function statusStyle(s) {
+  if (s === 'tersedia') return 'background:#dcfce7;color:#15803d';
+  if (s === 'dipinjam') return 'background:#fef9c3;color:#a16207';
+  return 'background:#fee2e2;color:#b91c1c';
+}
+function statusIcon(s) {
+  if (s === 'tersedia') return 'bi-check-circle-fill text-success';
+  if (s === 'dipinjam') return 'bi-arrow-left-right text-warning';
+  return 'bi-exclamation-triangle-fill text-danger';
 }
 
-async function tambahAlat() {
+function openModalAlat() {
+  editAlatMode = false;
+  document.getElementById('editAlatId').value = '';
+  document.getElementById('iBarcode').value   = '';
+  document.getElementById('iNama').value      = '';
+  document.getElementById('iJumlah').value    = '1';
+  document.getElementById('iKet').value       = '';
+  document.getElementById('alertAlat').innerHTML = '';
+  document.getElementById('modalAlatTitle').innerHTML =
+    '<i class="bi bi-box-seam me-2"></i>Tambah Alat';
+  document.getElementById('iBarcode').readOnly = false;
+  new bootstrap.Modal(document.getElementById('modalAlat')).show();
+}
+
+function openEditAlat(a) {
+  editAlatMode = true;
+  document.getElementById('editAlatId').value = a.id;
+  document.getElementById('iBarcode').value   = a.kode_barcode;
+  document.getElementById('iNama').value      = a.nama_alat;
+  document.getElementById('iJumlah').value    = a.jumlah;
+  document.getElementById('iKet').value       = a.keterangan || '';
+  document.getElementById('alertAlat').innerHTML = '';
+  document.getElementById('modalAlatTitle').innerHTML =
+    '<i class="bi bi-pencil me-2"></i>Edit Alat';
+  document.getElementById('iBarcode').readOnly = true;
+  new bootstrap.Modal(document.getElementById('modalAlat')).show();
+}
+
+async function simpanAlat() {
+  const id   = document.getElementById('editAlatId').value;
   const body = {
     kode_barcode: document.getElementById('iBarcode').value.trim(),
     nama_alat:    document.getElementById('iNama').value.trim(),
@@ -117,40 +201,162 @@ async function tambahAlat() {
     alertEl.innerHTML = '<div class="alert alert-danger py-2">Barcode dan nama wajib diisi.</div>';
     return;
   }
-  const res = await fetch('/inventaris/', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+
+  const res = editAlatMode
+    ? await fetch(`/inventaris/${id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      })
+    : await fetch('/inventaris/', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+
   if (res.ok) {
-    alertEl.innerHTML = '<div class="alert alert-success py-2">Alat berhasil ditambahkan!</div>';
+    alertEl.innerHTML = `<div class="alert alert-success py-2">
+      ${editAlatMode ? 'Data berhasil diperbarui!' : 'Alat berhasil ditambahkan!'}
+    </div>`;
     loadInv();
-    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('modalAlat')).hide(); alertEl.innerHTML=''; }, 1200);
+    setTimeout(() => {
+      bootstrap.Modal.getInstance(document.getElementById('modalAlat')).hide();
+    }, 1000);
   } else {
     const err = await res.json();
     alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
   }
 }
 
-async function updateStatus(id, status) {
-  await fetch(`/inventaris/${id}/status?status=${status}`, { method: 'PATCH' });
+// Modal ubah status
+function openModalStatus(id, nama) {
+  document.getElementById('statusAlatId').value = id;
+  document.getElementById('statusNama').textContent = nama;
+  new bootstrap.Modal(document.getElementById('modalStatus')).show();
+}
+async function setStatus(status) {
+  const id = document.getElementById('statusAlatId').value;
+  await fetch(`/inventaris/${id}/status?status=${status}`, { method:'PATCH' });
+  bootstrap.Modal.getInstance(document.getElementById('modalStatus')).hide();
+  loadInv();
 }
 
-// Scan barcode dengan keyboard (Enter)
-document.getElementById('scanInput').addEventListener('keydown', async (e) => {
+async function hapusAlat(id, nama) {
+  if (!confirm(`Hapus alat "${nama}"? Tindakan ini tidak dapat dibatalkan.`)) return;
+  const res = await fetch(`/inventaris/${id}`, { method:'DELETE' });
+  if (res.ok) loadInv();
+  else alert('Gagal menghapus alat.');
+}
+
+async function loadInv() {
+  const res  = await fetch('/inventaris/');
+  const data = await res.json();
+
+  // Update stats
+  document.getElementById('statTersedia').textContent = data.filter(a=>a.status==='tersedia').length;
+  document.getElementById('statDipinjam').textContent = data.filter(a=>a.status==='dipinjam').length;
+  document.getElementById('statRusak').textContent    = data.filter(a=>a.status==='rusak').length;
+
+  const desktop = document.getElementById('invBodyDesktop');
+  const mobile  = document.getElementById('invBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data</td></tr>';
+    mobile.innerHTML  = '<div class="text-center text-muted py-4">Belum ada data inventaris</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map(a => `
+    <tr>
+      <td><code style="font-size:.78rem;">${a.kode_barcode}</code></td>
+      <td><strong style="font-size:.85rem;">${a.nama_alat}</strong></td>
+      <td style="text-align:center;">${a.jumlah}</td>
+      <td>
+        <span style="${statusStyle(a.status)};padding:3px 9px;
+                     border-radius:20px;font-size:.73rem;font-weight:600;">
+          <i class="bi ${statusIcon(a.status)} me-1" style="font-size:.65rem;"></i>
+          ${a.status}
+        </span>
+      </td>
+      <td style="font-size:.78rem;color:#64748b;max-width:160px;
+                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${a.keterangan||'—'}
+      </td>
+      <td>
+        <div class="d-flex gap-1 justify-content-center">
+          <button class="btn btn-outline-primary btn-sm" title="Edit"
+                  onclick='openEditAlat(${JSON.stringify(a)})'>
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" title="Ubah Status"
+                  onclick="openModalStatus(${a.id},'${a.nama_alat.replace("'","\\'")}')">
+            <i class="bi bi-arrow-left-right"></i>
+          </button>
+          <button class="btn btn-outline-danger btn-sm" title="Hapus"
+                  onclick="hapusAlat(${a.id},'${a.nama_alat.replace("'","\\'")}')">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map(a => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="min-w-0 flex-grow-1 me-2">
+          <div class="fw-bold" style="font-size:.88rem;">${a.nama_alat}</div>
+          <code style="font-size:.73rem;color:#64748b;">${a.kode_barcode}</code>
+        </div>
+        <span style="${statusStyle(a.status)};padding:3px 9px;border-radius:20px;
+                     font-size:.72rem;font-weight:600;white-space:nowrap;flex-shrink:0;">
+          ${a.status}
+        </span>
+      </div>
+      <div class="mb-2" style="font-size:.78rem;color:#64748b;">
+        Jumlah: <strong>${a.jumlah}</strong>
+        ${a.keterangan ? ` · ${a.keterangan}` : ''}
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm flex-fill"
+                onclick='openEditAlat(${JSON.stringify(a)})'>
+          <i class="bi bi-pencil me-1"></i>Edit
+        </button>
+        <button class="btn btn-outline-secondary btn-sm flex-fill"
+                onclick="openModalStatus(${a.id},'${a.nama_alat.replace("'","\\'")}')">
+          <i class="bi bi-arrow-left-right me-1"></i>Status
+        </button>
+        <button class="btn btn-outline-danger btn-sm"
+                onclick="hapusAlat(${a.id},'${a.nama_alat.replace("'","\\'")}')">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+// Scan barcode
+document.getElementById('scanInput').addEventListener('keydown', async e => {
   if (e.key !== 'Enter') return;
   const kode = e.target.value.trim();
   if (!kode) return;
-  const res  = await fetch(`/inventaris/barcode/${kode}`);
-  const el   = document.getElementById('scanResult');
+  const res = await fetch(`/inventaris/barcode/${kode}`);
+  const el  = document.getElementById('scanResult');
+  el.classList.remove('d-none');
   if (res.ok) {
     const alat = await res.json();
-    el.className = 'alert alert-success mb-3';
-    el.innerHTML = `<strong><i class="bi bi-check-circle me-2"></i>${alat.nama_alat}</strong> — Barcode: ${alat.kode_barcode} | Status: <strong>${alat.status}</strong>`;
+    el.innerHTML = `<div class="alert alert-success py-2 mb-0">
+      <i class="bi bi-check-circle me-2"></i>
+      <strong>${alat.nama_alat}</strong> —
+      Barcode: <code>${alat.kode_barcode}</code> |
+      Jumlah: ${alat.jumlah} |
+      Status: <strong>${alat.status}</strong>
+      ${alat.keterangan ? `<br><small class="text-muted">${alat.keterangan}</small>` : ''}
+    </div>`;
   } else {
-    el.className = 'alert alert-danger mb-3';
-    el.innerHTML = `<i class="bi bi-x-circle me-2"></i>Barcode <strong>${kode}</strong> tidak ditemukan.`;
+    el.innerHTML = `<div class="alert alert-danger py-2 mb-0">
+      <i class="bi bi-x-circle me-2"></i>
+      Barcode <strong>${kode}</strong> tidak ditemukan.
+    </div>`;
   }
   e.target.value = '';
+  setTimeout(() => el.classList.add('d-none'), 5000);
 });
 
 loadInv();

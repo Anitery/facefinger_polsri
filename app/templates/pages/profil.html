@@ -3,79 +3,77 @@
 {% block page_title %}Profil Saya{% endblock %}
 
 {% block content %}
-<div class="row g-4" style="max-width:860px;">
+<div class="row g-3" style="max-width:780px;">
 
-  <!-- ── Kartu info profil ── -->
-  <div class="col-12 col-md-4">
-    <div class="section-card p-4 text-center">
-      <div style="width:80px; height:80px; background:#1F3864; border-radius:50%;
-                  display:flex; align-items:center; justify-content:center;
-                  margin:0 auto 16px; font-size:2rem;">
-        <i class="bi bi-person-fill text-white"></i>
+  <!-- Kartu identitas -->
+  <div class="col-12 col-sm-4">
+    <div class="section-card p-4 text-center h-100">
+      <div style="width:72px; height:72px; background:linear-gradient(135deg,var(--navy),var(--accent));
+                  border-radius:50%; display:flex; align-items:center; justify-content:center;
+                  margin:0 auto 14px; font-size:1.8rem; color:#fff; font-weight:700;">
+        {{ user.nama[0]|upper }}
       </div>
-      <h5 class="fw-700 mb-1" style="color:#1e293b;">{{ user.nama }}</h5>
-      <div class="mb-2">
-        <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size:.78rem;">
-          {{ user.role | capitalize }}
-        </span>
-      </div>
-      <div style="font-size:.82rem; color:#64748b;">
+      <h5 class="fw-bold mb-1" style="color:#1e293b; font-size:.95rem;">
+        {{ user.nama }}
+      </h5>
+      <span class="badge bg-primary mb-2" style="font-size:.75rem;">
+        {{ user.role | capitalize }}
+      </span>
+      <div style="font-size:.81rem; color:#64748b;">
         <i class="bi bi-person-badge me-1"></i>{{ user.nim_nip }}
       </div>
     </div>
   </div>
 
-  <!-- ── Ganti password ── -->
-  <div class="col-12 col-md-8">
+  <!-- Ganti password -->
+  <div class="col-12 col-sm-8">
     <div class="section-card p-4">
-      <h6 class="fw-700 mb-4" style="color:#1e293b;">
+      <h6 class="fw-bold mb-4" style="color:#1e293b; font-size:.9rem;">
         <i class="bi bi-lock me-2 text-primary"></i>Ganti Password
       </h6>
-
       <div id="alertGantiPw"></div>
 
       <div class="mb-3">
-        <label class="form-label fw-600" style="font-size:.875rem;">Password Lama</label>
+        <label class="form-label fw-bold" style="font-size:.84rem;">Password Lama</label>
         <div class="input-group">
           <input type="password" class="form-control" id="pwLama"
-                 placeholder="Masukkan password lama">
+                 placeholder="Password saat ini">
           <button class="btn btn-outline-secondary" type="button"
-                  onclick="togglePw('pwLama', 'eyeLama')">
+                  onclick="togglePw('pwLama','eyeLama')">
             <i class="bi bi-eye" id="eyeLama"></i>
           </button>
         </div>
       </div>
 
       <div class="mb-3">
-        <label class="form-label fw-600" style="font-size:.875rem;">Password Baru</label>
+        <label class="form-label fw-bold" style="font-size:.84rem;">Password Baru</label>
         <div class="input-group">
           <input type="password" class="form-control" id="pwBaru"
                  placeholder="Minimal 6 karakter">
           <button class="btn btn-outline-secondary" type="button"
-                  onclick="togglePw('pwBaru', 'eyeBaru')">
+                  onclick="togglePw('pwBaru','eyeBaru')">
             <i class="bi bi-eye" id="eyeBaru"></i>
           </button>
         </div>
       </div>
 
       <div class="mb-4">
-        <label class="form-label fw-600" style="font-size:.875rem;">Konfirmasi Password Baru</label>
+        <label class="form-label fw-bold" style="font-size:.84rem;">Konfirmasi Password Baru</label>
         <div class="input-group">
           <input type="password" class="form-control" id="pwKonfirm"
                  placeholder="Ulangi password baru">
           <button class="btn btn-outline-secondary" type="button"
-                  onclick="togglePw('pwKonfirm', 'eyeKonfirm')">
+                  onclick="togglePw('pwKonfirm','eyeKonfirm')">
             <i class="bi bi-eye" id="eyeKonfirm"></i>
           </button>
         </div>
       </div>
 
-      <button class="btn btn-primary px-4" onclick="gantiPassword()">
+      <button class="btn btn-primary w-100 w-sm-auto" onclick="gantiPassword()">
         <i class="bi bi-check-lg me-2"></i>Simpan Password Baru
       </button>
     </div>
   </div>
-
 </div>
 {% endblock %}
 
@@ -86,13 +84,8 @@ const USER_ID = {{ user.user_id }};
 function togglePw(inputId, iconId) {
   const input = document.getElementById(inputId);
   const icon  = document.getElementById(iconId);
-  if (input.type === 'password') {
-    input.type = 'text';
-    icon.className = 'bi bi-eye-slash';
-  } else {
-    input.type = 'password';
-    icon.className = 'bi bi-eye';
-  }
+  input.type  = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
 }
 
 async function gantiPassword() {
@@ -101,7 +94,6 @@ async function gantiPassword() {
   const konfirm = document.getElementById('pwKonfirm').value;
   const alertEl = document.getElementById('alertGantiPw');
 
-  // Validasi client-side
   if (!lama || !baru || !konfirm) {
     alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-3">
       <i class="bi bi-exclamation-triangle me-2"></i>Semua field wajib diisi.</div>`;
@@ -118,24 +110,21 @@ async function gantiPassword() {
     return;
   }
 
-  try {
-    const res = await fetch(
-      `/users/${USER_ID}/password?password_lama=${encodeURIComponent(lama)}&password_baru=${encodeURIComponent(baru)}`,
-      { method: 'PATCH' }
-    );
-    if (res.ok) {
-      alertEl.innerHTML = `<div class="alert alert-success py-2 mb-3">
-        <i class="bi bi-check-circle me-2"></i>Password berhasil diperbarui!</div>`;
-      document.getElementById('pwLama').value = '';
-      document.getElementById('pwBaru').value = '';
-      document.getElementById('pwKonfirm').value = '';
-    } else {
-      const err = await res.json();
-      alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-3">
-        <i class="bi bi-x-circle me-2"></i>${err.detail}</div>`;
-    }
-  } catch(e) {
-    alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-3">Gagal terhubung ke server.</div>`;
+  const res = await fetch(
+    `/users/${USER_ID}/password?password_lama=${encodeURIComponent(lama)}&password_baru=${encodeURIComponent(baru)}`,
+    { method: 'PATCH' }
+  );
+
+  if (res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-success py-2 mb-3">
+      <i class="bi bi-check-circle me-2"></i>Password berhasil diperbarui!</div>`;
+    document.getElementById('pwLama').value = '';
+    document.getElementById('pwBaru').value = '';
+    document.getElementById('pwKonfirm').value = '';
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-3">
+      <i class="bi bi-x-circle me-2"></i>${err.detail}</div>`;
   }
 }
 </script>

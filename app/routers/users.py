@@ -42,6 +42,18 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
     return user
 
+@router.put("/{user_id}")
+def update_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    user.nama      = payload.nama
+    user.nim_nip   = payload.nim_nip
+    user.role      = payload.role
+    user.ruangan_id = payload.ruangan_id
+    db.commit()
+    db.refresh(user)
+    return user
 
 @router.put("/{user_id}/face-encoding")
 def update_face_encoding(user_id: int, encoding: list[float], db: Session = Depends(get_db)):

@@ -3,23 +3,44 @@
 {% block page_title %}Kamera Monitoring{% endblock %}
 
 {% block content %}
-<div class="section-card p-5 text-center">
-  <i class="bi bi-camera-video" style="font-size:4rem; color:#cbd5e1"></i>
-  <h5 class="mt-3 text-muted">Kamera Monitoring</h5>
-  <p class="text-muted" style="font-size:.9rem; max-width:400px; margin:0 auto">
+<div class="section-card p-4 p-md-5 text-center" style="max-width:520px; margin:0 auto;">
+  <div style="width:80px; height:80px; background:#f1f5f9; border-radius:50%;
+              display:flex; align-items:center; justify-content:center;
+              margin:0 auto 20px; font-size:2rem; color:#cbd5e1;">
+    <i class="bi bi-camera-video-off"></i>
+  </div>
+  <h5 class="fw-bold mb-2" style="color:#1e293b;">Kamera Monitoring</h5>
+  <p class="text-muted mb-4" style="font-size:.87rem; line-height:1.6;">
     Fitur streaming dan rekaman kamera akan aktif setelah perangkat kamera monitoring
-    terhubung ke Raspberry Pi dan dikonfigurasi di cloud server.
+    terhubung dan dikonfigurasi di cloud server.
   </p>
-  <div class="mt-4 p-3 rounded" style="background:#f8fafc; border:1px dashed #cbd5e1; max-width:360px; margin:0 auto; text-align:left; font-size:.82rem;">
-    <div class="fw-600 mb-2 text-muted">Status Komponen:</div>
-    <div class="d-flex justify-content-between mb-1">
-      <span>Raspberry Pi</span><span class="badge bg-warning bg-opacity-20 text-warning">Belum terhubung</span>
+
+  <div class="p-3 rounded-3 text-start" style="background:#f8fafc; border:1.5px dashed #cbd5e1;">
+    <div class="fw-bold mb-2" style="font-size:.82rem; color:#64748b;">
+      <i class="bi bi-info-circle me-1"></i>Status Komponen
     </div>
-    <div class="d-flex justify-content-between mb-1">
-      <span>Kamera Monitoring</span><span class="badge bg-warning bg-opacity-20 text-warning">Belum terhubung</span>
-    </div>
-    <div class="d-flex justify-content-between">
-      <span>Cloud Storage</span><span class="badge bg-warning bg-opacity-20 text-warning">Belum dikonfigurasi</span>
+    <div class="d-flex flex-column gap-2" style="font-size:.81rem;">
+      <div class="d-flex justify-content-between">
+        <span>Edge Device</span>
+        <span style="background:#fef9c3;color:#a16207;padding:2px 8px;
+                     border-radius:20px;font-size:.72rem;font-weight:600;">
+          Belum terhubung
+        </span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span>Kamera Monitoring</span>
+        <span style="background:#fef9c3;color:#a16207;padding:2px 8px;
+                     border-radius:20px;font-size:.72rem;font-weight:600;">
+          Belum terhubung
+        </span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span>Cloud Storage Video</span>
+        <span style="background:#fef9c3;color:#a16207;padding:2px 8px;
+                     border-radius:20px;font-size:.72rem;font-weight:600;">
+          Belum dikonfigurasi
+        </span>
+      </div>
     </div>
   </div>
 </div>
