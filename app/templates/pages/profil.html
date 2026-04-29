@@ -3,6 +3,10 @@
 {% block page_title %}Profil Saya{% endblock %}
 
 {% block content %}
+<div id="profilData"
+     data-user-id="{{ user.user_id }}"
+     style="display:none;"></div>
+
 <div class="row g-3" style="max-width:780px;">
 
   <!-- Kartu identitas -->
@@ -79,7 +83,8 @@
 
 {% block extra_js %}
 <script>
-const USER_ID = {{ user.user_id }};
+// Ambil user_id dari data attribute — menghindari konflik Jinja + JS
+const USER_ID = document.getElementById('profilData').dataset.userId;
 
 function togglePw(inputId, iconId) {
   const input = document.getElementById(inputId);
@@ -110,21 +115,25 @@ async function gantiPassword() {
     return;
   }
 
-  const res = await fetch(
-    `/users/${USER_ID}/password?password_lama=${encodeURIComponent(lama)}&password_baru=${encodeURIComponent(baru)}`,
-    { method: 'PATCH' }
-  );
-
-  if (res.ok) {
-    alertEl.innerHTML = `<div class="alert alert-success py-2 mb-3">
-      <i class="bi bi-check-circle me-2"></i>Password berhasil diperbarui!</div>`;
-    document.getElementById('pwLama').value = '';
-    document.getElementById('pwBaru').value = '';
-    document.getElementById('pwKonfirm').value = '';
-  } else {
-    const err = await res.json();
+  try {
+    const res = await fetch(
+      `/users/${USER_ID}/password?password_lama=${encodeURIComponent(lama)}&password_baru=${encodeURIComponent(baru)}`,
+      { method: 'PATCH' }
+    );
+    if (res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-success py-2 mb-3">
+        <i class="bi bi-check-circle me-2"></i>Password berhasil diperbarui!</div>`;
+      document.getElementById('pwLama').value   = '';
+      document.getElementById('pwBaru').value   = '';
+      document.getElementById('pwKonfirm').value = '';
+    } else {
+      const err = await res.json();
+      alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-3">
+        <i class="bi bi-x-circle me-2"></i>${err.detail}</div>`;
+    }
+  } catch(e) {
     alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-3">
-      <i class="bi bi-x-circle me-2"></i>${err.detail}</div>`;
+      Gagal terhubung ke server.</div>`;
   }
 }
 </script>
