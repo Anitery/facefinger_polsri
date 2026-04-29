@@ -6,6 +6,8 @@ from app.database import engine, Base
 from app.routers import auth, users, logs, inventaris, ruangan
 from app.routers import login as login_router
 from app.routers import auth, users, logs, inventaris, ruangan, jadwal
+from app.routers import auth, users, logs, inventaris, ruangan, jadwal, login as login_router, setup
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -26,6 +28,7 @@ app.include_router(logs.router)
 app.include_router(inventaris.router)
 app.include_router(ruangan.router)
 app.include_router(jadwal.router)
+app.include_router(setup.router)
 
 
 # ── Helper: cek session ───────────────────────────────────
