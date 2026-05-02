@@ -88,7 +88,7 @@ async def upload_rekaman(
             nama_file     = video.filename,
             waktu_mulai   = datetime.fromisoformat(waktu_mulai),
             waktu_selesai = datetime.fromisoformat(waktu_selesai),
-            url_video     = result["url"],
+            url_video     = result["secure_url"],
             thumbnail_url = result.get("thumbnail"),
             ukuran_mb     = round(ukuran_mb, 2)
         )

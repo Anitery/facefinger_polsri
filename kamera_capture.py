@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Konfigurasi ──────────────────────────────────────────
-SERVER_URL  = os.getenv("SERVER_URL", "http://localhost:8000")
+SERVER_URL  = os.getenv("SERVER_URL")
 KAMERA_ID   = int(os.getenv("KAMERA_ID", "0"))
 RUANGAN_ID  = int(os.getenv("RUANGAN_ID", "1"))
 DURASI_SEG  = int(os.getenv("DURASI_SEG", "30"))
