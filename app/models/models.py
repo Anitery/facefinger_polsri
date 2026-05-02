@@ -64,6 +64,7 @@ class RekamanKamera(Base):
     waktu_mulai = Column(DateTime(timezone=True))
     waktu_selesai = Column(DateTime(timezone=True), nullable=True)
     url_video = Column(Text, nullable=True)
+    thumbnail_url = Column(Text, nullable=True)          # ← TAMBAH INI
     ukuran_mb = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -99,3 +100,4 @@ class JadwalRuangan(Base):
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
 
     ruangan = relationship("Ruangan", backref="jadwal")
+
