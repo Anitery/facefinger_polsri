@@ -318,7 +318,7 @@ async function loadUsers() {
       <td>${u.fingerprint_id != null
             ? `<span class="badge-role">ID: ${u.fingerprint_id}</span>`
             : '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
-      <td>${u.face_encoding != null
+      <td>${(u.face_encoding && u.face_encoding.length > 10)
             ? '<span class="badge-ok"><i class="bi bi-check"></i> Ada</span>'
             : '<span style="background:#fef9c3;color:#a16207;padding:3px 8px;border-radius:20px;font-size:.72rem;">Belum</span>'}</td>
       <td>${u.aktif
@@ -362,7 +362,7 @@ async function loadUsers() {
         ${u.fingerprint_id != null ? `ID: ${u.fingerprint_id}` : 'Belum'}
         &nbsp;·&nbsp;
         <i class="bi bi-camera me-1"></i>
-        ${u.face_encoding != null ? 'Wajah ada' : 'Wajah belum'}
+        ${(u.face_encoding && u.face_encoding.length > 10) ? 'Wajah ada' : 'Wajah belum'}
       </div>
       <div class="d-flex gap-2">
         <button class="btn btn-outline-primary btn-sm flex-fill"

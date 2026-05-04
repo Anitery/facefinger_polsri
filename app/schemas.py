@@ -33,6 +33,7 @@ class UserOut(UserBase):
     id: int
     aktif: bool
     fingerprint_id: Optional[int] = None
+    face_encoding: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

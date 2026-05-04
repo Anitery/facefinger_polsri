@@ -1,9 +1,3 @@
-"""
-Script capture kamera monitoring.
-Jalankan di laptop atau Raspberry Pi:
-    python kamera_capture.py
-"""
-
 import cv2
 import os
 import time
@@ -18,10 +12,10 @@ load_dotenv()
 
 # ── Konfigurasi ──────────────────────────────────────────
 SERVER_URL  = os.getenv("SERVER_URL")
-KAMERA_ID   = int(os.getenv("KAMERA_ID", "0"))
-RUANGAN_ID  = int(os.getenv("RUANGAN_ID", "1"))
-DURASI_SEG  = int(os.getenv("DURASI_SEG", "30"))
-OUTPUT_DIR  = Path(os.getenv("OUTPUT_DIR", "temp_video"))
+KAMERA_ID   = int(os.getenv("KAMERA_ID"))
+RUANGAN_ID  = int(os.getenv("RUANGAN_ID"))
+DURASI_SEG  = int(os.getenv("DURASI_SEG"))
+OUTPUT_DIR  = Path(os.getenv("OUTPUT_DIR"))
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # ── Video settings ───────────────────────────────────────

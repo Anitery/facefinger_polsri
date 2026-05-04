@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+{% block title %}Enroll Wajah{% endblock %}
+{% block page_title %}Enroll Wajah Pengguna{% endblock %}
+
+{% block extra_head %}
+<!-- face-api.js dari CDN -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+  .user-card-select {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all .18s;
+    background: #fff;
+  }
+  .user-card-select:hover { border-color: #2E75B6; background: #eff6ff; }
+  .user-card-select.selected {
+    border-color: #1F3864;
+    background: #dbeafe;
+  }
+
+  #videoContainer {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 480px;
+  }
+  #videoEl {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+    background: #0f172a;
+    transform: scaleX(-1); /* mirror */
+  }
+  #overlayCanvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 12px;
+    transform: scaleX(-1);
+  }
+  #captureCanvas { display: none; }
+
+  .step-badge {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #1F3864;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-badge.done { background: #22c55e; }
+  .step-badge.active { background: #f59e0b; }
+
+  .face-guide {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scaleX(-1);
+    width: 160px; height: 200px;
+    border: 3px dashed rgba(255,255,255,.5);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  #faceStatus {
+    position: absolute;
+    bottom: 12px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.7);
+    color: #fff;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: .78rem;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- ══ Kolom Kiri: Pilih User ══ -->
+  <div class="col-12 col-lg-4">
+    <div class="section-card p-3">
+      <h6 class="fw-bold mb-3" style="color:#1e293b; font-size:.9rem;">
+        <span class="step-badge me-2" id="step1Badge">1</span>
+        Pilih Pengguna
+      </h6>
+
+      <!-- Search -->
+      <div class="input-group input-group-sm mb-3">
+        <span class="input-group-text bg-white">
+          <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" class="form-control" id="searchUser"
+               placeholder="Cari nama atau NIM...">
+      </div>
+
+      <!-- Daftar user -->
+      <div id="userList" style="max-height:420px; overflow-y:auto;"
+           class="d-flex flex-column gap-2">
+        <div class="text-center text-muted py-3" style="font-size:.84rem;">
+          Memuat...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Kolom Kanan: Enroll ══ -->
+  <div class="col-12 col-lg-8">
+    <div class="section-card p-3 p-md-4">
+
+      <!-- Status model loading -->
+      <div id="modelLoading" class="text-center py-4">
+        <div class="spinner-border text-primary mb-3" style="width:2rem;height:2rem;"></div>
+        <div style="font-size:.85rem; color:#64748b;">
+          Memuat model face detection...<br>
+          <small>(pertama kali mungkin butuh 5-10 detik)</small>
+        </div>
+      </div>
+
+      <!-- Konten utama (muncul setelah model siap) -->
+      <div id="mainContent" style="display:none;">
+
+        <!-- Info user terpilih -->
+        <div id="selectedUserInfo" class="mb-3 p-3 rounded-3"
+             style="background:#f8fafc; border:1.5px solid #e2e8f0; display:none;">
+          <div class="d-flex align-items-center gap-3">
+            <div style="width:44px;height:44px;border-radius:50%;
+                        background:linear-gradient(135deg,#1F3864,#2E75B6);
+                        display:flex;align-items:center;justify-content:center;
+                        color:#fff;font-weight:700;font-size:1.1rem;"
+                 id="userInitial">?</div>
+            <div>
+              <div class="fw-bold" id="selectedNama" style="font-size:.9rem;"></div>
+              <div style="font-size:.78rem;color:#64748b;" id="selectedInfo"></div>
+            </div>
+            <div class="ms-auto">
+              <span id="faceStatusBadge" class="badge"
+                    style="font-size:.72rem;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div id="noUserSelected" class="text-center py-3 text-muted mb-3"
+             style="font-size:.85rem;">
+          <i class="bi bi-person-bounding-box d-block mb-2"
+             style="font-size:2rem;"></i>
+          Pilih pengguna di panel kiri untuk mulai enroll wajah
+        </div>
+
+        <!-- Tab: Webcam / Upload -->
+        <ul class="nav nav-tabs mb-3" id="enrollTabs">
+          <li class="nav-item">
+            <button class="nav-link active" onclick="switchTab('webcam')" id="tabWebcam">
+              <i class="bi bi-camera-video me-1"></i>Webcam
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" onclick="switchTab('upload')" id="tabUpload">
+              <i class="bi bi-image me-1"></i>Upload Foto
+            </button>
+          </li>
+        </ul>
+
+        <!-- ── TAB WEBCAM ── -->
+        <div id="panelWebcam">
+          <div class="text-center mb-3">
+            <div id="videoContainer">
+              <video id="videoEl" autoplay muted playsinline></video>
+              <canvas id="overlayCanvas"></canvas>
+              <div class="face-guide" id="faceGuide"></div>
+              <div id="faceStatus">Menunggu kamera...</div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <button class="btn btn-outline-primary" id="btnStartCam"
+                    onclick="startCamera()">
+              <i class="bi bi-camera-video me-1"></i>Nyalakan Kamera
+            </button>
+            <button class="btn btn-primary d-none" id="btnCapture"
+                    onclick="captureWajah()">
+              <i class="bi bi-camera me-1"></i>Ambil Foto & Enroll
+            </button>
+            <button class="btn btn-outline-secondary d-none" id="btnStopCam"
+                    onclick="stopCamera()">
+              <i class="bi bi-stop-circle me-1"></i>Matikan
+            </button>
+          </div>
+        </div>
+
+        <!-- ── TAB UPLOAD ── -->
+        <div id="panelUpload" style="display:none;">
+          <div class="mb-3">
+            <label class="form-label fw-bold" style="font-size:.85rem;">
+              Upload Foto Wajah
+            </label>
+            <input type="file" class="form-control" id="uploadFoto"
+                   accept="image/jpeg,image/png,image/jpg"
+                   onchange="previewUpload(this)">
+            <div class="form-text">Format: JPG / PNG. Pastikan wajah terlihat jelas.</div>
+          </div>
+
+          <!-- Preview foto -->
+          <div id="uploadPreview" class="text-center mb-3" style="display:none;">
+            <img id="previewImg" style="max-width:320px; max-height:320px;
+                                        border-radius:10px; border:2px solid #e2e8f0;">
+          </div>
+
+          <button class="btn btn-primary w-100" id="btnEnrollUpload"
+                  onclick="enrollDariFoto()" style="display:none;">
+            <i class="bi bi-check-lg me-1"></i>Proses & Enroll Wajah
+          </button>
+        </div>
+
+        <!-- Canvas tersembunyi untuk capture -->
+        <canvas id="captureCanvas"></canvas>
+
+        <!-- Hasil enroll -->
+        <div id="enrollResult" class="mt-3"></div>
+
+        <!-- Preview wajah yang berhasil di-detect -->
+        <div id="detectedFacePreview" class="mt-3 text-center" style="display:none;">
+          <div style="font-size:.8rem; color:#64748b; margin-bottom:8px;">
+            Wajah terdeteksi:
+          </div>
+          <canvas id="faceCanvas"
+                  style="border-radius:8px; border:2px solid #22c55e;"></canvas>
+        </div>
+
+      </div><!-- end mainContent -->
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── State ────────────────────────────────────────────────
+let selectedUser  = null;
+let stream        = null;
+let detectionLoop = null;
+let modelsLoaded  = false;
+let currentTab    = 'webcam';
+let allUsers      = [];
+
+const MODEL_URL = '/static/models';
+
+// ── Load face-api.js models ──────────────────────────────
+async function loadModels() {
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+    ]);
+    modelsLoaded = true;
+    document.getElementById('modelLoading').style.display = 'none';
+    document.getElementById('mainContent').style.display  = 'block';
+    console.log('✓ Model face-api.js berhasil dimuat');
+  } catch(e) {
+    document.getElementById('modelLoading').innerHTML = `
+      <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Gagal memuat model: ${e.message}<br>
+        <small>Pastikan folder <code>app/static/models</code> berisi file model.</small>
+      </div>`;
+    console.error('Gagal load model:', e);
+  }
+}
+
+// ── Load daftar user ─────────────────────────────────────
+async function loadUsers() {
+  try {
+    const res  = await fetch('/users/');
+    allUsers   = await res.json();
+    renderUsers(allUsers);
+  } catch(e) {
+    document.getElementById('userList').innerHTML =
+      '<div class="text-danger text-center py-2">Gagal memuat pengguna</div>';
+  }
+}
+
+function renderUsers(users) {
+  const roleBadge = {
+    admin: 'bg-danger', teknisi: 'bg-warning text-dark',
+    dosen: 'bg-primary', mahasiswa: 'bg-secondary'
+  };
+  document.getElementById('userList').innerHTML = users.map(u => `
+    <div class="user-card-select ${selectedUser?.id===u.id?'selected':''}"
+         onclick="pilihUser(${u.id})" id="ucard_${u.id}">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
+                    background:linear-gradient(135deg,#1F3864,#2E75B6);
+                    display:flex;align-items:center;justify-content:center;
+                    color:#fff;font-weight:700;font-size:.9rem;">
+          ${u.nama[0].toUpperCase()}
+        </div>
+        <div class="flex-grow-1 min-w-0">
+          <div class="fw-bold" style="font-size:.84rem;overflow:hidden;
+               text-overflow:ellipsis;white-space:nowrap;">${u.nama}</div>
+          <div style="font-size:.72rem;color:#64748b;">${u.nim_nip}</div>
+        </div>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span class="badge ${roleBadge[u.role]||'bg-secondary'}"
+                style="font-size:.65rem;">${u.role}</span>
+          ${u.face_encoding
+            ? '<span style="background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:10px;font-size:.65rem;font-weight:600;">✓ Wajah</span>'
+            : '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 7px;border-radius:10px;font-size:.65rem;">Belum</span>'}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// Search filter
+document.getElementById('searchUser').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  renderUsers(allUsers.filter(u =>
+    u.nama.toLowerCase().includes(q) ||
+    u.nim_nip.toLowerCase().includes(q)
+  ));
+});
+
+function pilihUser(id) {
+  selectedUser = allUsers.find(u => u.id === id);
+  if (!selectedUser) return;
+
+  // Update highlight
+  document.querySelectorAll('.user-card-select').forEach(el =>
+    el.classList.remove('selected'));
+  document.getElementById(`ucard_${id}`)?.classList.add('selected');
+
+  // Update info panel
+  document.getElementById('noUserSelected').style.display  = 'none';
+  document.getElementById('selectedUserInfo').style.display = 'flex';
+  document.getElementById('userInitial').textContent =
+    selectedUser.nama[0].toUpperCase();
+  document.getElementById('selectedNama').textContent = selectedUser.nama;
+  document.getElementById('selectedInfo').textContent =
+    `${selectedUser.nim_nip} · ${selectedUser.role}`;
+
+  const badge = document.getElementById('faceStatusBadge');
+  if (selectedUser.face_encoding) {
+    badge.textContent = '✓ Wajah terdaftar';
+    badge.style.cssText = 'background:#dcfce7;color:#15803d;';
+  } else {
+    badge.textContent = 'Belum ada wajah';
+    badge.style.cssText = 'background:#fef9c3;color:#a16207;';
+  }
+
+  document.getElementById('enrollResult').innerHTML = '';
+  document.getElementById('detectedFacePreview').style.display = 'none';
+}
+
+// ── Tab switch ───────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  stopCamera();
+
+  document.getElementById('panelWebcam').style.display =
+    tab === 'webcam' ? 'block' : 'none';
+  document.getElementById('panelUpload').style.display =
+    tab === 'upload' ? 'block' : 'none';
+
+  document.getElementById('tabWebcam').className =
+    'nav-link' + (tab === 'webcam' ? ' active' : '');
+  document.getElementById('tabUpload').className =
+    'nav-link' + (tab === 'upload' ? ' active' : '');
+}
+
+// ── WEBCAM ───────────────────────────────────────────────
+async function startCamera() {
+  if (!selectedUser) {
+    showAlert('warning', 'Pilih pengguna dulu sebelum menyalakan kamera.');
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' }
+    });
+    const video = document.getElementById('videoEl');
+    video.srcObject = stream;
+    await video.play();
+
+    document.getElementById('btnStartCam').classList.add('d-none');
+    document.getElementById('btnCapture').classList.remove('d-none');
+    document.getElementById('btnStopCam').classList.remove('d-none');
+    document.getElementById('faceStatus').textContent = 'Posisikan wajah di tengah...';
+
+    // Loop deteksi wajah real-time
+    startDetectionLoop();
+  } catch(e) {
+    showAlert('danger', `Gagal akses kamera: ${e.message}`);
+  }
+}
+
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  if (detectionLoop) {
+    clearInterval(detectionLoop);
+    detectionLoop = null;
+  }
+  document.getElementById('videoEl').srcObject = null;
+  document.getElementById('btnStartCam').classList.remove('d-none');
+  document.getElementById('btnCapture').classList.add('d-none');
+  document.getElementById('btnStopCam').classList.add('d-none');
+  document.getElementById('faceStatus').textContent = 'Menunggu kamera...';
+
+  // Bersihkan canvas overlay
+  const canvas = document.getElementById('overlayCanvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+let faceDetected = false;
+
+function startDetectionLoop() {
+  const video   = document.getElementById('videoEl');
+  const canvas  = document.getElementById('overlayCanvas');
+  const statusEl = document.getElementById('faceStatus');
+
+  detectionLoop = setInterval(async () => {
+    if (!video.videoWidth) return;
+
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const detections = await faceapi
+      .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks();
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (detections.length === 0) {
+      faceDetected = false;
+      statusEl.textContent = '❌ Wajah tidak terdeteksi';
+      statusEl.style.background = 'rgba(185,28,28,.8)';
+      document.getElementById('btnCapture').disabled = true;
+    } else if (detections.length > 1) {
+      faceDetected = false;
+      statusEl.textContent = '⚠ Terlalu banyak wajah — pastikan hanya 1 wajah';
+      statusEl.style.background = 'rgba(161,98,7,.8)';
+      document.getElementById('btnCapture').disabled = true;
+    } else {
+      faceDetected = true;
+      statusEl.textContent = '✓ Wajah terdeteksi — siap diambil';
+      statusEl.style.background = 'rgba(21,128,61,.8)';
+      document.getElementById('btnCapture').disabled = false;
+
+      // Gambar landmark wajah
+      const resized = faceapi.resizeResults(detections, {
+        width: canvas.width, height: canvas.height
+      });
+      faceapi.draw.drawFaceLandmarks(canvas, resized);
+    }
+  }, 300);
+}
+
+async function captureWajah() {
+  if (!selectedUser) {
+    showAlert('warning', 'Pilih pengguna terlebih dahulu.');
+    return;
+  }
+  if (!faceDetected) {
+    showAlert('warning', 'Pastikan wajah terdeteksi (kotak hijau muncul) sebelum mengambil foto.');
+    return;
+  }
+
+  const video  = document.getElementById('videoEl');
+  const canvas = document.getElementById('captureCanvas');
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  // Mirror balik untuk capture (karena video di-mirror CSS)
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+
+  await prosesEnroll(canvas);
+}
+
+// ── UPLOAD FOTO ──────────────────────────────────────────
+function previewUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('previewImg').src     = e.target.result;
+    document.getElementById('uploadPreview').style.display = 'block';
+    document.getElementById('btnEnrollUpload').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function enrollDariFoto() {
+  if (!selectedUser) {
+    showAlert('warning', 'Pilih pengguna terlebih dahulu.');
+    return;
+  }
+
+  const img = document.getElementById('previewImg');
+  const canvas = document.getElementById('captureCanvas');
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext('2d').drawImage(img, 0, 0);
+
+  await prosesEnroll(canvas);
+}
+
+// ── PROSES ENROLL UTAMA ───────────────────────────────────
+async function prosesEnroll(canvas) {
+  const resultEl = document.getElementById('enrollResult');
+  resultEl.innerHTML = `
+    <div class="alert alert-info py-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm"></div>
+        Memproses wajah, harap tunggu...
+      </div>
+    </div>`;
+
+  try {
+    // Deteksi wajah + landmark + descriptor (encoding 128-dim)
+    const detection = await faceapi
+      .detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) {
+      resultEl.innerHTML = `
+        <div class="alert alert-danger py-2">
+          <i class="bi bi-x-circle me-2"></i>
+          Wajah tidak terdeteksi. Pastikan pencahayaan cukup dan wajah terlihat jelas.
+        </div>`;
+      return;
+    }
+
+    // Descriptor = array Float32Array 128 elemen
+    const encoding = Array.from(detection.descriptor);
+
+    // Tampilkan preview wajah yang di-crop
+    const faceCanvas = document.getElementById('faceCanvas');
+    const box        = detection.detection.box;
+    const pad        = 20;
+    faceCanvas.width  = box.width  + pad * 2;
+    faceCanvas.height = box.height + pad * 2;
+    faceCanvas.getContext('2d').drawImage(
+      canvas,
+      Math.max(0, box.x - pad), Math.max(0, box.y - pad),
+      box.width + pad * 2, box.height + pad * 2,
+      0, 0,
+      faceCanvas.width, faceCanvas.height
+    );
+    document.getElementById('detectedFacePreview').style.display = 'block';
+
+    // Kirim encoding ke server
+    const res = await fetch(`/users/${selectedUser.id}/enroll-face`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encoding })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      resultEl.innerHTML = `
+        <div class="alert alert-success py-2">
+          <i class="bi bi-check-circle me-2"></i>
+          <strong>${data.nama}</strong> — wajah berhasil didaftarkan!
+          <div style="font-size:.75rem;margin-top:4px;color:#166534;">
+            Encoding 128-dimensi tersimpan di database.
+          </div>
+        </div>`;
+
+      // Update status badge
+      document.getElementById('faceStatusBadge').textContent = '✓ Wajah terdaftar';
+      document.getElementById('faceStatusBadge').style.cssText =
+        'background:#dcfce7;color:#15803d;';
+
+      // Update data lokal & refresh list
+      selectedUser.face_encoding = JSON.stringify(encoding);
+      await loadUsers();
+      pilihUser(selectedUser.id);
+
+      // Stop kamera setelah berhasil
+      if (currentTab === 'webcam') stopCamera();
+
+    } else {
+      const err = await res.json();
+      resultEl.innerHTML = `
+        <div class="alert alert-danger py-2">
+          <i class="bi bi-x-circle me-2"></i>${err.detail}
+        </div>`;
+    }
+
+  } catch(e) {
+    resultEl.innerHTML = `
+      <div class="alert alert-danger py-2">
+        <i class="bi bi-x-circle me-2"></i>Error: ${e.message}
+      </div>`;
+    console.error(e);
+  }
+}
+
+function showAlert(type, msg) {
+  document.getElementById('enrollResult').innerHTML =
+    `<div class="alert alert-${type} py-2">${msg}</div>`;
+}
+
+// ── Hapus wajah ──────────────────────────────────────────
+async function hapusFace(userId) {
+  if (!confirm('Hapus data wajah pengguna ini?')) return;
+  const res = await fetch(`/users/${userId}/enroll-face`, { method:'DELETE' });
+  if (res.ok) {
+    selectedUser.face_encoding = null;
+    document.getElementById('faceStatusBadge').textContent = 'Belum ada wajah';
+    document.getElementById('faceStatusBadge').style.cssText =
+      'background:#fef9c3;color:#a16207;';
+    document.getElementById('detectedFacePreview').style.display = 'none';
+    document.getElementById('enrollResult').innerHTML =
+      '<div class="alert alert-success py-2">Data wajah berhasil dihapus.</div>';
+    await loadUsers();
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────
+loadModels();
+loadUsers();
+</script>
+{% endblock %}

@@ -272,8 +272,11 @@
 
     {# Tombol Pengguna HANYA muncul untuk admin #}
     {% if user and user.role == 'admin' %}
-    <a href="/dashboard/pengguna"  class="nav-link {% if active=='pengguna'  %}active{% endif %}">
+    <a href="/dashboard/pengguna"     class="nav-link {% if active=='pengguna' %}active{% endif %}">
       <i class="bi bi-people"></i> Pengguna
+    </a>
+    <a href="/dashboard/enroll-wajah" class="nav-link {% if active=='enroll' %}active{% endif %}">
+      <i class="bi bi-person-bounding-box"></i> Enroll Wajah
     </a>
     {% endif %}
 

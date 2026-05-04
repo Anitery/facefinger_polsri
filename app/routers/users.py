@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List
 import json
 from app.database import get_db
 from app.models.models import User
@@ -17,10 +19,48 @@ def _verify_pw(plain: str, hashed: str) -> bool:
 
 router = APIRouter(prefix="/users", tags=["Pengguna"])
 
+class FaceEncodingPayload(BaseModel):
+    encoding: List[float]
+
+@router.post("/{user_id}/enroll-face")
+def enroll_face(
+    user_id: int,
+    payload: FaceEncodingPayload,
+    db: Session = Depends(get_db)
+):
+    """Simpan face encoding hasil proses face-api.js dari browser."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if len(payload.encoding) != 128:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Encoding harus 128 dimensi, diterima {len(payload.encoding)}"
+        )
+    user.face_encoding = json.dumps(payload.encoding)
+    db.commit()
+    return {
+        "pesan":   f"Face encoding {user.nama} berhasil disimpan",
+        "user_id": user.id,
+        "nama":    user.nama
+    }
+
+@router.delete("/{user_id}/enroll-face")
+def hapus_face(user_id: int, db: Session = Depends(get_db)):
+    """Hapus face encoding user."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    user.face_encoding = None
+    db.commit()
+    return {"pesan": f"Face encoding {user.nama} dihapus"}
 
 @router.get("/", response_model=list[UserOut])
-def get_all_users(db: Session = Depends(get_db)):
-    return db.query(User).filter(User.aktif == True).all()
+def get_all_users(aktif_only: bool = True, db: Session = Depends(get_db)):
+    query = db.query(User)
+    if aktif_only:
+        query = query.filter(User.aktif == True)
+    return query.all()
 
 
 @router.get("/{user_id}", response_model=UserOut)

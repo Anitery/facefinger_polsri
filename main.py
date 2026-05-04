@@ -74,6 +74,19 @@ def dashboard_pengguna(request: Request):
         context={"active": "pengguna", "user": user}
     )
 
+@app.get("/dashboard/enroll-wajah")
+def dashboard_enroll(request: Request):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user.get("role") != "admin":
+        return RedirectResponse("/dashboard?error=forbidden", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="pages/enroll_wajah.html",
+        context={"active": "enroll", "user": user}
+    )
+
 @app.get("/dashboard/inventaris")
 def dashboard_inventaris(request: Request):
     user = get_session(request)
