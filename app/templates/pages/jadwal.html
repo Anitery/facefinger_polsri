@@ -5,7 +5,8 @@
 {% block content %}
 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
   <p class="text-muted mb-0" style="font-size:.84rem;">
-    Jadwal penggunaan Ruang Multimedia Lantai 2.
+    Jadwal penggunaan:
+    <strong id="jadwalNamaRuangan">Semua Ruangan</strong>
   </p>
   <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalJadwal">
     <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
@@ -296,6 +297,21 @@
 
 {% block extra_js %}
 <script>
+// ── Ikuti perubahan ruangan aktif ────────────────────────
+function getRuanganId() {
+  const saved = localStorage.getItem('ruangan_aktif');
+  return saved ? JSON.parse(saved).id : null;
+}
+
+window.addEventListener('ruanganChanged', () => {
+  // Panggil fungsi load utama halaman ini
+  loadDashboard?.();   // index.html
+  loadLog?.();         // log_akses.html
+  loadInv?.();         // inventaris.html
+  render?.();          // jadwal.html
+  loadRekaman?.();     // kamera.html
+});
+
 const BULAN = ['Januari','Februari','Maret','April','Mei','Juni',
                'Juli','Agustus','September','Oktober','November','Desember'];
 const BULAN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun',
@@ -314,7 +330,13 @@ function nextMonth() { curMonth++; if(curMonth>11){curMonth=0;curYear++;} filter
 
 async function loadJadwal() {
   try {
-    const res = await fetch(`/jadwal/?ruangan_id=1&bulan=${bulanStr()}`);
+    // ✅ SEBELUM: const res = await fetch(`/jadwal/?ruangan_id=1&bulan=${bulanStr()}`);
+    // ✅ SESUDAH:
+    const rid = getRuanganId();
+    const url = rid
+      ? `/jadwal/?ruangan_id=${rid}&bulan=${bulanStr()}`
+      : `/jadwal/?bulan=${bulanStr()}`;
+    const res = await fetch(url);
     allJadwal = await res.json();
   } catch(e) { allJadwal = []; }
 }
@@ -448,8 +470,11 @@ async function render() {
 }
 
 async function tambahJadwal() {
+  // ✅ SEBELUM: ruangan_id: 1,
+  // ✅ SESUDAH:
+  const rid = getRuanganId();
   const body = {
-    ruangan_id:    1,
+    ruangan_id:    rid || 1,  // fallback ke 1 jika tidak ada ruangan aktif
     nama_kegiatan: document.getElementById('jNama').value.trim(),
     dosen:         document.getElementById('jDosen').value.trim() || null,
     tanggal:       document.getElementById('jTanggal').value,
@@ -493,5 +518,22 @@ async function hapusJadwal(id) {
 // Default tanggal hari ini
 document.getElementById('jTanggal').value = new Date().toISOString().slice(0,10);
 render();
+// ── Listener perubahan ruangan ────────────────────────
+window.addEventListener('ruanganChanged', (e) => {
+  filterDate = null;
+  render();
+  document.getElementById('jadwalNamaRuangan').textContent =
+    e.detail?.nama || 'Semua Ruangan';
+});
+
+// Juga di DOMContentLoaded:
+document.addEventListener('DOMContentLoaded', () => {
+  const aktif = getRuanganAktif?.() ||
+    JSON.parse(localStorage.getItem('ruangan_aktif') || 'null');
+  if (aktif) {
+    document.getElementById('jadwalNamaRuangan').textContent =
+      aktif.nama || 'Semua Ruangan';
+  }
+});
 </script>
 {% endblock %}

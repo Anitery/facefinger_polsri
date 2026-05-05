@@ -110,11 +110,16 @@
       <div class="d-flex flex-column gap-2" style="font-size:.83rem;">
         <div class="d-flex justify-content-between">
           <span class="text-muted">Ruangan</span>
-          <span class="fw-600">Ruang Multimedia</span>
+          <span class="fw-bold" id="infoNamaRuangan">Semua Ruangan</span>
         </div>
         <div class="d-flex justify-content-between">
           <span class="text-muted">Lokasi</span>
-          <span class="fw-600">Lantai 2</span>
+          <span class="fw-bold" id="infoLokasiRuangan">—</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Penanggung Jawab</span>
+          <span class="fw-bold" id="infoPJRuangan" style="font-size:.78rem;
+                text-align:right; max-width:160px;">—</span>
         </div>
         <div class="d-flex justify-content-between">
           <span class="text-muted">Server</span>
@@ -167,6 +172,48 @@
 
 {% block extra_js %}
 <script>
+async function updateInfoRuangan() {
+  const rid = getRuanganId();
+  const namaEl  = document.getElementById('infoNamaRuangan');
+  const lokasiEl = document.getElementById('infoLokasiRuangan');
+  const pjEl    = document.getElementById('infoPJRuangan');
+
+  if (!rid) {
+    namaEl.textContent   = 'Semua Ruangan';
+    lokasiEl.textContent = '—';
+    pjEl.textContent     = '—';
+    return;
+  }
+
+  try {
+    const res     = await fetch(`/ruangan/${rid}`);
+    const ruangan = await res.json();
+    namaEl.textContent = ruangan.nama;
+    lokasiEl.textContent = ruangan.lokasi
+      ? `${ruangan.lokasi} · Lt.${ruangan.lantai}`
+      : `Lantai ${ruangan.lantai || '—'}`;
+    pjEl.textContent = ruangan.penanggung_jawab?.length
+      ? ruangan.penanggung_jawab.map(p => p.nama).join(', ')
+      : 'Belum ditentukan';
+  } catch(e) {
+    namaEl.textContent = '—';
+  }
+}
+// ── Ikuti perubahan ruangan aktif ────────────────────────
+function getRuanganId() {
+  const saved = localStorage.getItem('ruangan_aktif');
+  return saved ? JSON.parse(saved).id : null;
+}
+
+window.addEventListener('ruanganChanged', () => {
+  // Panggil fungsi load utama halaman ini
+  loadDashboard?.();   // index.html
+  loadLog?.();         // log_akses.html
+  loadInv?.();         // inventaris.html
+  render?.();          // jadwal.html
+  loadRekaman?.();     // kamera.html
+});
+
 function fmtTime(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('id-ID', {
@@ -174,6 +221,7 @@ function fmtTime(iso) {
     hour:'2-digit', minute:'2-digit'
   });
 }
+
 function metodeBadge(m) {
   if (m === 'face')
     return '<span class="badge-role">Face</span>';
@@ -184,7 +232,13 @@ function metodeBadge(m) {
 
 async function loadDashboard() {
   try {
-    const logRes = await fetch('/log-akses/?ruangan_id=1&limit=10');
+    // ✅ SEBELUM: const logRes = await fetch('/log-akses/?ruangan_id=1&limit=10');
+    // ✅ SESUDAH:
+    const rid = getRuanganId();
+    const url = rid
+      ? `/log-akses/?ruangan_id=${rid}&limit=10`
+      : `/log-akses/?limit=10`;
+    const logRes = await fetch(url);
     const logs   = await logRes.json();
 
     const today     = new Date().toDateString();
@@ -245,6 +299,14 @@ async function loadDashboard() {
 }
 
 loadDashboard();
-setInterval(loadDashboard, 10000);
+  setInterval(loadDashboard, 10000);  
+  // Di dalam loadDashboard():
+  updateInfoRuangan();
+
+  // Di listener:
+  window.addEventListener('ruanganChanged', () => {
+    loadDashboard();
+    updateInfoRuangan();
+});
 </script>
 {% endblock %}

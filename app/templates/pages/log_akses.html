@@ -28,8 +28,8 @@
         <i class="bi bi-arrow-clockwise"></i>
         <span class="d-none d-sm-inline ms-1">Refresh</span>
       </button>
-      <a href="/log-akses/export/excel?ruangan_id=1"
-         class="btn btn-sm btn-success">
+      <!-- ✅ Export Excel juga menggunakan ruangan aktif -->
+      <a href="#" id="exportExcel" class="btn btn-sm btn-success">
         <i class="bi bi-file-earmark-excel"></i>
         <span class="d-none d-sm-inline ms-1">Excel</span>
       </a>
@@ -65,6 +65,21 @@
 
 {% block extra_js %}
 <script>
+// ── Ikuti perubahan ruangan aktif ────────────────────────
+function getRuanganId() {
+  const saved = localStorage.getItem('ruangan_aktif');
+  return saved ? JSON.parse(saved).id : null;
+}
+
+window.addEventListener('ruanganChanged', () => {
+  // Panggil fungsi load utama halaman ini
+  loadDashboard?.();   // index.html
+  loadLog?.();         // log_akses.html
+  loadInv?.();         // inventaris.html
+  render?.();          // jadwal.html
+  loadRekaman?.();     // kamera.html
+});
+
 function fmtTime(iso) {
   return new Date(iso).toLocaleString('id-ID', {
     day:'2-digit', month:'short', year:'numeric',
@@ -75,9 +90,16 @@ function fmtTime(iso) {
 async function loadLog() {
   const status = document.getElementById('filterStatus').value;
   const metode = document.getElementById('filterMetode').value;
-  let url = '/log-akses/?limit=100&ruangan_id=1';
-  if (status) url += '&status=' + status;
-  if (metode) url += '&metode=' + metode;
+  
+  // ✅ SEBELUM: let url = '/log-akses/?limit=100&ruangan_id=1';
+  // ✅ SESUDAH:
+  const rid = getRuanganId();
+  let url = rid
+    ? `/log-akses/?ruangan_id=${rid}&limit=100`
+    : `/log-akses/?limit=100`;
+    
+  if (status) url += `&status=${status}`;
+  if (metode) url += `&metode=${metode}`;
 
   try {
     const res  = await fetch(url);
@@ -92,9 +114,9 @@ async function loadLog() {
       return;
     }
 
-    tbody.innerHTML = data.map(l => `
+    tbody.innerHTML = data.map((l, index) => `
       <tr>
-        <td class="text-muted" style="font-size:.75rem;">${l.id}</td>
+        <td class="text-muted" style="font-size:.75rem;">${index + 1}</td>
         <td style="white-space:nowrap; font-size:.78rem;">${fmtTime(l.waktu_akses)}</td>
         <td>
           <div class="fw-bold" style="font-size:.83rem;">
@@ -131,9 +153,41 @@ async function loadLog() {
   }
 }
 
+// ✅ Update link export Excel secara dinamis
+function updateExportLink() {
+  const rid = getRuanganId();
+  const status = document.getElementById('filterStatus').value;
+  const metode = document.getElementById('filterMetode').value;
+  
+  let url = rid
+    ? `/log-akses/export/excel?ruangan_id=${rid}`
+    : `/log-akses/export/excel`;
+    
+  if (status) url += `&status=${status}`;
+  if (metode) url += `&metode=${metode}`;
+  
+  document.getElementById('exportExcel').href = url;
+}
+
+// Inisialisasi
 loadLog();
 setInterval(loadLog, 15000);
-document.getElementById('filterStatus').addEventListener('change', loadLog);
-document.getElementById('filterMetode').addEventListener('change', loadLog);
+document.getElementById('filterStatus').addEventListener('change', () => {
+  loadLog();
+  updateExportLink();
+});
+document.getElementById('filterMetode').addEventListener('change', () => {
+  loadLog();
+  updateExportLink();
+});
+
+// Update export link saat ruangan berubah
+window.addEventListener('ruanganChanged', updateExportLink);
+updateExportLink();
+// ── Listener perubahan ruangan ────────────────────────
+window.addEventListener('ruanganChanged', () => {
+  loadLog();
+  updateExportLink();
+});
 </script>
 {% endblock %}

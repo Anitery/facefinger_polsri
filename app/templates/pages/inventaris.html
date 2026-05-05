@@ -146,6 +146,21 @@
 
 {% block extra_js %}
 <script>
+// ── Ikuti perubahan ruangan aktif ────────────────────────
+function getRuanganId() {
+  const saved = localStorage.getItem('ruangan_aktif');
+  return saved ? JSON.parse(saved).id : null;
+}
+
+window.addEventListener('ruanganChanged', () => {
+  // Panggil fungsi load utama halaman ini
+  loadDashboard?.();   // index.html
+  loadLog?.();         // log_akses.html
+  loadInv?.();         // inventaris.html
+  render?.();          // jadwal.html
+  loadRekaman?.();     // kamera.html
+});
+
 let editAlatMode = false;
 
 function statusStyle(s) {
@@ -153,6 +168,7 @@ function statusStyle(s) {
   if (s === 'dipinjam') return 'background:#fef9c3;color:#a16207';
   return 'background:#fee2e2;color:#b91c1c';
 }
+
 function statusIcon(s) {
   if (s === 'tersedia') return 'bi-check-circle-fill text-success';
   if (s === 'dipinjam') return 'bi-arrow-left-right text-warning';
@@ -189,12 +205,14 @@ function openEditAlat(a) {
 
 async function simpanAlat() {
   const id   = document.getElementById('editAlatId').value;
+  // ✅ Menggunakan getRuanganId() untuk ruangan_id
+  const rid = getRuanganId();
   const body = {
     kode_barcode: document.getElementById('iBarcode').value.trim(),
     nama_alat:    document.getElementById('iNama').value.trim(),
     jumlah:       parseInt(document.getElementById('iJumlah').value),
     keterangan:   document.getElementById('iKet').value.trim() || null,
-    ruangan_id:   1,
+    ruangan_id:   rid || 1,  // fallback ke 1 jika tidak ada ruangan aktif
   };
   const alertEl = document.getElementById('alertAlat');
   if (!body.kode_barcode || !body.nama_alat) {
@@ -232,6 +250,7 @@ function openModalStatus(id, nama) {
   document.getElementById('statusNama').textContent = nama;
   new bootstrap.Modal(document.getElementById('modalStatus')).show();
 }
+
 async function setStatus(status) {
   const id = document.getElementById('statusAlatId').value;
   await fetch(`/inventaris/${id}/status?status=${status}`, { method:'PATCH' });
@@ -247,7 +266,13 @@ async function hapusAlat(id, nama) {
 }
 
 async function loadInv() {
-  const res  = await fetch('/inventaris/');
+  // ✅ SEBELUM: const res  = await fetch('/inventaris/');
+  // ✅ SESUDAH:
+  const rid = getRuanganId();
+  const url = rid
+    ? `/inventaris/?ruangan_id=${rid}`
+    : `/inventaris/`;
+  const res  = await fetch(url);
   const data = await res.json();
 
   // Update stats
@@ -360,5 +385,9 @@ document.getElementById('scanInput').addEventListener('keydown', async e => {
 });
 
 loadInv();
+// ── Listener perubahan ruangan ────────────────────────
+window.addEventListener('ruanganChanged', () => {
+  loadInv();
+});
 </script>
 {% endblock %}

@@ -272,10 +272,13 @@
 
     {# Tombol Pengguna HANYA muncul untuk admin #}
     {% if user and user.role == 'admin' %}
-    <a href="/dashboard/pengguna"     class="nav-link {% if active=='pengguna' %}active{% endif %}">
+    <a href="/dashboard/pengguna"     class="nav-link {% if active=='pengguna'  %}active{% endif %}">
       <i class="bi bi-people"></i> Pengguna
     </a>
-    <a href="/dashboard/enroll-wajah" class="nav-link {% if active=='enroll' %}active{% endif %}">
+    <a href="/dashboard/ruangan"      class="nav-link {% if active=='ruangan'   %}active{% endif %}">
+      <i class="bi bi-building"></i> Ruangan
+    </a>
+    <a href="/dashboard/enroll-wajah" class="nav-link {% if active=='enroll'    %}active{% endif %}">
       <i class="bi bi-person-bounding-box"></i> Enroll Wajah
     </a>
     {% endif %}
@@ -321,7 +324,44 @@
         <i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>Online
       </span>
     </div>
-
+    <!-- Dropdown pilih ruangan — hanya tampil jika ada ruangan -->
+    {% if ruangan_list %}
+    <div class="dropdown d-none d-md-block">
+      <button class="btn btn-sm d-flex align-items-center gap-2"
+              style="background:#f1f5f9; border:1px solid #e2e8f0;
+                    border-radius:8px; padding:5px 12px; font-size:.82rem;"
+              data-bs-toggle="dropdown">
+        <i class="bi bi-building text-primary"></i>
+        <span id="namaRuanganAktif" style="max-width:160px; overflow:hidden;
+              text-overflow:ellipsis; white-space:nowrap; font-weight:600;
+              color:#1e293b;">Semua Ruangan</span>
+        <i class="bi bi-chevron-down" style="font-size:.65rem; color:#94a3b8;"></i>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end shadow"
+          style="min-width:220px; max-height:320px; overflow-y:auto;
+                border-radius:10px; font-size:.84rem;">
+        <li>
+          <a class="dropdown-item py-2" href="#"
+            onclick="pilihRuangan(null, 'Semua Ruangan')">
+            <i class="bi bi-grid me-2 text-muted"></i>Semua Ruangan
+          </a>
+        </li>
+        <li><hr class="dropdown-divider my-1"></li>
+        {% for r in ruangan_list %}
+        <li>
+          <a class="dropdown-item py-2 ruangan-item"
+            href="#"
+            data-id="{{ r.id }}"
+            data-nama="{{ r.nama }}">
+            <i class="bi bi-door-open me-2 text-primary"></i>
+            <span>{{ r.nama }}</span>
+            <small class="text-muted ms-1">L{{ r.lantai }}</small>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     <!-- Kanan: bell + user -->
     <div class="topbar-right">
       {% if user %}
@@ -387,6 +427,7 @@
   </div>
   <!-- END TOPBAR -->
 
+  
   <div class="content-area">
     {% block content %}{% endblock %}
   </div>
@@ -429,7 +470,11 @@ let unreadCount = 0;
 
 async function checkNotif() {
   try {
-    const res  = await fetch('/log-akses/?ruangan_id=1&limit=5');
+    const rid = getRuanganId();
+    const url = rid
+      ? `/log-akses/?ruangan_id=${rid}&limit=10`
+      : `/log-akses/?limit=10`;
+    const res = await fetch(url);
     const logs = await res.json();
     if (!Array.isArray(logs) || !logs.length) return;
 
@@ -490,7 +535,48 @@ document.getElementById('notifBtn')?.addEventListener('click', markRead);
 setTimeout(checkNotif, 2000);
 setInterval(checkNotif, 8000);
 </script>
+<script>
+// ── Ruangan aktif (disimpan di localStorage) ─────────────
+function getRuanganAktif() {
+  const saved = localStorage.getItem('ruangan_aktif');
+  return saved ? JSON.parse(saved) : { id: null, nama: 'Semua Ruangan' };
+}
 
+function pilihRuangan(id, nama) {
+  const data = { id, nama };
+  localStorage.setItem('ruangan_aktif', JSON.stringify(data));
+
+  // Update teks dropdown
+  const el = document.getElementById('namaRuanganAktif');
+  if (el) el.textContent = nama;
+
+  // Dispatch event ke halaman aktif
+  window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
+
+  // Tutup dropdown Bootstrap
+  const dropdowns = document.querySelectorAll('.dropdown-menu.show');
+  dropdowns.forEach(d => d.classList.remove('show'));
+}
+
+// Init: set nama ruangan aktif di dropdown saat halaman load
+document.addEventListener('DOMContentLoaded', () => {
+  const aktif = getRuanganAktif();
+  const el = document.getElementById('namaRuanganAktif');
+  if (el) el.textContent = aktif.nama;
+});
+</script>
+<script>
+// ── Event handler untuk dropdown ruangan (TAMBAHAN) ──────
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.ruangan-item')) {
+    e.preventDefault();
+    const item = e.target.closest('.ruangan-item');
+    const id = item.dataset.id;
+    const nama = item.dataset.nama;
+    pilihRuangan(id, nama);
+  }
+});
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

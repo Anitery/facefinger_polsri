@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -36,99 +38,127 @@ def get_session(request: Request):
         return None
     return decode_session_token(token)
 
+# ── Helper: ambil daftar ruangan untuk dropdown ───────────
+def get_ruangan_list(db):
+    from app.models.models import Ruangan as RuanganModel
+    return db.query(RuanganModel).filter(
+        RuanganModel.aktif == True
+    ).order_by(RuanganModel.id).all()
 
-# ── Dashboard routes (semua dilindungi login) ─────────────
+
+# ── Dashboard routes ──────────────────────────────────────
 @app.get("/dashboard")
-def dashboard_home(request: Request):
+def dashboard_home(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="pages/index.html",
-        context={"active": "home", "user": user}
+        context={"active": "home", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/dashboard/log-akses")
-def dashboard_log(request: Request):
+def dashboard_log(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="pages/log_akses.html",
-        context={"active": "log", "user": user}
+        context={"active": "log", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/dashboard/pengguna")
-def dashboard_pengguna(request: Request):
+def dashboard_pengguna(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    # Hanya admin yang bisa akses manajemen pengguna
     if user.get("role") != "admin":
-        return RedirectResponse("/dashboard?error=forbidden", status_code=302)
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="pages/pengguna.html",
-        context={"active": "pengguna", "user": user}
-    )
-
-@app.get("/dashboard/enroll-wajah")
-def dashboard_enroll(request: Request):
-    user = get_session(request)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-    if user.get("role") != "admin":
-        return RedirectResponse("/dashboard?error=forbidden", status_code=302)
-    return templates.TemplateResponse(
-        request=request,
-        name="pages/enroll_wajah.html",
-        context={"active": "enroll", "user": user}
+        context={"active": "pengguna", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/dashboard/inventaris")
-def dashboard_inventaris(request: Request):
+def dashboard_inventaris(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="pages/inventaris.html",
-        context={"active": "inventaris", "user": user}
+        context={"active": "inventaris", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/ruangan")
+def dashboard_ruangan(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user.get("role") != "admin":
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="pages/ruangan.html",
+        context={"active": "ruangan", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/dashboard/kamera")
-def dashboard_kamera(request: Request):
+def dashboard_kamera(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="pages/kamera.html",
-        context={"active": "kamera", "user": user}
-    )
-
-@app.get("/dashboard/profil")
-def dashboard_profil(request: Request):
-    user = get_session(request)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse(
-        request=request,
-        name="pages/profil.html",
-        context={"active": "profil", "user": user}
+        context={"active": "kamera", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/dashboard/jadwal")
-def dashboard_jadwal(request: Request):
+def dashboard_jadwal(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="pages/jadwal.html",
-        context={"active": "jadwal", "user": user}
+        context={"active": "jadwal", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/profil")
+def dashboard_profil(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="pages/profil.html",
+        context={"active": "profil", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/enroll-wajah")
+def dashboard_enroll(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user.get("role") != "admin":
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="pages/enroll_wajah.html",
+        context={"active": "enroll", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/")

@@ -97,6 +97,21 @@
 
 {% block extra_js %}
 <script>
+// ── Ikuti perubahan ruangan aktif ────────────────────────
+function getRuanganId() {
+  const saved = localStorage.getItem('ruangan_aktif');
+  return saved ? JSON.parse(saved).id : null;
+}
+
+window.addEventListener('ruanganChanged', () => {
+  // Panggil fungsi load utama halaman ini
+  loadDashboard?.();   // index.html
+  loadLog?.();         // log_akses.html
+  loadInv?.();         // inventaris.html
+  render?.();          // jadwal.html
+  loadRekaman?.();     // kamera.html
+});
+
 let currentRekamanId = null;
 
 function fmtDateTime(iso) {
@@ -106,6 +121,7 @@ function fmtDateTime(iso) {
     hour:'2-digit', minute:'2-digit', second:'2-digit'
   });
 }
+
 function fmtDurasi(mulai, selesai) {
   if (!mulai || !selesai) return '—';
   const d = Math.round((new Date(selesai) - new Date(mulai)) / 1000);
@@ -117,7 +133,13 @@ function fmtDurasi(mulai, selesai) {
 async function loadRekaman() {
   const limit = document.getElementById('filterLimit').value;
   try {
-    const res  = await fetch(`/kamera/rekaman?ruangan_id=1&limit=${limit}`);
+    // ✅ SEBELUM: const res  = await fetch(`/kamera/rekaman?ruangan_id=1&limit=${limit}`);
+    // ✅ SESUDAH:
+    const rid = getRuanganId();
+    const url = rid
+      ? `/kamera/rekaman?ruangan_id=${rid}&limit=${limit}`
+      : `/kamera/rekaman?limit=${limit}`;
+    const res  = await fetch(url);
     const data = await res.json();
 
     // Update status dot
@@ -255,5 +277,9 @@ document.getElementById('modalPlayer').addEventListener('hidden.bs.modal', () =>
 // Load pertama + auto-refresh tiap 60 detik
 loadRekaman();
 setInterval(loadRekaman, 60000);
+// ── Listener perubahan ruangan ────────────────────────
+window.addEventListener('ruanganChanged', () => {
+  loadRekaman();
+});
 </script>
 {% endblock %}

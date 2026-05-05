@@ -12,10 +12,17 @@ class RuanganBase(BaseModel):
 class RuanganCreate(RuanganBase):
     pass
 
-class RuanganOut(RuanganBase):
-    id: int
-    aktif: bool
+class PenanggungJawabInfo(BaseModel):
+    id:     int
+    nama:   str
+    nim_nip: str
+    role:   str
+    model_config = {"from_attributes": True}
 
+class RuanganOut(RuanganBase):
+    id:    int
+    aktif: bool
+    penanggung_jawab: list[PenanggungJawabInfo] = []
     model_config = {"from_attributes": True}
 
 

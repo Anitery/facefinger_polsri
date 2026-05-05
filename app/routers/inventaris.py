@@ -1,16 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import InventarisAlat
 from app.schemas import InventarisCreate, InventarisOut
+from typing import Optional
 
 router = APIRouter(prefix="/inventaris", tags=["Inventaris"])
 
 
 @router.get("/", response_model=list[InventarisOut])
-def get_inventaris(db: Session = Depends(get_db)):
-    return db.query(InventarisAlat).all()
-
+def get_inventaris(
+    ruangan_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(InventarisAlat)
+    if ruangan_id:
+        q = q.filter(InventarisAlat.ruangan_id == ruangan_id)
+    return q.all()
 
 @router.get("/barcode/{kode}", response_model=InventarisOut)
 def get_by_barcode(kode: str, db: Session = Depends(get_db)):

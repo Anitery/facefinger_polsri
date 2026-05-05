@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+{% block title %}Ruangan{% endblock %}
+{% block page_title %}Manajemen Ruangan{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <p class="text-muted mb-0" style="font-size:.84rem;">
+    Kelola 12 ruangan/laboratorium Jurusan Teknik Komputer.
+  </p>
+  <button class="btn btn-primary btn-sm" onclick="openModalRuangan()">
+    <i class="bi bi-plus-lg me-1"></i>Tambah Ruangan
+  </button>
+</div>
+
+<!-- Grid ruangan -->
+<div class="row g-3" id="ruanganGrid">
+  <div class="col-12 text-center text-muted py-4">Memuat...</div>
+</div>
+
+<!-- ══ Modal Tambah/Edit Ruangan ══ -->
+<div class="modal fade" id="modalRuangan" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;" id="modalRuanganTitle">
+          <i class="bi bi-building me-2"></i>Tambah Ruangan
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="editRuanganId">
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Nama Ruangan
+          </label>
+          <input class="form-control" id="rNama"
+                 placeholder="contoh: Lab Pemrograman 1">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Lokasi</label>
+          <input class="form-control" id="rLokasi"
+                 placeholder="contoh: Gedung A Lantai 2">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Lantai</label>
+          <input type="number" class="form-control" id="rLantai"
+                 min="1" max="10" value="1">
+        </div>
+        <div id="alertRuangan"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="simpanRuangan()">
+          <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Kelola Penanggung Jawab ══ -->
+<div class="modal fade" id="modalPJ" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;">
+          <i class="bi bi-person-badge me-2"></i>
+          Penanggung Jawab —
+          <span id="pjNamaRuangan"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="pjRuanganId">
+
+        <!-- Daftar PJ saat ini -->
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Penanggung Jawab Saat Ini
+          </label>
+          <div id="listPJ" class="d-flex flex-column gap-2">
+            <div class="text-muted" style="font-size:.83rem;">
+              Belum ada penanggung jawab
+            </div>
+          </div>
+        </div>
+
+        <hr>
+
+        <!-- Tambah PJ baru -->
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Tambah Penanggung Jawab
+          </label>
+          <select class="form-select" id="selectPJ">
+            <option value="">— Pilih dosen / teknisi —</option>
+          </select>
+          <div class="form-text">
+            Hanya menampilkan user dengan role dosen, teknisi, atau admin.
+          </div>
+        </div>
+
+        <div id="alertPJ"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn btn-primary" onclick="tambahPJ()">
+          <i class="bi bi-plus-lg me-1"></i>Tambah
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let editRuanganMode = false;
+let allUsers        = [];
+const LANTAI_COLOR  = ['','#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444'];
+const ROLE_ICON     = {
+  admin: 'bi-shield-fill text-danger',
+  teknisi: 'bi-tools text-warning',
+  dosen: 'bi-mortarboard-fill text-primary'
+};
+
+// ── Load semua user (untuk dropdown PJ) ─────────────────
+async function loadAllUsers() {
+  const res  = await fetch('/users/');
+  const data = await res.json();
+  // Filter hanya yang bisa jadi PJ
+  allUsers = data.filter(u =>
+    ['dosen','teknisi','admin'].includes(u.role) && u.aktif
+  );
+}
+
+// ── Load dan render daftar ruangan ───────────────────────
+async function loadRuangan() {
+  const res  = await fetch('/ruangan/');
+  const data = await res.json();
+  const grid = document.getElementById('ruanganGrid');
+
+  if (!data.length) {
+    grid.innerHTML =
+      '<div class="col-12 text-center text-muted py-4">Belum ada ruangan</div>';
+    return;
+  }
+
+  grid.innerHTML = data.map(r => {
+    const color = LANTAI_COLOR[r.lantai] || '#64748b';
+    const pjList = r.penanggung_jawab || [];
+
+    return `
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="section-card p-3 h-100 d-flex flex-column">
+
+          <!-- Header -->
+          <div class="d-flex align-items-start gap-2 mb-2">
+            <div style="width:40px;height:40px;border-radius:10px;
+                        background:${color}20;display:flex;
+                        align-items:center;justify-content:center;
+                        font-size:1.1rem;color:${color};flex-shrink:0;">
+              <i class="bi bi-door-open"></i>
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-bold" style="font-size:.87rem;color:#1e293b;
+                   line-height:1.3;">${r.nama}</div>
+              <div style="font-size:.72rem;color:#64748b;">
+                ${r.lokasi||'—'} · Lantai ${r.lantai||'—'}
+              </div>
+            </div>
+            <span style="font-size:.67rem;font-weight:600;padding:2px 8px;
+                         border-radius:20px;flex-shrink:0;
+                         ${r.aktif
+                           ? 'background:#dcfce7;color:#15803d;'
+                           : 'background:#fee2e2;color:#b91c1c;'}">
+              ${r.aktif ? 'Aktif' : 'Nonaktif'}
+            </span>
+          </div>
+
+          <!-- Penanggung Jawab -->
+          <div class="mb-3 flex-grow-1">
+            <div style="font-size:.72rem;font-weight:700;color:#94a3b8;
+                        text-transform:uppercase;letter-spacing:.05em;
+                        margin-bottom:6px;">
+              Penanggung Jawab
+            </div>
+            ${pjList.length === 0
+              ? `<div style="font-size:.78rem;color:#94a3b8;
+                             font-style:italic;">Belum ditentukan</div>`
+              : pjList.map(pj => `
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <div style="width:26px;height:26px;border-radius:50%;
+                                background:linear-gradient(135deg,#1F3864,#2E75B6);
+                                display:flex;align-items:center;justify-content:center;
+                                color:#fff;font-size:.65rem;font-weight:700;
+                                flex-shrink:0;">
+                      ${pj.nama[0].toUpperCase()}
+                    </div>
+                    <div style="font-size:.78rem;flex:1;min-width:0;
+                                overflow:hidden;text-overflow:ellipsis;
+                                white-space:nowrap;">
+                      <span class="fw-600">${pj.nama}</span>
+                      <span style="color:#94a3b8;"> · ${pj.role}</span>
+                    </div>
+                  </div>`).join('')}
+          </div>
+
+          <!-- Aksi -->
+          <div class="d-flex gap-1">
+            <button class="btn btn-outline-info btn-sm flex-fill"
+                    onclick="openModalPJ(${r.id}, '${r.nama.replace(/'/g,"\\'")}',
+                             ${JSON.stringify(pjList).replace(/'/g,"\\'")})"
+                    title="Kelola Penanggung Jawab">
+              <i class="bi bi-person-badge me-1"></i>PJ
+            </button>
+            <button class="btn btn-outline-primary btn-sm"
+                    onclick='openEditRuangan(${JSON.stringify(r)})'
+                    title="Edit">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm
+                    ${r.aktif ? 'btn-outline-danger':'btn-outline-success'}"
+                    onclick="toggleRuangan(${r.id},
+                             '${r.nama.replace(/'/g,"\\'")}', ${r.aktif})"
+                    title="${r.aktif ? 'Nonaktifkan':'Aktifkan'}">
+              <i class="bi ${r.aktif ? 'bi-pause-circle':'bi-play-circle'}"></i>
+            </button>
+          </div>
+
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Modal Tambah Ruangan ─────────────────────────────────
+function openModalRuangan() {
+  editRuanganMode = false;
+  ['editRuanganId','rNama','rLokasi'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('rLantai').value = '1';
+  document.getElementById('alertRuangan').innerHTML = '';
+  document.getElementById('modalRuanganTitle').innerHTML =
+    '<i class="bi bi-building me-2"></i>Tambah Ruangan';
+  new bootstrap.Modal(document.getElementById('modalRuangan')).show();
+}
+
+function openEditRuangan(r) {
+  editRuanganMode = true;
+  document.getElementById('editRuanganId').value = r.id;
+  document.getElementById('rNama').value         = r.nama;
+  document.getElementById('rLokasi').value       = r.lokasi || '';
+  document.getElementById('rLantai').value       = r.lantai || 1;
+  document.getElementById('alertRuangan').innerHTML = '';
+  document.getElementById('modalRuanganTitle').innerHTML =
+    '<i class="bi bi-pencil me-2"></i>Edit Ruangan';
+  new bootstrap.Modal(document.getElementById('modalRuangan')).show();
+}
+
+async function simpanRuangan() {
+  const id   = document.getElementById('editRuanganId').value;
+  const body = {
+    nama:   document.getElementById('rNama').value.trim(),
+    lokasi: document.getElementById('rLokasi').value.trim() || null,
+    lantai: parseInt(document.getElementById('rLantai').value),
+  };
+  const alertEl = document.getElementById('alertRuangan');
+  if (!body.nama) {
+    alertEl.innerHTML =
+      '<div class="alert alert-danger py-2">Nama wajib diisi.</div>';
+    return;
+  }
+
+  const res = editRuanganMode
+    ? await fetch(`/ruangan/${id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      })
+    : await fetch('/ruangan/', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+
+  if (res.ok) {
+    alertEl.innerHTML =
+      '<div class="alert alert-success py-2">Tersimpan!</div>';
+    loadRuangan();
+    setTimeout(() => {
+      bootstrap.Modal.getInstance(
+        document.getElementById('modalRuangan')).hide();
+    }, 900);
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML =
+      `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function toggleRuangan(id, nama, aktif) {
+  const aksi = aktif ? 'nonaktifkan' : 'aktifkan';
+  if (!confirm(`${aksi.charAt(0).toUpperCase()+aksi.slice(1)} "${nama}"?`))
+    return;
+  await fetch(`/ruangan/${id}/toggle`, { method:'PATCH' });
+  loadRuangan();
+}
+
+// ── Modal Kelola Penanggung Jawab ────────────────────────
+function openModalPJ(ruanganId, namRuangan, currentPJ) {
+  document.getElementById('pjRuanganId').value        = ruanganId;
+  document.getElementById('pjNamaRuangan').textContent = namRuangan;
+  document.getElementById('alertPJ').innerHTML         = '';
+
+  // Render daftar PJ saat ini
+  renderListPJ(ruanganId, currentPJ);
+
+  // Isi dropdown — filter user yang belum jadi PJ di ruangan ini
+  const pjIds   = currentPJ.map(p => p.id);
+  const options = allUsers
+    .filter(u => !pjIds.includes(u.id))
+    .map(u =>
+      `<option value="${u.id}">[${u.role}] ${u.nama} — ${u.nim_nip}</option>`
+    ).join('');
+
+  document.getElementById('selectPJ').innerHTML =
+    `<option value="">— Pilih dosen / teknisi —</option>${options}`;
+
+  new bootstrap.Modal(document.getElementById('modalPJ')).show();
+}
+
+function renderListPJ(ruanganId, pjList) {
+  const el = document.getElementById('listPJ');
+  if (!pjList.length) {
+    el.innerHTML = `<div class="text-muted" style="font-size:.83rem;">
+      Belum ada penanggung jawab</div>`;
+    return;
+  }
+
+  el.innerHTML = pjList.map(pj => `
+    <div class="d-flex align-items-center gap-2 p-2 rounded-3"
+         style="background:#f8fafc; border:1px solid #e2e8f0;">
+      <div style="width:34px;height:34px;border-radius:50%;
+                  background:linear-gradient(135deg,#1F3864,#2E75B6);
+                  display:flex;align-items:center;justify-content:center;
+                  color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0;">
+        ${pj.nama[0].toUpperCase()}
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-bold" style="font-size:.84rem;">${pj.nama}</div>
+        <div style="font-size:.72rem;color:#64748b;">
+          ${pj.nim_nip} · ${pj.role}
+        </div>
+      </div>
+      <button class="btn btn-outline-danger btn-sm"
+              onclick="hapusPJ(${ruanganId}, ${pj.id}, '${pj.nama.replace(/'/g,"\\'")}')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>`).join('');
+}
+
+async function tambahPJ() {
+  const ruanganId = document.getElementById('pjRuanganId').value;
+  const userId    = document.getElementById('selectPJ').value;
+  const alertEl   = document.getElementById('alertPJ');
+
+  if (!userId) {
+    alertEl.innerHTML =
+      '<div class="alert alert-warning py-2">Pilih dosen/teknisi terlebih dahulu.</div>';
+    return;
+  }
+
+  const res = await fetch(
+    `/ruangan/${ruanganId}/penanggung-jawab/${userId}`,
+    { method: 'POST' }
+  );
+
+  if (res.ok) {
+    const data = await res.json();
+    alertEl.innerHTML =
+      `<div class="alert alert-success py-2">${data.pesan}</div>`;
+
+    // Refresh data ruangan dan update modal
+    const ruanganRes = await fetch(`/ruangan/${ruanganId}`);
+    const ruangan    = await ruanganRes.json();
+    renderListPJ(ruanganId, ruangan.penanggung_jawab);
+
+    // Update dropdown — hapus yang baru ditambahkan
+    const opt = document.querySelector(`#selectPJ option[value="${userId}"]`);
+    if (opt) opt.remove();
+    document.getElementById('selectPJ').value = '';
+
+    // Refresh grid ruangan di background
+    loadRuangan();
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML =
+      `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function hapusPJ(ruanganId, userId, nama) {
+  if (!confirm(`Hapus ${nama} dari penanggung jawab ruangan ini?`)) return;
+
+  const res = await fetch(
+    `/ruangan/${ruanganId}/penanggung-jawab/${userId}`,
+    { method: 'DELETE' }
+  );
+
+  if (res.ok) {
+    // Refresh modal PJ
+    const ruanganRes = await fetch(`/ruangan/${ruanganId}`);
+    const ruangan    = await ruanganRes.json();
+    renderListPJ(ruanganId, ruangan.penanggung_jawab);
+
+    // Kembalikan user ke dropdown
+    const user = allUsers.find(u => u.id === userId);
+    if (user) {
+      const opt = document.createElement('option');
+      opt.value       = user.id;
+      opt.textContent = `[${user.role}] ${user.nama} — ${user.nim_nip}`;
+      document.getElementById('selectPJ').appendChild(opt);
+    }
+
+    // Refresh grid
+    loadRuangan();
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────
+Promise.all([loadAllUsers(), loadRuangan()]);
+</script>
+{% endblock %}
