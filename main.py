@@ -5,8 +5,8 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.database import engine, Base
-from app.routers import auth, users, logs, inventaris, ruangan, jadwal, login as login_router, kamera as kamera_router
-
+from app.routers import auth, users, logs, inventaris, ruangan, jadwal, \
+                        login as login_router, kamera as kamera_router, setup
 
 Base.metadata.create_all(bind=engine)
 
@@ -28,6 +28,7 @@ app.include_router(inventaris.router)
 app.include_router(ruangan.router)
 app.include_router(jadwal.router)
 app.include_router(kamera_router.router)
+app.include_router(setup.router)
 
 
 # ── Helper: cek session ───────────────────────────────────
