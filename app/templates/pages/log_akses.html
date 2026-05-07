@@ -4,190 +4,458 @@
 
 {% block content %}
 
-<!-- Filter bar — stack di mobile -->
-<div class="section-card mb-3 p-3">
+<!-- ── Toolbar filter ── -->
+<div class="section-card p-3 mb-3">
   <div class="row g-2 align-items-end">
-    <div class="col-6 col-sm-auto">
-      <label class="form-label mb-1" style="font-size:.78rem; color:#64748b;">Status</label>
+
+    <!-- Filter tanggal dari -->
+    <div class="col-6 col-sm-3 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
+        Dari Tanggal
+      </label>
+      <input type="date" class="form-control form-control-sm" id="filterDari">
+    </div>
+
+    <!-- Filter tanggal sampai -->
+    <div class="col-6 col-sm-3 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
+        Sampai Tanggal
+      </label>
+      <input type="date" class="form-control form-control-sm" id="filterSampai">
+    </div>
+
+    <!-- Filter status -->
+    <div class="col-6 col-sm-3 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
+        Status
+      </label>
       <select class="form-select form-select-sm" id="filterStatus">
-        <option value="">Semua</option>
+        <option value="">Semua Status</option>
         <option value="berhasil">Berhasil</option>
         <option value="ditolak">Ditolak</option>
       </select>
     </div>
-    <div class="col-6 col-sm-auto">
-      <label class="form-label mb-1" style="font-size:.78rem; color:#64748b;">Metode</label>
+
+    <!-- Filter metode -->
+    <div class="col-6 col-sm-3 col-lg-2">
+      <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
+        Metode
+      </label>
       <select class="form-select form-select-sm" id="filterMetode">
-        <option value="">Semua</option>
-        <option value="face">Face</option>
+        <option value="">Semua Metode</option>
+        <option value="face">Face Recognition</option>
         <option value="fingerprint">Fingerprint</option>
       </select>
     </div>
-    <div class="col-auto ms-auto d-flex gap-2">
-      <button class="btn btn-sm btn-primary" onclick="loadLog()">
-        <i class="bi bi-arrow-clockwise"></i>
-        <span class="d-none d-sm-inline ms-1">Refresh</span>
-      </button>
-      <!-- ✅ Export Excel juga menggunakan ruangan aktif -->
-      <a href="#" id="exportExcel" class="btn btn-sm btn-success">
-        <i class="bi bi-file-earmark-excel"></i>
-        <span class="d-none d-sm-inline ms-1">Excel</span>
-      </a>
+
+    <!-- Tombol aksi -->
+    <div class="col-12 col-lg-4">
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm btn-primary" onclick="loadLog()">
+          <i class="bi bi-search me-1"></i>Filter
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="resetFilter()">
+          <i class="bi bi-x-circle me-1"></i>Reset
+        </button>
+        <a id="exportExcel" href="#" class="btn btn-sm btn-success">
+          <i class="bi bi-file-earmark-excel me-1"></i>
+          <span class="d-none d-sm-inline">Excel</span>
+        </a>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-sm btn-outline-danger d-none"
+                  id="btnHapusTerpilih" onclick="hapusTerpilih()">
+            <i class="bi bi-trash me-1"></i>
+            Hapus (<span id="jumlahTerpilih">0</span>)
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="hapusSemua()">
+            <i class="bi bi-trash3 me-1"></i>
+            <span class="d-none d-sm-inline">Hapus Semua</span>
+          </button>
+        </div>
+      </div>
     </div>
+
   </div>
 </div>
 
-<!-- Tabel -->
+<!-- ── Info bar ── -->
+<div class="d-flex align-items-center justify-content-between mb-2 px-1
+            flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-3">
+    <!-- Checkbox pilih semua -->
+    <div class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" id="checkAll"
+             onchange="toggleAll(this.checked)">
+      <label class="form-check-label" for="checkAll"
+             style="font-size:.82rem; color:#64748b;">
+        Pilih Semua
+      </label>
+    </div>
+    <small class="text-muted" id="logInfo" style="font-size:.76rem;">—</small>
+  </div>
+  <small class="text-muted" style="font-size:.73rem;">
+    Auto-refresh 30 detik
+  </small>
+</div>
+
+<!-- ── Tabel ── -->
 <div class="tbl-wrap">
   <div style="overflow-x:auto;">
-    <table class="table table-hover mb-0" style="min-width:520px;">
+    <table class="table table-hover mb-0" style="min-width:560px;">
       <thead>
         <tr>
-          <th>#</th>
+          <th style="width:40px;">
+            <input class="form-check-input" type="checkbox"
+                   id="checkAllHeader" onchange="toggleAll(this.checked)">
+          </th>
+          <th>No</th>
           <th>Waktu</th>
           <th>Nama</th>
           <th>Metode</th>
           <th>Status</th>
           <th>Keterangan</th>
+          <th style="width:60px; text-align:center;">Aksi</th>
         </tr>
       </thead>
       <tbody id="logBody">
-        <tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr>
+        <tr>
+          <td colspan="8" class="text-center py-4 text-muted">Memuat...</td>
+        </tr>
       </tbody>
     </table>
   </div>
-  <div class="px-3 py-2 border-top d-flex justify-content-between align-items-center">
-    <small class="text-muted" id="logInfo" style="font-size:.76rem;">—</small>
-    <small class="text-muted" style="font-size:.73rem;">Auto-refresh 15s</small>
+  <div class="px-3 py-2 border-top d-flex justify-content-between
+              align-items-center flex-wrap gap-2">
+    <small class="text-muted" id="logFooter" style="font-size:.76rem;">—</small>
+    <small class="text-muted" style="font-size:.73rem;">
+      Maks. 1000 entri per load
+    </small>
   </div>
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// ── Ikuti perubahan ruangan aktif ────────────────────────
+// ── State ────────────────────────────────────────────────
+let allLogs      = [];
+let selectedIds  = new Set();
+let autoRefTimer = null;
+
+// ── Helper ───────────────────────────────────────────────
 function getRuanganId() {
-  const saved = localStorage.getItem('ruangan_aktif');
-  return saved ? JSON.parse(saved).id : null;
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s).id : null;
 }
 
-window.addEventListener('ruanganChanged', () => {
-  // Panggil fungsi load utama halaman ini
-  loadDashboard?.();   // index.html
-  loadLog?.();         // log_akses.html
-  loadInv?.();         // inventaris.html
-  render?.();          // jadwal.html
-  loadRekaman?.();     // kamera.html
-});
-
-function fmtTime(iso) {
+function fmtDateTime(iso) {
   return new Date(iso).toLocaleString('id-ID', {
     day:'2-digit', month:'short', year:'numeric',
     hour:'2-digit', minute:'2-digit', second:'2-digit'
   });
 }
 
-async function loadLog() {
+function buildParams() {
+  const rid    = getRuanganId();
+  const dari   = document.getElementById('filterDari').value;
+  const sampai = document.getElementById('filterSampai').value;
   const status = document.getElementById('filterStatus').value;
   const metode = document.getElementById('filterMetode').value;
-  
-  // ✅ SEBELUM: let url = '/log-akses/?limit=100&ruangan_id=1';
-  // ✅ SESUDAH:
-  const rid = getRuanganId();
-  let url = rid
-    ? `/log-akses/?ruangan_id=${rid}&limit=100`
-    : `/log-akses/?limit=100`;
-    
-  if (status) url += `&status=${status}`;
-  if (metode) url += `&metode=${metode}`;
 
+  const p = new URLSearchParams();
+  if (rid)    p.set('ruangan_id',     rid);
+  if (dari)   p.set('tanggal_dari',   dari);
+  if (sampai) p.set('tanggal_sampai', sampai);
+  if (status) p.set('status',         status);
+  if (metode) p.set('metode',         metode);
+  p.set('limit', '1000');
+  return p;
+}
+
+// ── Load log ─────────────────────────────────────────────
+async function loadLog() {
+  const params = buildParams();
   try {
-    const res  = await fetch(url);
-    const data = await res.json();
-    document.getElementById('logInfo').textContent = `${data.length} entri`;
+    const res  = await fetch(`/log-akses/?${params}`);
+    allLogs    = await res.json();
 
-    const tbody = document.getElementById('logBody');
-    if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted">
-        <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;"></i>Tidak ada data
+    // Reset pilihan saat reload
+    selectedIds.clear();
+    updateBulkUI();
+    document.getElementById('checkAll').checked       = false;
+    document.getElementById('checkAllHeader').checked = false;
+
+    renderLog();
+    updateExportLink();
+
+  } catch(e) {
+    document.getElementById('logBody').innerHTML =
+      '<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat data</td></tr>';
+  }
+}
+
+// ── Render tabel ─────────────────────────────────────────
+function renderLog() {
+  const tbody = document.getElementById('logBody');
+
+  // Update info
+  document.getElementById('logInfo').textContent =
+    `${allLogs.length} entri ditemukan`;
+  document.getElementById('logFooter').textContent =
+    `Menampilkan ${allLogs.length} log`;
+
+  if (!allLogs.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="8" class="text-center py-5 text-muted">
+        <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;"></i>
+        Tidak ada log akses
       </td></tr>`;
-      return;
-    }
+    return;
+  }
 
-    tbody.innerHTML = data.map((l, index) => `
-      <tr>
-        <td class="text-muted" style="font-size:.75rem;">${index + 1}</td>
-        <td style="white-space:nowrap; font-size:.78rem;">${fmtTime(l.waktu_akses)}</td>
+  tbody.innerHTML = allLogs.map((l, i) => {
+    const isChecked = selectedIds.has(l.id);
+    return `
+      <tr id="row_${l.id}" class="${isChecked ? 'table-active' : ''}">
+
+        <!-- Checkbox -->
+        <td>
+          <input class="form-check-input row-check" type="checkbox"
+                 value="${l.id}" ${isChecked ? 'checked' : ''}
+                 onchange="toggleRow(${l.id}, this.checked)">
+        </td>
+
+        <!-- No -->
+        <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+
+        <!-- Waktu -->
+        <td style="white-space:nowrap; font-size:.78rem;">
+          ${fmtDateTime(l.waktu_akses)}
+        </td>
+
+        <!-- Nama -->
         <td>
           <div class="fw-bold" style="font-size:.83rem;">
-            ${l.nama_user || '<span class="text-muted">Tidak dikenal</span>'}
+            ${l.nama_user ||
+              '<span class="text-muted fst-italic">Tidak dikenal</span>'}
           </div>
           ${l.nim_nip
             ? `<div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip}</div>`
             : ''}
         </td>
+
+        <!-- Metode -->
         <td>
           ${l.metode === 'face'
-            ? `<span class="badge-role"><i class="bi bi-camera me-1"></i>Face</span>`
-            : l.metode === 'fingerprint'
-            ? `<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">
-                <i class="bi bi-fingerprint me-1"></i>FP
+            ? `<span class="badge-role">
+                 <i class="bi bi-camera me-1"></i>Face
                </span>`
-            : `<span style="background:#f1f5f9;color:#64748b;padding:3px 9px;border-radius:20px;font-size:.72rem;">
-                ${l.metode}
+            : l.metode === 'fingerprint'
+            ? `<span style="background:#dcfce7;color:#15803d;padding:3px 9px;
+                            border-radius:20px;font-size:.72rem;font-weight:600;">
+                 <i class="bi bi-fingerprint me-1"></i>FP
+               </span>`
+            : `<span style="background:#f1f5f9;color:#64748b;padding:3px 9px;
+                            border-radius:20px;font-size:.72rem;">
+                 ${l.metode}
                </span>`}
         </td>
+
+        <!-- Status -->
         <td>
           ${l.status === 'berhasil'
             ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>Berhasil</span>'
             : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Ditolak</span>'}
         </td>
-        <td style="font-size:.78rem; color:#64748b; max-width:180px;
-                   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+
+        <!-- Keterangan -->
+        <td style="font-size:.77rem;color:#64748b;max-width:200px;
+                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           ${l.keterangan || '—'}
         </td>
-      </tr>`).join('');
-  } catch(e) {
-    document.getElementById('logBody').innerHTML =
-      '<tr><td colspan="6" class="text-center py-4 text-danger">Gagal memuat data</td></tr>';
+
+        <!-- Aksi hapus satu -->
+        <td style="text-align:center;">
+          <button class="btn btn-outline-danger btn-sm"
+                  style="padding:2px 8px;"
+                  onclick="hapusSatu(${l.id})" title="Hapus log ini">
+            <i class="bi bi-trash" style="font-size:.8rem;"></i>
+          </button>
+        </td>
+
+      </tr>`;
+  }).join('');
+}
+
+// ── Checkbox logic ───────────────────────────────────────
+function toggleRow(id, checked) {
+  if (checked) selectedIds.add(id);
+  else         selectedIds.delete(id);
+
+  // Update warna baris
+  const row = document.getElementById(`row_${id}`);
+  if (row) row.className = checked ? 'table-active' : '';
+
+  updateBulkUI();
+  syncCheckAll();
+}
+
+function toggleAll(checked) {
+  selectedIds.clear();
+  if (checked) allLogs.forEach(l => selectedIds.add(l.id));
+
+  // Update semua checkbox dan warna baris
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.checked = checked;
+    const row  = document.getElementById(`row_${cb.value}`);
+    if (row) row.className = checked ? 'table-active' : '';
+  });
+
+  // Sync kedua checkbox "pilih semua"
+  document.getElementById('checkAll').checked       = checked;
+  document.getElementById('checkAllHeader').checked = checked;
+
+  updateBulkUI();
+}
+
+function syncCheckAll() {
+  const allChecked = allLogs.length > 0 &&
+                     selectedIds.size === allLogs.length;
+  document.getElementById('checkAll').checked       = allChecked;
+  document.getElementById('checkAllHeader').checked = allChecked;
+}
+
+function updateBulkUI() {
+  const count   = selectedIds.size;
+  const btnHapus = document.getElementById('btnHapusTerpilih');
+  document.getElementById('jumlahTerpilih').textContent = count;
+  btnHapus.classList.toggle('d-none', count === 0);
+}
+
+// ── Hapus ────────────────────────────────────────────────
+async function hapusSatu(id) {
+  if (!confirm('Hapus log ini?')) return;
+  const res = await fetch(`/log-akses/${id}`, { method: 'DELETE' });
+  if (res.ok) {
+    allLogs = allLogs.filter(l => l.id !== id);
+    selectedIds.delete(id);
+    updateBulkUI();
+    renderLog();
+  } else {
+    alert('Gagal menghapus log.');
   }
 }
 
-// ✅ Update link export Excel secara dinamis
-function updateExportLink() {
-  const rid = getRuanganId();
-  const status = document.getElementById('filterStatus').value;
-  const metode = document.getElementById('filterMetode').value;
-  
-  let url = rid
-    ? `/log-akses/export/excel?ruangan_id=${rid}`
-    : `/log-akses/export/excel`;
-    
-  if (status) url += `&status=${status}`;
-  if (metode) url += `&metode=${metode}`;
-  
-  document.getElementById('exportExcel').href = url;
+async function hapusTerpilih() {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  if (!confirm(`Hapus ${ids.length} log yang dipilih?`)) return;
+
+  const res = await fetch('/log-akses/bulk', {
+    method:  'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ ids })
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    allLogs    = allLogs.filter(l => !selectedIds.has(l.id));
+    selectedIds.clear();
+    updateBulkUI();
+    renderLog();
+    showToast(`${data.dihapus} log berhasil dihapus.`, 'success');
+  } else {
+    alert('Gagal menghapus log.');
+  }
 }
 
-// Inisialisasi
-loadLog();
-setInterval(loadLog, 15000);
-document.getElementById('filterStatus').addEventListener('change', () => {
+async function hapusSemua() {
+  const rid     = getRuanganId();
+  const label   = rid ? 'ruangan ini' : 'SEMUA ruangan';
+  const konfirm = prompt(
+    `Ketik "HAPUS" untuk menghapus semua log ${label}.\n⚠ Tindakan ini tidak dapat dibatalkan!`
+  );
+  if (konfirm !== 'HAPUS') {
+    if (konfirm !== null)
+      alert('Konfirmasi salah. Penghapusan dibatalkan.');
+    return;
+  }
+
+  const params = new URLSearchParams();
+  if (rid) params.set('ruangan_id', rid);
+
+  const res = await fetch(`/log-akses/clear?${params}`, { method:'DELETE' });
+  if (res.ok) {
+    const data = await res.json();
+    showToast(`${data.dihapus} log berhasil dihapus.`, 'success');
+    loadLog();
+  } else {
+    alert('Gagal menghapus semua log.');
+  }
+}
+
+// ── Export Excel (ikuti filter aktif) ────────────────────
+function updateExportLink() {
+  const params = buildParams();
+  // Hapus limit dari export (biarkan server handle 5000)
+  params.delete('limit');
+  document.getElementById('exportExcel').href =
+    `/log-akses/export/excel?${params}`;
+}
+
+// ── Reset filter ─────────────────────────────────────────
+function resetFilter() {
+  document.getElementById('filterDari').value    = '';
+  document.getElementById('filterSampai').value  = '';
+  document.getElementById('filterStatus').value  = '';
+  document.getElementById('filterMetode').value  = '';
   loadLog();
-  updateExportLink();
-});
-document.getElementById('filterMetode').addEventListener('change', () => {
+}
+
+// ── Toast notifikasi ─────────────────────────────────────
+function showToast(msg, type='success') {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed; bottom:24px; right:24px; z-index:9999;
+    background:${type==='success'?'#15803d':'#b91c1c'};
+    color:#fff; padding:12px 20px; border-radius:10px;
+    font-size:.85rem; font-weight:600;
+    box-shadow:0 4px 16px rgba(0,0,0,.2);
+    animation: fadeIn .3s ease;
+  `;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ── Auto-refresh & event listeners ───────────────────────
+function startAutoRefresh() {
+  if (autoRefTimer) clearInterval(autoRefTimer);
+  autoRefTimer = setInterval(loadLog, 30000);
+}
+
+window.addEventListener('ruanganChanged', () => {
+  selectedIds.clear();
   loadLog();
   updateExportLink();
 });
 
-// Update export link saat ruangan berubah
-window.addEventListener('ruanganChanged', updateExportLink);
-updateExportLink();
-// ── Listener perubahan ruangan ────────────────────────
-window.addEventListener('ruanganChanged', () => {
-  loadLog();
-  updateExportLink();
+document.getElementById('filterDari').addEventListener('change', () => {
+  loadLog(); updateExportLink();
 });
+document.getElementById('filterSampai').addEventListener('change', () => {
+  loadLog(); updateExportLink();
+});
+document.getElementById('filterStatus').addEventListener('change', () => {
+  loadLog(); updateExportLink();
+});
+document.getElementById('filterMetode').addEventListener('change', () => {
+  loadLog(); updateExportLink();
+});
+
+// ── Init ─────────────────────────────────────────────────
+loadLog();
+updateExportLink();
+startAutoRefresh();
 </script>
 {% endblock %}
