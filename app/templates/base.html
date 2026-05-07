@@ -267,7 +267,52 @@
     <a href="/dashboard/kamera"    class="nav-link {% if active=='kamera'    %}active{% endif %}">
       <i class="bi bi-camera-video"></i> Kamera Monitoring
     </a>
-
+    <!-- ── Pilih Ruangan (muncul di semua ukuran layar di sidebar) ── -->
+    {% if ruangan_list %}
+    <div style="padding: 12px 10px; border-top: 1px solid rgba(255,255,255,.1);">
+      <div style="color:rgba(255,255,255,.38); font-size:.63rem; font-weight:700;
+                  letter-spacing:.09em; text-transform:uppercase; margin-bottom:8px;
+                  padding: 0 6px;">
+        Ruangan Aktif
+      </div>
+      <div class="dropdown w-100">
+        <button class="w-100 d-flex align-items-center gap-2"
+                style="background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15);
+                      border-radius:8px; padding:8px 12px; color:#fff;
+                      font-size:.82rem; cursor:pointer; text-align:left;"
+                data-bs-toggle="dropdown">
+          <i class="bi bi-building" style="flex-shrink:0; font-size:.9rem;"></i>
+          <span id="namaRuanganSidebar" style="flex:1; overflow:hidden;
+                text-overflow:ellipsis; white-space:nowrap; font-weight:600;">
+            Semua Ruangan
+          </span>
+          <i class="bi bi-chevron-down" style="font-size:.6rem; flex-shrink:0;
+                                                opacity:.6;"></i>
+        </button>
+        <ul class="dropdown-menu w-100 shadow"
+            style="max-height:280px; overflow-y:auto; border-radius:10px;
+                  font-size:.83rem;">
+          <li>
+            <a class="dropdown-item py-2" href="#"
+              onclick="pilihRuangan(null, 'Semua Ruangan')">
+              <i class="bi bi-grid me-2 text-muted"></i>Semua Ruangan
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          {% for r in ruangan_list %}
+          <li>
+            <a class="dropdown-item py-2" href="#"
+              onclick="pilihRuangan({{ r.id }}, '{{ r.nama }}')">
+              <i class="bi bi-door-open me-2 text-primary"></i>
+              {{ r.nama }}
+              <small class="text-muted ms-1">Lt.{{ r.lantai }}</small>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
     <div class="nav-section">Manajemen</div>
 
     {# Tombol Pengguna HANYA muncul untuk admin #}
@@ -553,15 +598,33 @@ function pilihRuangan(id, nama) {
   const data = { id, nama };
   localStorage.setItem('ruangan_aktif', JSON.stringify(data));
 
-  const el = document.getElementById('namaRuanganAktif');
-  if (el) {
-    el.textContent = nama;
-    // Hilangkan warning jika ada
-    el.style.color = id ? '#1e293b' : '#ef4444';
-  }
+  // Update teks di topbar
+  const elTopbar = document.getElementById('namaRuanganAktif');
+  if (elTopbar) elTopbar.textContent = nama;
 
+  // Update teks di sidebar
+  const elSidebar = document.getElementById('namaRuanganSidebar');
+  if (elSidebar) elSidebar.textContent = nama;
+
+  // Dispatch event — halaman masing-masing yang handle
   window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
+
+  // Tutup sidebar di mobile
+  if (window.innerWidth <= 991.98) {
+    closeSidebar?.();
+  }
 }
+
+// Init saat halaman load
+document.addEventListener('DOMContentLoaded', () => {
+  const aktif = getRuanganAktif();
+
+  const elTopbar = document.getElementById('namaRuanganAktif');
+  if (elTopbar) elTopbar.textContent = aktif.nama;
+
+  const elSidebar = document.getElementById('namaRuanganSidebar');
+  if (elSidebar) elSidebar.textContent = aktif.nama;
+});
 
 // Init: set nama ruangan aktif di dropdown saat halaman load
 document.addEventListener('DOMContentLoaded', () => {

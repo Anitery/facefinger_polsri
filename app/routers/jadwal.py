@@ -55,3 +55,13 @@ def hapus_jadwal(jadwal_id: int, db: Session = Depends(get_db)):
     db.delete(jadwal)
     db.commit()
     return {"pesan": "Jadwal dihapus"}
+
+@router.get("/dosen-list")
+def get_dosen_list(db: Session = Depends(get_db)):
+    """Ambil daftar user dengan role dosen untuk dropdown jadwal."""
+    from app.models.models import User
+    dosens = db.query(User).filter(
+        User.role == "dosen",
+        User.aktif == True
+    ).order_by(User.nama).all()
+    return [{"id": d.id, "nama": d.nama, "nim_nip": d.nim_nip} for d in dosens]

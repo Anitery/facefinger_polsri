@@ -434,11 +434,8 @@ function startAutoRefresh() {
   autoRefTimer = setInterval(loadLog, 30000);
 }
 
-window.addEventListener('ruanganChanged', () => {
-  selectedIds.clear();
-  loadLog();
-  updateExportLink();
-});
+window.addEventListener('ruanganChanged', () => { loadLog(); updateExportLink(); });
+
 
 document.getElementById('filterDari').addEventListener('change', () => {
   loadLog(); updateExportLink();

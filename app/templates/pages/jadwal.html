@@ -105,9 +105,43 @@
                  placeholder="contoh: Praktikum Jaringan Komputer">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-bold" style="font-size:.85rem;">Dosen Pengampu</label>
-          <input class="form-control" id="jDosen"
-                 placeholder="contoh: Dr. Slamet Widodo">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Dosen Pengampu
+          </label>
+
+          <!-- Toggle: pilih dari daftar atau ketik manual -->
+          <div class="d-flex gap-2 mb-2">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="dosenMode"
+                    id="modePilih" value="pilih" checked
+                    onchange="toggleDosenMode('pilih')">
+              <label class="form-check-label" for="modePilih"
+                    style="font-size:.82rem;">Pilih dari daftar</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="dosenMode"
+                    id="modeManual" value="manual"
+                    onchange="toggleDosenMode('manual')">
+              <label class="form-check-label" for="modeManual"
+                    style="font-size:.82rem;">Ketik manual</label>
+            </div>
+          </div>
+
+          <div id="panelPilihDosen">
+            <select class="form-select" id="jDosenSelect">
+              <option value="">— Pilih dosen —</option>
+            </select>
+          </div>
+
+          <div id="panelManualDosen" style="display:none;">
+            <input class="form-control" id="jDosenManual"
+                  placeholder="Ketik nama dosen...">
+          </div>
+
+          <div class="form-text">
+            Pilih dari daftar jika dosen sudah terdaftar di sistem,
+            atau ketik manual jika belum.
+          </div>
         </div>
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">Tanggal</label>
@@ -297,20 +331,59 @@
 
 {% block extra_js %}
 <script>
+// ── Load daftar dosen untuk dropdown ─────────────────────
+async function loadDosenList() {
+  try {
+    const res   = await fetch('/jadwal/dosen-list');
+    const data  = await res.json();
+    const sel   = document.getElementById('jDosenSelect');
+
+    sel.innerHTML = '<option value="">— Pilih dosen —</option>' +
+      data.map(d =>
+        `<option value="${d.nama}">${d.nama}</option>`
+      ).join('');
+  } catch(e) {
+    console.warn('Gagal load dosen list:', e);
+  }
+}
+
+// ── Toggle mode input dosen ───────────────────────────────
+function toggleDosenMode(mode) {
+  const panelPilih  = document.getElementById('panelPilihDosen');
+  const panelManual = document.getElementById('panelManualDosen');
+
+  if (mode === 'pilih') {
+    panelPilih.style.display  = 'block';
+    panelManual.style.display = 'none';
+    document.getElementById('jDosenManual').value = '';
+  } else {
+    panelPilih.style.display  = 'none';
+    panelManual.style.display = 'block';
+    document.getElementById('jDosenSelect').value = '';
+  }
+}
+
+// ── Ambil nilai dosen yang dipilih ───────────────────────
+function getNamaDosen() {
+  const modeEl = document.querySelector('input[name="dosenMode"]:checked');
+  const mode   = modeEl ? modeEl.value : 'pilih';
+
+  if (mode === 'manual') {
+    const manualEl = document.getElementById('jDosenManual');
+    return manualEl ? manualEl.value.trim() || null : null;
+  }
+
+  const selectEl = document.getElementById('jDosenSelect');
+  return selectEl ? selectEl.value || null : null;
+}
 // ── Ikuti perubahan ruangan aktif ────────────────────────
 function getRuanganId() {
   const saved = localStorage.getItem('ruangan_aktif');
   return saved ? JSON.parse(saved).id : null;
 }
 
-window.addEventListener('ruanganChanged', () => {
-  // Panggil fungsi load utama halaman ini
-  loadDashboard?.();   // index.html
-  loadLog?.();         // log_akses.html
-  loadInv?.();         // inventaris.html
-  render?.();          // jadwal.html
-  loadRekaman?.();     // kamera.html
-});
+window.addEventListener('ruanganChanged', () => { filterDate=null; render(); });
+
 
 const BULAN = ['Januari','Februari','Maret','April','Mei','Juni',
                'Juli','Agustus','September','Oktober','November','Desember'];
@@ -470,44 +543,92 @@ async function render() {
 }
 
 async function tambahJadwal() {
-  const rid = getRuanganId();
-  if (!rid) {
-    alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih ruangan terlebih dahulu di dropdown atas.</div>';
-    return;
-  };
-  const body = {
-    ruangan_id:    rid ,  
-    nama_kegiatan: document.getElementById('jNama').value.trim(),
-    dosen:         document.getElementById('jDosen').value.trim() || null,
-    tanggal:       document.getElementById('jTanggal').value,
-    jam_mulai:     document.getElementById('jMulai').value,
-    jam_selesai:   document.getElementById('jSelesai').value,
-    keterangan:    document.getElementById('jKet').value.trim() || null,
-  };
+  const rid     = getRuanganId();
   const alertEl = document.getElementById('alertJadwal');
-  if (!body.nama_kegiatan || !body.tanggal) {
-    alertEl.innerHTML = '<div class="alert alert-danger py-2">Nama kegiatan dan tanggal wajib diisi.</div>';
+  const namaEl  = document.getElementById('jNama');
+  const tglEl   = document.getElementById('jTanggal');
+  const mulaiEl = document.getElementById('jMulai');
+  const selesaiEl = document.getElementById('jSelesai');
+  const ketEl   = document.getElementById('jKet');
+
+  // Validasi element ada
+  if (!namaEl || !tglEl || !mulaiEl || !selesaiEl) {
+    console.error('Element form tidak ditemukan');
     return;
   }
+
+  if (!rid) {
+    alertEl.innerHTML = `
+      <div class="alert alert-danger py-2">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Pilih ruangan terlebih dahulu melalui sidebar.
+      </div>`;
+    return;
+  }
+
+  const body = {
+    ruangan_id:    rid,
+    nama_kegiatan: namaEl.value.trim(),
+    dosen:         getNamaDosen(),
+    tanggal:       tglEl.value,
+    jam_mulai:     mulaiEl.value,
+    jam_selesai:   selesaiEl.value,
+    keterangan:    ketEl ? ketEl.value.trim() || null : null,
+  };
+
+  if (!body.nama_kegiatan || !body.tanggal) {
+    alertEl.innerHTML = `
+      <div class="alert alert-danger py-2">
+        Nama kegiatan dan tanggal wajib diisi.
+      </div>`;
+    return;
+  }
+
   const res = await fetch('/jadwal/', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(body)
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body)
   });
+
   if (res.ok) {
-    alertEl.innerHTML = '<div class="alert alert-success py-2">Jadwal berhasil ditambahkan!</div>';
-    // Pindah ke bulan jadwal yang ditambahkan
-    const tgl = new Date(body.tanggal + 'T00:00');
-    curYear  = tgl.getFullYear();
-    curMonth = tgl.getMonth();
+    alertEl.innerHTML =
+      '<div class="alert alert-success py-2">Jadwal berhasil ditambahkan!</div>';
+
+    const tgl  = new Date(body.tanggal + 'T00:00');
+    curYear    = tgl.getFullYear();
+    curMonth   = tgl.getMonth();
     await render();
+
     setTimeout(() => {
-      bootstrap.Modal.getInstance(document.getElementById('modalJadwal')).hide();
+      bootstrap.Modal.getInstance(
+        document.getElementById('modalJadwal')).hide();
       alertEl.innerHTML = '';
-      ['jNama','jDosen','jKet'].forEach(id => document.getElementById(id).value = '');
+
+      // Reset form dengan aman
+      if (namaEl) namaEl.value = '';
+      if (ketEl)  ketEl.value  = '';
+
+      const manualEl = document.getElementById('jDosenManual');
+      const selectEl = document.getElementById('jDosenSelect');
+      if (manualEl) manualEl.value = '';
+      if (selectEl) selectEl.value = '';
+
+      const modePilih = document.getElementById('modePilih');
+      if (modePilih) {
+        modePilih.checked = true;
+        toggleDosenMode('pilih');
+      }
     }, 1000);
+
   } else {
-    const err = await res.json();
-    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    try {
+      const err = await res.json();
+      alertEl.innerHTML =
+        `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    } catch {
+      alertEl.innerHTML =
+        '<div class="alert alert-danger py-2">Gagal menyimpan jadwal.</div>';
+    }
   }
 }
 
@@ -537,5 +658,9 @@ document.addEventListener('DOMContentLoaded', () => {
       aktif.nama || 'Semua Ruangan';
   }
 });
+// ── Init ─────────────────────────────────────────────────
+document.getElementById('jTanggal').value = new Date().toISOString().slice(0,10);
+loadDosenList();   // ← tambahkan ini
+render();
 </script>
 {% endblock %}

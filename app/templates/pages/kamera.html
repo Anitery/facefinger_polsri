@@ -103,14 +103,8 @@ function getRuanganId() {
   return saved ? JSON.parse(saved).id : null;
 }
 
-window.addEventListener('ruanganChanged', () => {
-  // Panggil fungsi load utama halaman ini
-  loadDashboard?.();   // index.html
-  loadLog?.();         // log_akses.html
-  loadInv?.();         // inventaris.html
-  render?.();          // jadwal.html
-  loadRekaman?.();     // kamera.html
-});
+window.addEventListener('ruanganChanged', () => { loadRekaman(); });
+
 
 let currentRekamanId = null;
 

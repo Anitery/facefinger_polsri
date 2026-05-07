@@ -156,12 +156,7 @@ function getRuanganId() {
   return saved ? JSON.parse(saved).id : null;
 }
 
-window.addEventListener('ruanganChanged', () => {
-  loadLog?.();
-  loadInv?.();
-  render?.();
-  loadRekaman?.();
-});
+window.addEventListener('ruanganChanged', () => { loadInv(); });
 
 let editAlatMode = false;
 
