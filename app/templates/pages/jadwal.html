@@ -470,11 +470,13 @@ async function render() {
 }
 
 async function tambahJadwal() {
-  // ✅ SEBELUM: ruangan_id: 1,
-  // ✅ SESUDAH:
   const rid = getRuanganId();
+  if (!rid) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih ruangan terlebih dahulu di dropdown atas.</div>';
+    return;
+  };
   const body = {
-    ruangan_id:    rid || 1,  // fallback ke 1 jika tidak ada ruangan aktif
+    ruangan_id:    rid ,  
     nama_kegiatan: document.getElementById('jNama').value.trim(),
     dosen:         document.getElementById('jDosen').value.trim() || null,
     tanggal:       document.getElementById('jTanggal').value,

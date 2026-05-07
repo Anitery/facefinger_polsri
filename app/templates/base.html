@@ -538,24 +538,29 @@ setInterval(checkNotif, 8000);
 <script>
 // ── Ruangan aktif (disimpan di localStorage) ─────────────
 function getRuanganAktif() {
-  const saved = localStorage.getItem('ruangan_aktif');
-  return saved ? JSON.parse(saved) : { id: null, nama: 'Semua Ruangan' };
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s) : { id: null, nama: 'Semua Ruangan' };
+}
+
+function getRuanganId() {
+  const s = localStorage.getItem('ruangan_aktif');
+  if (!s) return null;
+  const data = JSON.parse(s);
+  return data.id || null;
 }
 
 function pilihRuangan(id, nama) {
   const data = { id, nama };
   localStorage.setItem('ruangan_aktif', JSON.stringify(data));
 
-  // Update teks dropdown
   const el = document.getElementById('namaRuanganAktif');
-  if (el) el.textContent = nama;
+  if (el) {
+    el.textContent = nama;
+    // Hilangkan warning jika ada
+    el.style.color = id ? '#1e293b' : '#ef4444';
+  }
 
-  // Dispatch event ke halaman aktif
   window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
-
-  // Tutup dropdown Bootstrap
-  const dropdowns = document.querySelectorAll('.dropdown-menu.show');
-  dropdowns.forEach(d => d.classList.remove('show'));
 }
 
 // Init: set nama ruangan aktif di dropdown saat halaman load

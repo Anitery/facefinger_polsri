@@ -208,12 +208,16 @@ function openEditAlat(a) {
 async function simpanAlat() {
   const id = document.getElementById('editAlatId').value;
   const rid = getRuanganId();
+  if (!rid) {
+    alertEl.innerHTML = '<div class="alert alert-warning py-2">Pilih ruangan terlebih dahulu di dropdown atas.</div>';
+    return;
+  };
   const body = {
     kode_barcode: document.getElementById('iBarcode').value.trim(),
     nama_alat: document.getElementById('iNama').value.trim(),
     jumlah: parseInt(document.getElementById('iJumlah').value),
     keterangan: document.getElementById('iKet').value.trim() || null,
-    ruangan_id: rid || 1,
+    ruangan_id: rid,
   };
   const alertEl = document.getElementById('alertAlat');
   
