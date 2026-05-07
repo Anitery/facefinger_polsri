@@ -301,8 +301,9 @@
           <li><hr class="dropdown-divider my-1"></li>
           {% for r in ruangan_list %}
           <li>
-            <a class="dropdown-item py-2" href="#"
-              onclick="pilihRuangan({{ r.id }}, '{{ r.nama }}')">
+            <a class="dropdown-item py-2 ruangan-item" href="#"
+              data-id="{{ r.id }}"
+              data-nama="{{ r.nama|e }}">
               <i class="bi bi-door-open me-2 text-primary"></i>
               {{ r.nama }}
               <small class="text-muted ms-1">Lt.{{ r.lantai }}</small>
@@ -397,7 +398,7 @@
           <a class="dropdown-item py-2 ruangan-item"
             href="#"
             data-id="{{ r.id }}"
-            data-nama="{{ r.nama }}">
+            data-nama="{{ r.nama|e }}">
             <i class="bi bi-door-open me-2 text-primary"></i>
             <span>{{ r.nama }}</span>
             <small class="text-muted ms-1">L{{ r.lantai }}</small>
@@ -598,7 +599,7 @@ function pilihRuangan(id, nama) {
   const data = { id, nama };
   localStorage.setItem('ruangan_aktif', JSON.stringify(data));
 
-  // Update teks di topbar
+  // Update teks di topbar (jika masih ada)
   const elTopbar = document.getElementById('namaRuanganAktif');
   if (elTopbar) elTopbar.textContent = nama;
 
@@ -606,12 +607,12 @@ function pilihRuangan(id, nama) {
   const elSidebar = document.getElementById('namaRuanganSidebar');
   if (elSidebar) elSidebar.textContent = nama;
 
-  // Dispatch event — halaman masing-masing yang handle
+  // Dispatch event ke halaman aktif
   window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
 
-  // Tutup sidebar di mobile
+  // Tutup sidebar di mobile setelah pilih ruangan
   if (window.innerWidth <= 991.98) {
-    closeSidebar?.();
+    closeSidebar();
   }
 }
 
