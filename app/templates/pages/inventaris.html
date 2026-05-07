@@ -206,49 +206,67 @@ function openEditAlat(a) {
 }
 
 async function simpanAlat() {
-  const id = document.getElementById('editAlatId').value;
-  const rid = getRuanganId();
+  // SEMUA deklarasi variabel di atas sendiri — SEBELUM dipakai
+  const id      = document.getElementById('editAlatId').value;
+  const rid     = getRuanganId();
+  const alertEl = document.getElementById('alertAlat');  // ← harus di atas
+
+  // Baru validasi dan logika di bawahnya
   if (!rid) {
-    alertEl.innerHTML = '<div class="alert alert-warning py-2">Pilih ruangan terlebih dahulu di dropdown atas.</div>';
+    alertEl.innerHTML = `
+      <div class="alert alert-warning py-2">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Pilih ruangan terlebih dahulu melalui dropdown di topbar.
+      </div>`;
     return;
-  };
+  }
+
   const body = {
     kode_barcode: document.getElementById('iBarcode').value.trim(),
-    nama_alat: document.getElementById('iNama').value.trim(),
-    jumlah: parseInt(document.getElementById('iJumlah').value),
-    keterangan: document.getElementById('iKet').value.trim() || null,
-    ruangan_id: rid,
+    nama_alat:    document.getElementById('iNama').value.trim(),
+    jumlah:       parseInt(document.getElementById('iJumlah').value),
+    keterangan:   document.getElementById('iKet').value.trim() || null,
+    ruangan_id:   rid,
   };
-  const alertEl = document.getElementById('alertAlat');
-  
+
   if (!body.kode_barcode || !body.nama_alat) {
-    alertEl.innerHTML = '<div class="alert alert-danger py-2">Barcode dan nama wajib diisi.</div>';
+    alertEl.innerHTML =
+      '<div class="alert alert-danger py-2">Barcode dan nama wajib diisi.</div>';
     return;
   }
 
   const res = editAlatMode
     ? await fetch(`/inventaris/${id}`, {
-        method: 'PUT', 
-        headers: {'Content-Type': 'application/json'},
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
     : await fetch('/inventaris/', {
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
   if (res.ok) {
-    alertEl.innerHTML = `<div class="alert alert-success py-2">
-      ${editAlatMode ? 'Data berhasil diperbarui!' : 'Alat berhasil ditambahkan!'}
-    </div>`;
+    alertEl.innerHTML = `
+      <div class="alert alert-success py-2">
+        ${editAlatMode ? 'Data berhasil diperbarui!' : 'Alat berhasil ditambahkan!'}
+      </div>`;
     loadInv();
     setTimeout(() => {
-      bootstrap.Modal.getInstance(document.getElementById('modalAlat')).hide();
-    }, 1000);
+      bootstrap.Modal.getInstance(
+        document.getElementById('modalAlat')).hide();
+      alertEl.innerHTML = '';
+    }, 1200);
   } else {
-    const err = await res.json();
-    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    try {
+      const err = await res.json();
+      alertEl.innerHTML =
+        `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    } catch {
+      alertEl.innerHTML =
+        '<div class="alert alert-danger py-2">Gagal menyimpan data.</div>';
+    }
   }
 }
 

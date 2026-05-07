@@ -205,59 +205,86 @@ async function simpanUser() {
   const alertEl  = document.getElementById('alertModal');
 
   if (!nama || !nim_nip) {
-    alertEl.innerHTML = '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
+    alertEl.innerHTML =
+      '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
     return;
   }
 
-  const body = { nama, nim_nip, role, ruangan_id: 1 };
+  const body = { nama, nim_nip, role, ruangan_id: null };
 
   let res;
-  if (editMode) {
-    // Mode edit
-    res = await fetch(`/users/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-  } else {
-    // Mode tambah
-    if (['admin','teknisi','dosen'].includes(role) && password.length < 6) {
-      alertEl.innerHTML = '<div class="alert alert-danger py-2">Password minimal 6 karakter.</div>';
-      return;
+  try {
+    if (editMode) {
+      res = await fetch(`/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      res = await fetch('/users/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
     }
-    res = await fetch('/users/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+  } catch(e) {
+    alertEl.innerHTML =
+      '<div class="alert alert-danger py-2">Gagal terhubung ke server.</div>';
+    return;
+  }
+
+  // Parse response dengan aman
+  let responseData;
+  try {
+    responseData = await res.json();
+  } catch {
+    // Server return bukan JSON (misal 500 HTML error page)
+    alertEl.innerHTML = `
+      <div class="alert alert-danger py-2">
+        Server error (${res.status}). Cek Railway logs untuk detail.
+      </div>`;
+    return;
   }
 
   if (res.ok) {
-    const saved = await res.json();
-    const userId = editMode ? id : saved.id;
+    const saved = responseData;
 
-    // Update fingerprint
+    // Set fingerprint jika diisi
     if (fpId) {
-      await fetch(`/users/${userId}/fingerprint?fingerprint_id=${fpId}`, { method:'PATCH' });
-    }
-    // Set password (tambah) atau update (edit jika diisi)
-    if (password && password.length >= 6) {
-      const endpoint = editMode
-        ? `/users/${userId}/set-password?password_baru=${encodeURIComponent(password)}`
-        : `/users/${saved.id}/set-password?password_baru=${encodeURIComponent(password)}`;
-      await fetch(endpoint, { method:'POST' });
+      try {
+        await fetch(
+          `/users/${saved.id}/fingerprint?fingerprint_id=${fpId}`,
+          { method: 'PATCH' }
+        );
+      } catch(e) { console.warn('Gagal set fingerprint:', e); }
     }
 
-    alertEl.innerHTML = `<div class="alert alert-success py-2">
-      ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}
-    </div>`;
+    // Set password jika diisi
+    if (password && password.length >= 6) {
+      try {
+        await fetch(
+          `/users/${saved.id}/set-password?password_baru=${encodeURIComponent(password)}`,
+          { method: 'POST' }
+        );
+      } catch(e) { console.warn('Gagal set password:', e); }
+    }
+
+    alertEl.innerHTML = `
+      <div class="alert alert-success py-2">
+        ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}
+      </div>`;
     loadUsers();
     setTimeout(() => {
-      bootstrap.Modal.getInstance(document.getElementById('modalUser')).hide();
-    }, 1000);
+      bootstrap.Modal.getInstance(
+        document.getElementById('modalUser')).hide();
+      alertEl.innerHTML = '';
+    }, 1200);
+
   } else {
-    const err = await res.json();
-    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    alertEl.innerHTML = `
+      <div class="alert alert-danger py-2">
+        ${responseData.detail || `Error ${res.status}`}
+      </div>`;
   }
 }
 
