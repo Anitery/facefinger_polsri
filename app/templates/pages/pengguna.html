@@ -18,7 +18,7 @@
     <table class="table table-hover mb-0" style="min-width:680px;">
       <thead>
         <tr>
-          <th>#</th><th>Nama</th><th>NIM / NIP</th>
+          <th>No</th><th>Nama</th><th>NIM / NIP</th>
           <th>Role</th><th>Fingerprint</th><th>Wajah</th>
           <th>Status</th><th style="text-align:center;">Aksi</th>
         </tr>
@@ -309,9 +309,9 @@ async function loadUsers() {
     return;
   }
 
-  desktop.innerHTML = data.map(u => `
+  desktop.innerHTML = data.map((u, i) => `
     <tr>
-      <td class="text-muted" style="font-size:.75rem;">${u.id}</td>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
       <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
       <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
       <td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>
@@ -343,11 +343,14 @@ async function loadUsers() {
       </td>
     </tr>`).join('');
 
-  mobile.innerHTML = data.map(u => `
+  mobile.innerHTML = data.map((u, i) => `
     <div class="section-card p-3">
       <div class="d-flex justify-content-between align-items-start mb-2">
         <div>
-          <div class="fw-bold" style="font-size:.88rem;">${u.nama}</div>
+          <div class="fw-bold" style="font-size:.88rem;">
+            <span style="color:#94a3b8;font-size:.75rem;margin-right:4px;">${i+1}.</span>
+            ${u.nama}
+          </div>
           <code style="font-size:.74rem;color:#64748b;">${u.nim_nip}</code>
         </div>
         <div class="d-flex flex-column align-items-end gap-1">

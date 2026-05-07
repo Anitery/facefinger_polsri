@@ -49,19 +49,23 @@
   </div>
 </div>
 
-<!-- Desktop table -->
+<!-- Desktop table ✅ DENGAN KOLOM NO -->
 <div class="tbl-wrap d-none d-md-block">
   <div style="overflow-x:auto;">
-    <table class="table table-hover mb-0" style="min-width:560px;">
+    <table class="table table-hover mb-0" style="min-width:600px;">
       <thead>
         <tr>
-          <th>Barcode</th><th>Nama Alat</th><th>Jumlah</th>
-          <th>Status</th><th>Keterangan</th>
+          <th style="width:40px;">No</th>        <!-- ✅ TAMBAHAN -->
+          <th>Barcode</th>
+          <th>Nama Alat</th>
+          <th>Jumlah</th>
+          <th>Status</th>
+          <th>Keterangan</th>
           <th style="text-align:center;">Aksi</th>
         </tr>
       </thead>
       <tbody id="invBodyDesktop">
-        <tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr>
+        <tr><td colspan="7" class="text-center py-4 text-muted">Memuat...</td></tr>  <!-- ✅ 6→7 -->
       </tbody>
     </table>
   </div>
@@ -153,12 +157,10 @@ function getRuanganId() {
 }
 
 window.addEventListener('ruanganChanged', () => {
-  // Panggil fungsi load utama halaman ini
-  loadDashboard?.();   // index.html
-  loadLog?.();         // log_akses.html
-  loadInv?.();         // inventaris.html
-  render?.();          // jadwal.html
-  loadRekaman?.();     // kamera.html
+  loadLog?.();
+  loadInv?.();
+  render?.();
+  loadRekaman?.();
 });
 
 let editAlatMode = false;
@@ -204,17 +206,17 @@ function openEditAlat(a) {
 }
 
 async function simpanAlat() {
-  const id   = document.getElementById('editAlatId').value;
-  // ✅ Menggunakan getRuanganId() untuk ruangan_id
+  const id = document.getElementById('editAlatId').value;
   const rid = getRuanganId();
   const body = {
     kode_barcode: document.getElementById('iBarcode').value.trim(),
-    nama_alat:    document.getElementById('iNama').value.trim(),
-    jumlah:       parseInt(document.getElementById('iJumlah').value),
-    keterangan:   document.getElementById('iKet').value.trim() || null,
-    ruangan_id:   rid || 1,  // fallback ke 1 jika tidak ada ruangan aktif
+    nama_alat: document.getElementById('iNama').value.trim(),
+    jumlah: parseInt(document.getElementById('iJumlah').value),
+    keterangan: document.getElementById('iKet').value.trim() || null,
+    ruangan_id: rid || 1,
   };
   const alertEl = document.getElementById('alertAlat');
+  
   if (!body.kode_barcode || !body.nama_alat) {
     alertEl.innerHTML = '<div class="alert alert-danger py-2">Barcode dan nama wajib diisi.</div>';
     return;
@@ -222,11 +224,13 @@ async function simpanAlat() {
 
   const res = editAlatMode
     ? await fetch(`/inventaris/${id}`, {
-        method:'PUT', headers:{'Content-Type':'application/json'},
+        method: 'PUT', 
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body)
       })
     : await fetch('/inventaris/', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body)
       });
 
@@ -244,7 +248,6 @@ async function simpanAlat() {
   }
 }
 
-// Modal ubah status
 function openModalStatus(id, nama) {
   document.getElementById('statusAlatId').value = id;
   document.getElementById('statusNama').textContent = nama;
@@ -253,44 +256,43 @@ function openModalStatus(id, nama) {
 
 async function setStatus(status) {
   const id = document.getElementById('statusAlatId').value;
-  await fetch(`/inventaris/${id}/status?status=${status}`, { method:'PATCH' });
+  await fetch(`/inventaris/${id}/status?status=${status}`, { method: 'PATCH' });
   bootstrap.Modal.getInstance(document.getElementById('modalStatus')).hide();
   loadInv();
 }
 
 async function hapusAlat(id, nama) {
   if (!confirm(`Hapus alat "${nama}"? Tindakan ini tidak dapat dibatalkan.`)) return;
-  const res = await fetch(`/inventaris/${id}`, { method:'DELETE' });
+  const res = await fetch(`/inventaris/${id}`, { method: 'DELETE' });
   if (res.ok) loadInv();
   else alert('Gagal menghapus alat.');
 }
 
+// ✅ LOADINV DENGAN NOMOR URUT
 async function loadInv() {
-  // ✅ SEBELUM: const res  = await fetch('/inventaris/');
-  // ✅ SESUDAH:
   const rid = getRuanganId();
-  const url = rid
-    ? `/inventaris/?ruangan_id=${rid}`
-    : `/inventaris/`;
-  const res  = await fetch(url);
+  const url = rid ? `/inventaris/?ruangan_id=${rid}` : `/inventaris/`;
+  const res = await fetch(url);
   const data = await res.json();
 
   // Update stats
   document.getElementById('statTersedia').textContent = data.filter(a=>a.status==='tersedia').length;
   document.getElementById('statDipinjam').textContent = data.filter(a=>a.status==='dipinjam').length;
-  document.getElementById('statRusak').textContent    = data.filter(a=>a.status==='rusak').length;
+  document.getElementById('statRusak').textContent = data.filter(a=>a.status==='rusak').length;
 
   const desktop = document.getElementById('invBodyDesktop');
-  const mobile  = document.getElementById('invBodyMobile');
+  const mobile = document.getElementById('invBodyMobile');
 
   if (!data.length) {
-    desktop.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data</td></tr>';
-    mobile.innerHTML  = '<div class="text-center text-muted py-4">Belum ada data inventaris</div>';
+    desktop.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Belum ada data</td></tr>';  // ✅ 7
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Belum ada data inventaris</div>';
     return;
   }
 
-  desktop.innerHTML = data.map(a => `
+  // ✅ DESKTOP TABLE - DENGAN NOMOR URUT
+  desktop.innerHTML = data.map((a, i) => `
     <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>  <!-- ✅ NOMOR -->
       <td><code style="font-size:.78rem;">${a.kode_barcode}</code></td>
       <td><strong style="font-size:.85rem;">${a.nama_alat}</strong></td>
       <td style="text-align:center;">${a.jumlah}</td>
@@ -323,15 +325,20 @@ async function loadInv() {
       </td>
     </tr>`).join('');
 
-  mobile.innerHTML = data.map(a => `
+  // ✅ MOBILE CARDS - DENGAN NOMOR URUT
+  mobile.innerHTML = data.map((a, i) => `
     <div class="section-card p-3">
       <div class="d-flex justify-content-between align-items-start mb-2">
         <div class="min-w-0 flex-grow-1 me-2">
-          <div class="fw-bold" style="font-size:.88rem;">${a.nama_alat}</div>
+          <div class="fw-bold" style="font-size:.88rem;">
+            <span style="color:#94a3b8;font-size:.75rem;margin-right:4px;">${i+1}.</span>  <!-- ✅ NOMOR -->
+            ${a.nama_alat}
+          </div>
           <code style="font-size:.73rem;color:#64748b;">${a.kode_barcode}</code>
         </div>
         <span style="${statusStyle(a.status)};padding:3px 9px;border-radius:20px;
                      font-size:.72rem;font-weight:600;white-space:nowrap;flex-shrink:0;">
+          <i class="bi ${statusIcon(a.status)} me-1" style="font-size:.65rem;"></i>
           ${a.status}
         </span>
       </div>
@@ -362,7 +369,7 @@ document.getElementById('scanInput').addEventListener('keydown', async e => {
   const kode = e.target.value.trim();
   if (!kode) return;
   const res = await fetch(`/inventaris/barcode/${kode}`);
-  const el  = document.getElementById('scanResult');
+  const el = document.getElementById('scanResult');
   el.classList.remove('d-none');
   if (res.ok) {
     const alat = await res.json();
@@ -384,10 +391,8 @@ document.getElementById('scanInput').addEventListener('keydown', async e => {
   setTimeout(() => el.classList.add('d-none'), 5000);
 });
 
+// Inisialisasi
 loadInv();
-// ── Listener perubahan ruangan ────────────────────────
-window.addEventListener('ruanganChanged', () => {
-  loadInv();
-});
+window.addEventListener('ruanganChanged', () => loadInv());
 </script>
 {% endblock %}
