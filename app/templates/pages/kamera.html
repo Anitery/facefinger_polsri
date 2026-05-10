@@ -4,17 +4,149 @@
 
 {% block content %}
 
-<!-- Status bar -->
+<!-- ── Live View ── -->
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-8">
+    <div class="section-card p-0 overflow-hidden">
+
+      <!-- Header live view -->
+      <div class="d-flex align-items-center justify-content-between px-3 py-2
+                  border-bottom flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <div id="liveDot" style="width:10px;height:10px;border-radius:50%;
+                                    background:#94a3b8;transition:background .3s;">
+          </div>
+          <span id="liveLabel" style="font-weight:700;font-size:.88rem;color:#1e293b;">
+            Live View
+          </span>
+          <span id="liveViewerCount"
+                style="font-size:.72rem;color:#64748b;display:none;">
+            <i class="bi bi-eye me-1"></i><span id="viewerNum">0</span> penonton
+          </span>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <span id="liveFpsInfo"
+                style="font-size:.72rem;color:#94a3b8;display:none;">
+          </span>
+          <button class="btn btn-sm btn-outline-secondary"
+                  id="btnFullscreen" onclick="toggleFullscreen()"
+                  style="display:none;">
+            <i class="bi bi-fullscreen"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Video frame -->
+      <div id="liveContainer" style="position:relative;background:#0f172a;
+                                      aspect-ratio:16/9;overflow:hidden;">
+        <!-- Placeholder saat offline -->
+        <div id="livePlaceholder" style="position:absolute;inset:0;
+             display:flex;flex-direction:column;align-items:center;
+             justify-content:center;color:#475569;">
+          <i class="bi bi-camera-video-off"
+             style="font-size:3rem;margin-bottom:12px;"></i>
+          <div style="font-size:.85rem;font-weight:600;">
+            Kamera Offline
+          </div>
+          <div style="font-size:.75rem;margin-top:4px;color:#64748b;">
+            Jalankan <code style="color:#94a3b8;">python stream_kamera.py</code>
+          </div>
+        </div>
+
+        <!-- Frame live -->
+        <img id="liveFrame"
+             style="width:100%;height:100%;object-fit:contain;display:none;"
+             alt="Live Stream">
+
+        <!-- Overlay info -->
+        <div id="liveOverlay" style="position:absolute;top:8px;right:8px;
+             background:rgba(220,38,38,.85);color:#fff;
+             padding:3px 10px;border-radius:20px;
+             font-size:.72rem;font-weight:700;
+             display:none;">
+          ● LIVE
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Panel kanan: info stream -->
+  <div class="col-12 col-xl-4">
+    <div class="section-card p-3 h-100">
+      <h6 class="fw-bold mb-3" style="font-size:.88rem;color:#1e293b;">
+        <i class="bi bi-info-circle me-2 text-primary"></i>
+        Info Stream
+      </h6>
+      <div class="d-flex flex-column gap-2" style="font-size:.82rem;">
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Status</span>
+          <span id="streamStatusText" class="fw-bold">Offline</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Ruangan</span>
+          <span class="fw-bold" id="streamRuanganNama">—</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Frame diterima</span>
+          <span class="fw-bold" id="streamFrameCount">0</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">FPS aktual</span>
+          <span class="fw-bold" id="streamActualFps">—</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Resolusi</span>
+          <span class="fw-bold" id="streamResolution">—</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Terakhir update</span>
+          <span class="fw-bold" id="streamLastUpdate">—</span>
+        </div>
+      </div>
+
+      <hr class="my-3">
+
+      <!-- Cara menjalankan -->
+      <div style="background:#f8fafc;border-radius:8px;padding:12px;
+                  font-size:.78rem;">
+        <div class="fw-bold mb-2" style="color:#64748b;">
+          <i class="bi bi-terminal me-1"></i>Cara menjalankan:
+        </div>
+        <code style="color:#1e293b;font-size:.76rem;display:block;
+                     line-height:1.6;">
+          python stream_kamera.py
+        </code>
+        <div class="text-muted mt-1" style="font-size:.72rem;">
+          Pastikan RUANGAN_ID di .env sesuai ruangan yang dipilih
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Divider ── -->
+<div class="d-flex align-items-center gap-2 mb-3">
+  <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+  <span style="font-size:.78rem;color:#94a3b8;font-weight:600;
+               text-transform:uppercase;letter-spacing:.05em;">
+    Rekaman Tersimpan
+  </span>
+  <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+</div>
+
+<!-- ── Status rekaman bar ── -->
 <div class="section-card p-3 mb-3">
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
     <div class="d-flex align-items-center gap-3">
-      <div id="statusDot" style="width:10px;height:10px;border-radius:50%;
-                                  background:#94a3b8;flex-shrink:0;"></div>
-      <span id="statusText" style="font-size:.84rem; color:#64748b;">
-        Memuat status...
+      <div id="recStatusDot" style="width:10px;height:10px;border-radius:50%;
+                                     background:#94a3b8;flex-shrink:0;"></div>
+      <span id="recStatusText" style="font-size:.84rem;color:#64748b;">
+        Memuat...
       </span>
     </div>
-    <div class="d-flex gap-2 align-items-center">
+    <div class="d-flex gap-2">
       <select class="form-select form-select-sm" id="filterLimit"
               style="width:auto;" onchange="loadRekaman()">
         <option value="10">10 rekaman</option>
@@ -22,25 +154,27 @@
         <option value="50">50 rekaman</option>
       </select>
       <button class="btn btn-sm btn-outline-primary" onclick="loadRekaman()">
-        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        <i class="bi bi-arrow-clockwise"></i>
       </button>
     </div>
   </div>
 </div>
 
-<!-- Grid rekaman -->
+<!-- ── Grid rekaman ── -->
 <div id="rekamanGrid">
-  <div class="text-center text-muted py-5">
+  <div class="text-center text-muted py-4">
     <i class="bi bi-hourglass-split d-block mb-2" style="font-size:2rem;"></i>
     Memuat rekaman...
   </div>
 </div>
 
-<!-- Modal Player Video -->
+<!-- ── Modal Player Video ── -->
 <div class="modal fade" id="modalPlayer" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content" style="border-radius:14px; overflow:hidden; background:#000;">
-      <div class="modal-header" style="background:#1F3864; color:#fff; border:none;">
+    <div class="modal-content"
+         style="border-radius:14px;overflow:hidden;background:#000;">
+      <div class="modal-header"
+           style="background:#1F3864;color:#fff;border:none;">
         <h5 class="modal-title" style="font-size:.9rem;" id="playerTitle">
           <i class="bi bi-play-circle me-2"></i>Putar Rekaman
         </h5>
@@ -48,66 +182,199 @@
                 data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-0">
-        <video id="videoPlayer" controls style="width:100%;max-height:480px;
-               display:block;background:#000;">
+        <video id="videoPlayer" controls
+               style="width:100%;max-height:480px;display:block;background:#000;">
           Browser tidak mendukung video.
         </video>
       </div>
-      <div class="modal-footer" style="background:#111; border:none;">
-        <div id="playerInfo" style="font-size:.78rem; color:#94a3b8; flex:1;"></div>
+      <div class="modal-footer" style="background:#111;border:none;">
+        <div id="playerInfo"
+             style="font-size:.78rem;color:#94a3b8;flex:1;"></div>
         <button class="btn btn-sm btn-outline-danger" id="btnHapusVideo">
-          <i class="bi bi-trash me-1"></i>Hapus Rekaman
+          <i class="bi bi-trash me-1"></i>Hapus
         </button>
-        <button class="btn btn-sm btn-outline-light" data-bs-dismiss="modal">
-          Tutup
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Info jika belum ada kamera -->
-<div id="infoSetup" class="d-none">
-  <div class="section-card p-4 p-md-5 text-center mt-3" style="max-width:520px;margin:0 auto;">
-    <div style="width:72px;height:72px;background:#f1f5f9;border-radius:50%;
-                display:flex;align-items:center;justify-content:center;
-                margin:0 auto 16px;font-size:2rem;color:#cbd5e1;">
-      <i class="bi bi-camera-video-off"></i>
-    </div>
-    <h5 class="fw-bold mb-2" style="color:#1e293b;">Belum Ada Rekaman</h5>
-    <p class="text-muted mb-4" style="font-size:.86rem;line-height:1.6;">
-      Jalankan script kamera di laptop atau Raspberry Pi untuk mulai merekam.
-    </p>
-    <div class="p-3 rounded-3 text-start"
-         style="background:#f8fafc;border:1.5px dashed #cbd5e1;font-size:.82rem;">
-      <div class="fw-bold mb-2 text-muted">Cara menjalankan script:</div>
-      <code style="font-size:.8rem;">python kamera_capture.py</code>
-      <div class="mt-2 text-muted">
-        Konfigurasi di file <code>.env</code>:<br>
-        <code>SERVER_URL = https://nama-project.up.railway.app</code><br>
-        <code>KAMERA_ID  = 0</code> (0 = webcam bawaan)<br>
-        <code>RUANGAN_ID = 1</code><br>
-        <code>DURASI_SEG = 30</code> (detik per segmen)
+        <button class="btn btn-sm btn-outline-light"
+                data-bs-dismiss="modal">Tutup</button>
       </div>
     </div>
   </div>
 </div>
 
 {% endblock %}
-
 {% block extra_js %}
 <script>
-// ── Ikuti perubahan ruangan aktif ────────────────────────
+// ── State ────────────────────────────────────────────────
+let wsViewer      = null;
+let frameCount    = 0;
+let fpsCount      = 0;
+let fpsTimer      = null;
+let lastFrameTime = null;
+let isLive        = false;
+let wsReconnectTimer = null;
+
 function getRuanganId() {
-  const saved = localStorage.getItem('ruangan_aktif');
-  return saved ? JSON.parse(saved).id : null;
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s).id : null;
 }
 
-window.addEventListener('ruanganChanged', () => { loadRekaman(); });
+function getRuanganNama() {
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s).nama : 'Semua Ruangan';
+}
 
+// ── Live Stream WebSocket ────────────────────────────────
+function connectLiveStream() {
+  const rid = getRuanganId();
+  if (!rid) {
+    setOfflineUI('Pilih ruangan untuk melihat live stream');
+    return;
+  }
 
-let currentRekamanId = null;
+  // Tutup koneksi lama
+  if (wsViewer) {
+    wsViewer.close();
+    wsViewer = null;
+  }
+  if (wsReconnectTimer) {
+    clearTimeout(wsReconnectTimer);
+  }
 
+  const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://')
+    + location.host + `/ws/view/${rid}`;
+
+  console.log('[WS] Connecting to:', wsUrl);
+  wsViewer = new WebSocket(wsUrl);
+  wsViewer.binaryType = 'arraybuffer';
+
+  wsViewer.onopen = () => {
+    console.log('[WS] Connected as viewer');
+    document.getElementById('streamRuanganNama').textContent =
+      getRuanganNama();
+  };
+
+  wsViewer.onmessage = (event) => {
+    // Cek apakah pesan adalah JSON (status) atau binary (frame)
+    if (typeof event.data === 'string') {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'status') {
+          if (msg.live) {
+            setLiveUI();
+          } else {
+            setOfflineUI('Kamera offline — jalankan stream_kamera.py');
+          }
+        }
+      } catch(e) {}
+      return;
+    }
+
+    // Binary data = frame JPEG
+    if (!isLive) setLiveUI();
+
+    const blob = new Blob([event.data], { type: 'image/jpeg' });
+    const url  = URL.createObjectURL(blob);
+
+    const img = document.getElementById('liveFrame');
+    const oldUrl = img.src;
+    img.src = url;
+
+    // Revoke URL lama untuk hemat memori
+    if (oldUrl && oldUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(oldUrl);
+    }
+
+    // Update stats
+    frameCount++;
+    fpsCount++;
+    lastFrameTime = new Date();
+
+    document.getElementById('streamFrameCount').textContent = frameCount;
+    document.getElementById('streamLastUpdate').textContent =
+      lastFrameTime.toLocaleTimeString('id-ID');
+
+    // Ambil resolusi dari gambar
+    img.onload = () => {
+      document.getElementById('streamResolution').textContent =
+        `${img.naturalWidth}×${img.naturalHeight}`;
+    };
+
+    // Kirim ping ke server untuk keep-alive
+    if (wsViewer && wsViewer.readyState === WebSocket.OPEN) {
+      wsViewer.send('ping');
+    }
+  };
+
+  wsViewer.onclose = () => {
+    console.log('[WS] Disconnected');
+    setOfflineUI('Koneksi terputus...');
+    isLive = false;
+
+    // Reconnect otomatis setelah 3 detik
+    wsReconnectTimer = setTimeout(connectLiveStream, 3000);
+  };
+
+  wsViewer.onerror = (e) => {
+    console.error('[WS] Error:', e);
+  };
+}
+
+// ── UI helpers ───────────────────────────────────────────
+function setLiveUI() {
+  isLive = true;
+  document.getElementById('livePlaceholder').style.display  = 'none';
+  document.getElementById('liveFrame').style.display        = 'block';
+  document.getElementById('liveOverlay').style.display      = 'block';
+  document.getElementById('btnFullscreen').style.display    = 'block';
+  document.getElementById('liveDot').style.background       = '#22c55e';
+  document.getElementById('liveLabel').textContent          = 'Live';
+  document.getElementById('liveViewerCount').style.display  = 'inline';
+  document.getElementById('streamStatusText').textContent   = '🟢 Online';
+  document.getElementById('streamStatusText').style.color   = '#15803d';
+}
+
+function setOfflineUI(msg = 'Kamera Offline') {
+  isLive = false;
+  document.getElementById('livePlaceholder').style.display  = 'flex';
+  document.getElementById('livePlaceholder').querySelector('div').textContent = msg;
+  document.getElementById('liveFrame').style.display        = 'none';
+  document.getElementById('liveOverlay').style.display      = 'none';
+  document.getElementById('btnFullscreen').style.display    = 'none';
+  document.getElementById('liveDot').style.background       = '#94a3b8';
+  document.getElementById('liveLabel').textContent          = 'Live View';
+  document.getElementById('liveViewerCount').style.display  = 'none';
+  document.getElementById('streamStatusText').textContent   = '⚫ Offline';
+  document.getElementById('streamStatusText').style.color   = '#94a3b8';
+}
+
+// ── FPS counter ──────────────────────────────────────────
+function startFpsCounter() {
+  if (fpsTimer) clearInterval(fpsTimer);
+  fpsTimer = setInterval(() => {
+    const fps = fpsCount;
+    fpsCount  = 0;
+    if (fps > 0) {
+      document.getElementById('streamActualFps').textContent = `${fps} fps`;
+      document.getElementById('liveFpsInfo').textContent     = `${fps} fps`;
+      document.getElementById('liveFpsInfo').style.display   = 'inline';
+    } else if (isLive) {
+      // Tidak ada frame dalam 1 detik — mungkin offline
+      setOfflineUI('Sinyal lemah...');
+      isLive = false;
+    }
+  }, 1000);
+}
+
+// ── Fullscreen ───────────────────────────────────────────
+function toggleFullscreen() {
+  const container = document.getElementById('liveContainer');
+  if (!document.fullscreenElement) {
+    container.requestFullscreen?.();
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+
+// ── Rekaman ──────────────────────────────────────────────
 function fmtDateTime(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('id-ID', {
@@ -115,74 +382,74 @@ function fmtDateTime(iso) {
     hour:'2-digit', minute:'2-digit', second:'2-digit'
   });
 }
-
 function fmtDurasi(mulai, selesai) {
   if (!mulai || !selesai) return '—';
   const d = Math.round((new Date(selesai) - new Date(mulai)) / 1000);
-  if (d < 60)  return `${d} detik`;
-  if (d < 3600) return `${Math.floor(d/60)} menit ${d%60} detik`;
-  return `${Math.floor(d/3600)} jam ${Math.floor((d%3600)/60)} menit`;
+  if (d < 60)   return `${d} dtk`;
+  if (d < 3600) return `${Math.floor(d/60)} mnt`;
+  return `${Math.floor(d/3600)} jam`;
+}
+function fallbackThumb() {
+  return `<div style="width:100%;height:100%;display:flex;align-items:center;
+                       justify-content:center;background:#1e293b;">
+    <i class="bi bi-camera-video" style="font-size:2rem;color:#475569;"></i>
+  </div>`;
 }
 
 async function loadRekaman() {
   const limit = document.getElementById('filterLimit').value;
+  const rid   = getRuanganId();
+  const url   = rid
+    ? `/kamera/rekaman?ruangan_id=${rid}&limit=${limit}`
+    : `/kamera/rekaman?limit=${limit}`;
+
   try {
-    // ✅ SEBELUM: const res  = await fetch(`/kamera/rekaman?ruangan_id=1&limit=${limit}`);
-    // ✅ SESUDAH:
-    const rid = getRuanganId();
-    const url = rid
-      ? `/kamera/rekaman?ruangan_id=${rid}&limit=${limit}`
-      : `/kamera/rekaman?limit=${limit}`;
     const res  = await fetch(url);
     const data = await res.json();
 
-    // Update status dot
-    const dot  = document.getElementById('statusDot');
-    const txt  = document.getElementById('statusText');
+    const dot  = document.getElementById('recStatusDot');
+    const txt  = document.getElementById('recStatusText');
     const grid = document.getElementById('rekamanGrid');
-    const info = document.getElementById('infoSetup');
 
     if (data.length === 0) {
       dot.style.background = '#94a3b8';
       txt.textContent      = 'Belum ada rekaman tersimpan';
-      grid.innerHTML       = '';
-      info.classList.remove('d-none');
+      grid.innerHTML       = `
+        <div class="section-card p-4 text-center text-muted">
+          <i class="bi bi-camera-video-off d-block mb-2"
+             style="font-size:2rem;"></i>
+          Belum ada rekaman. Jalankan
+          <code>python kamera_capture.py</code>
+        </div>`;
       return;
     }
 
-    info.classList.add('d-none');
-
-    // Cek rekaman terbaru — jika < 2 menit lalu, anggap kamera aktif
     const newest = new Date(data[0].waktu_selesai || data[0].waktu_mulai);
     const ageSec = (Date.now() - newest.getTime()) / 1000;
-    if (ageSec < 120) {
-      dot.style.background = '#22c55e';
-      txt.textContent      = `Kamera aktif — rekaman terakhir ${Math.round(ageSec)} detik lalu`;
-    } else {
-      dot.style.background = '#f59e0b';
-      txt.textContent      = `${data.length} rekaman tersimpan — kamera tidak aktif`;
-    }
+    dot.style.background = ageSec < 120 ? '#22c55e' : '#f59e0b';
+    txt.textContent = ageSec < 120
+      ? `${data.length} rekaman — terakhir ${Math.round(ageSec)}s lalu`
+      : `${data.length} rekaman tersimpan`;
 
-    // Render grid
     grid.innerHTML = `
       <div class="row g-3">
         ${data.map(r => `
           <div class="col-6 col-md-4 col-lg-3">
-            <div class="section-card overflow-hidden" style="cursor:pointer;"
-                 onclick="playVideo(${r.id},'${r.url_video}','${r.nama_file}',
-                          '${r.waktu_mulai}','${r.waktu_selesai}','${r.ukuran_mb}')">
-
-              <!-- Thumbnail -->
-              <div style="position:relative;aspect-ratio:4/3;background:#1e293b;
-                          overflow:hidden;">
+            <div class="section-card overflow-hidden h-100"
+                 style="cursor:pointer;"
+                 onclick="playVideo(${r.id},'${r.url_video}',
+                          '${r.nama_file}','${r.waktu_mulai}',
+                          '${r.waktu_selesai}','${r.ukuran_mb}')">
+              <div style="position:relative;aspect-ratio:4/3;
+                          background:#1e293b;overflow:hidden;">
                 ${r.thumbnail_url
-                  ? `<img src="${r.thumbnail_url}" alt="thumbnail"
+                  ? `<img src="${r.thumbnail_url}" alt="thumb"
                          style="width:100%;height:100%;object-fit:cover;"
-                         onerror="this.parentElement.innerHTML=fallbackThumb()">`
+                         onerror="this.parentElement.innerHTML='${fallbackThumb().replace(/'/g,"\\'")}'">`
                   : fallbackThumb()}
                 <div style="position:absolute;inset:0;display:flex;
                             align-items:center;justify-content:center;
-                            background:rgba(0,0,0,.3);opacity:0;
+                            background:rgba(0,0,0,.35);opacity:0;
                             transition:.2s;"
                      onmouseover="this.style.opacity=1"
                      onmouseout="this.style.opacity=0">
@@ -191,21 +458,21 @@ async function loadRekaman() {
                 </div>
                 <div style="position:absolute;bottom:4px;right:6px;
                             background:rgba(0,0,0,.7);color:#fff;
-                            font-size:.65rem;padding:2px 6px;border-radius:4px;">
+                            font-size:.62rem;padding:2px 6px;
+                            border-radius:4px;">
                   ${fmtDurasi(r.waktu_mulai, r.waktu_selesai)}
                 </div>
               </div>
-
-              <!-- Info -->
               <div class="p-2">
-                <div style="font-size:.75rem;font-weight:600;color:#1e293b;
-                            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <div style="font-size:.74rem;font-weight:600;color:#1e293b;
+                            overflow:hidden;text-overflow:ellipsis;
+                            white-space:nowrap;">
                   ${new Date(r.waktu_mulai).toLocaleString('id-ID',{
                     day:'2-digit',month:'short',
                     hour:'2-digit',minute:'2-digit'
                   })}
                 </div>
-                <div style="font-size:.7rem;color:#94a3b8;">
+                <div style="font-size:.68rem;color:#94a3b8;">
                   ${r.ukuran_mb ? r.ukuran_mb.toFixed(1)+' MB' : '—'}
                 </div>
               </div>
@@ -214,66 +481,59 @@ async function loadRekaman() {
       </div>`;
 
   } catch(e) {
-    document.getElementById('statusText').textContent = 'Gagal memuat data';
+    document.getElementById('recStatusText').textContent = 'Gagal memuat data';
     console.error(e);
   }
 }
 
-function fallbackThumb() {
-  return `<div style="width:100%;height:100%;display:flex;align-items:center;
-                       justify-content:center;background:#1e293b;">
-    <i class="bi bi-camera-video" style="font-size:2rem;color:#475569;"></i>
-  </div>`;
-}
-
 function playVideo(id, url, nama, mulai, selesai, ukuran) {
-  currentRekamanId = id;
-
   document.getElementById('playerTitle').innerHTML =
     `<i class="bi bi-play-circle me-2"></i>${nama}`;
-
   document.getElementById('videoPlayer').src = url;
   document.getElementById('videoPlayer').load();
-
   document.getElementById('playerInfo').innerHTML =
     `<i class="bi bi-clock me-1"></i>${fmtDateTime(mulai)}
      &nbsp;→&nbsp; ${fmtDateTime(selesai)}
      &nbsp;·&nbsp; ${ukuran ? parseFloat(ukuran).toFixed(1)+' MB' : '—'}`;
-
   document.getElementById('btnHapusVideo').onclick = () => hapusRekaman(id);
-
   new bootstrap.Modal(document.getElementById('modalPlayer')).show();
 }
 
 async function hapusRekaman(id) {
-  if (!confirm('Hapus rekaman ini? Tindakan tidak dapat dibatalkan.')) return;
-  try {
-    const res = await fetch(`/kamera/rekaman/${id}`, { method:'DELETE' });
-    if (res.ok) {
-      bootstrap.Modal.getInstance(document.getElementById('modalPlayer')).hide();
-      document.getElementById('videoPlayer').src = '';
-      loadRekaman();
-    } else {
-      alert('Gagal menghapus rekaman.');
-    }
-  } catch(e) {
-    alert('Error: ' + e.message);
+  if (!confirm('Hapus rekaman ini?')) return;
+  const res = await fetch(`/kamera/rekaman/${id}`, { method:'DELETE' });
+  if (res.ok) {
+    bootstrap.Modal.getInstance(
+      document.getElementById('modalPlayer')).hide();
+    document.getElementById('videoPlayer').src = '';
+    loadRekaman();
   }
 }
 
-// Stop video saat modal ditutup
-document.getElementById('modalPlayer').addEventListener('hidden.bs.modal', () => {
-  const v = document.getElementById('videoPlayer');
-  v.pause();
-  v.src = '';
-});
+document.getElementById('modalPlayer').addEventListener(
+  'hidden.bs.modal', () => {
+    const v = document.getElementById('videoPlayer');
+    v.pause(); v.src = '';
+  }
+);
 
-// Load pertama + auto-refresh tiap 60 detik
-loadRekaman();
-setInterval(loadRekaman, 60000);
-// ── Listener perubahan ruangan ────────────────────────
+// ── Listener perubahan ruangan ────────────────────────────
 window.addEventListener('ruanganChanged', () => {
+  frameCount = 0;
+  fpsCount   = 0;
+  document.getElementById('streamFrameCount').textContent = '0';
+  document.getElementById('streamActualFps').textContent  = '—';
+  document.getElementById('streamResolution').textContent = '—';
+  document.getElementById('streamRuanganNama').textContent =
+    getRuanganNama();
+  connectLiveStream();
   loadRekaman();
 });
+
+// ── Init ─────────────────────────────────────────────────
+connectLiveStream();
+loadRekaman();
+startFpsCounter();
+setInterval(loadRekaman, 60000);
 </script>
 {% endblock %}
