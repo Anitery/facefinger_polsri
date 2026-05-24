@@ -173,7 +173,12 @@ def main():
 
     # Buka kamera
     print(f"[KAMERA] Membuka kamera index {KAMERA_ID}...")
-    cap = cv2.VideoCapture(KAMERA_ID)
+    # Support webcam index atau IP camera URL
+    KAMERA_URL = os.getenv("KAMERA_URL", os.getenv("KAMERA_ID", "0"))
+    kamera_src = int(KAMERA_URL) if KAMERA_URL.isdigit() else KAMERA_URL
+    cap = cv2.VideoCapture(kamera_src)
+    if not kamera_src == int(kamera_src if isinstance(kamera_src, int) else -1):
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     if not cap.isOpened():
         print(f"[KAMERA] ✗ Gagal membuka kamera index {KAMERA_ID}")

@@ -100,6 +100,10 @@
           <span class="fw-bold" id="streamResolution">—</span>
         </div>
         <div class="d-flex justify-content-between">
+          <span class="text-muted">Sumber</span>
+          <span class="fw-bold" id="streamSumber">—</span>
+        </div>
+        <div class="d-flex justify-content-between">
           <span class="text-muted">Terakhir update</span>
           <span class="fw-bold" id="streamLastUpdate">—</span>
         </div>
@@ -107,18 +111,38 @@
 
       <hr class="my-3">
 
-      <!-- Cara menjalankan -->
       <div style="background:#f8fafc;border-radius:8px;padding:12px;
                   font-size:.78rem;">
         <div class="fw-bold mb-2" style="color:#64748b;">
           <i class="bi bi-terminal me-1"></i>Cara menjalankan:
         </div>
-        <code style="color:#1e293b;font-size:.76rem;display:block;
-                     line-height:1.6;">
-          python stream_kamera.py
-        </code>
-        <div class="text-muted mt-1" style="font-size:.72rem;">
-          Pastikan RUANGAN_ID di .env sesuai ruangan yang dipilih
+
+        <!-- Webcam -->
+        <div class="mb-2">
+          <div style="color:#94a3b8;font-size:.72rem;margin-bottom:2px;">
+            Webcam lokal:
+          </div>
+          <code style="color:#1e293b;font-size:.73rem;">
+            KAMERA_URL=0<br>
+            python stream_kamera.py
+          </code>
+        </div>
+
+        <!-- IP Camera -->
+        <div>
+          <div style="color:#94a3b8;font-size:.72rem;margin-bottom:2px;">
+            IP Camera:
+          </div>
+          <code style="color:#1e293b;font-size:.73rem;display:block;
+                      line-height:1.6;">
+            KAMERA_URL=rtsp://user:pass@IP:554/stream<br>
+            python stream_kamera.py
+          </code>
+        </div>
+
+        <div class="text-muted mt-2" style="font-size:.71rem;">
+          <i class="bi bi-info-circle me-1"></i>
+          Jalankan di PC yang terhubung ke kamera, bukan di server.
         </div>
       </div>
 
