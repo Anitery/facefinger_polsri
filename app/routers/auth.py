@@ -1,115 +1,123 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from datetime import datetime
 import json
 import numpy as np
 from app.database import get_db
-from app.models.models import User, AccessLog
-from app.schemas import AuthFaceRequest, AuthFingerprintRequest, AuthResponse
+from app.models.models import User, AccessLog, JadwalRuangan
 
 router = APIRouter(prefix="/auth", tags=["Autentikasi"])
 
-FACE_THRESHOLD = 0.5  # jarak Euclidean maksimum untuk dianggap cocok
+FACE_THRESHOLD = 0.5
+
+# Role yang BEBAS akses kapan saja (tidak dibatasi jadwal)
+ROLE_BEBAS = {"admin", "teknisi", "dosen"}
 
 
-def euclidean_distance(enc1: list, enc2: list) -> float:
-    a = np.array(enc1)
-    b = np.array(enc2)
-    return float(np.linalg.norm(a - b))
+def euclidean_distance(enc1, enc2):
+    return float(np.linalg.norm(np.array(enc1) - np.array(enc2)))
 
 
-@router.post("/face", response_model=AuthResponse)
-def auth_face(payload: AuthFaceRequest, db: Session = Depends(get_db)):
+def cek_jadwal_aktif(ruangan_id: int, user_id: int, db: Session):
     """
-    Endpoint dipanggil oleh Raspberry Pi saat wajah terdeteksi.
-    Mencocokkan encoding wajah dengan seluruh user terdaftar.
+    Cek apakah user boleh akses ruangan sekarang berdasarkan jadwal.
+    Return: (boleh: bool, alasan: str)
     """
+    now      = datetime.now()
+    today    = now.strftime("%Y-%m-%d")
+    now_time = now.strftime("%H:%M")
+
+    # Cari jadwal yang aktif sekarang di ruangan ini
+    jadwal = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(
+        JadwalRuangan.ruangan_id  == ruangan_id,
+        JadwalRuangan.tanggal     == today,
+        JadwalRuangan.jam_mulai   <= now_time,
+        JadwalRuangan.jam_selesai >  now_time,
+    ).first()
+
+    if not jadwal:
+        # Tidak ada jadwal aktif — hanya admin/teknisi/dosen boleh masuk
+        return False, "Tidak ada jadwal aktif saat ini"
+
+    # Ada jadwal — cek apakah user terdaftar di jadwal ini
+    mahasiswa_ids = [m.id for m in jadwal.mahasiswa_diizinkan]
+
+    if not mahasiswa_ids:
+        # Jadwal ada tapi belum ada mahasiswa didaftarkan → izinkan semua
+        return True, f"Jadwal: {jadwal.nama_kegiatan} (semua diizinkan)"
+
+    if user_id in mahasiswa_ids:
+        return True, f"Jadwal: {jadwal.nama_kegiatan} ({jadwal.kelas or ''})"
+
+    return False, f"Tidak terdaftar di jadwal {jadwal.nama_kegiatan} ({jadwal.kelas or ''})"
+
+
+@router.post("/face")
+def auth_face(payload, db: Session = Depends(get_db)):
+    from app.schemas import AuthFaceRequest, AuthResponse
+
     users = db.query(User).filter(
-        User.aktif == True,
+        User.aktif        == True,
         User.face_encoding != None,
-        User.ruangan_id == payload.ruangan_id
     ).all()
 
     best_match = None
-    best_dist = float("inf")
+    best_dist  = float("inf")
 
     for user in users:
         try:
-            stored_enc = json.loads(user.face_encoding)
-            dist = euclidean_distance(payload.face_encoding, stored_enc)
+            stored = json.loads(user.face_encoding)
+            dist   = euclidean_distance(payload.face_encoding, stored)
             if dist < best_dist:
-                best_dist = dist
+                best_dist  = dist
                 best_match = user
         except Exception:
             continue
 
-    if best_match and best_dist <= FACE_THRESHOLD:
-        # Simpan log berhasil
-        log = AccessLog(
-            user_id=best_match.id,
-            ruangan_id=payload.ruangan_id,
-            metode="face",
-            foto_url=None,
-            status="berhasil",
-            keterangan=f"Jarak encoding: {best_dist:.4f}"
-        )
-        db.add(log)
+    if not (best_match and best_dist <= FACE_THRESHOLD):
+        # Wajah tidak dikenal
+        db.add(AccessLog(
+            user_id=None, ruangan_id=payload.ruangan_id,
+            metode="face", status="ditolak",
+            keterangan="Wajah tidak dikenal"
+        ))
         db.commit()
-        return AuthResponse(
-            status="berhasil",
-            user_id=best_match.id,
-            nama=best_match.nama,
-            pesan="Akses diberikan"
-        )
+        raise HTTPException(status_code=401, detail="Wajah tidak dikenal")
+
+    # Wajah dikenal — cek hak akses berdasarkan jadwal
+    if best_match.role in ROLE_BEBAS:
+        # Admin/teknisi/dosen bebas akses kapan saja
+        alasan = f"Akses bebas ({best_match.role})"
+        boleh  = True
     else:
-        # Simpan log ditolak
-        log = AccessLog(
-            user_id=None,
-            ruangan_id=payload.ruangan_id,
-            metode="face",
-            foto_url=None,
-            status="ditolak",
-            keterangan="Wajah tidak dikenali"
+        # Mahasiswa — cek jadwal
+        boleh, alasan = cek_jadwal_aktif(
+            payload.ruangan_id, best_match.id, db
         )
-        db.add(log)
+
+    if boleh:
+        db.add(AccessLog(
+            user_id=best_match.id, ruangan_id=payload.ruangan_id,
+            metode="face", status="berhasil",
+            keterangan=f"{alasan} | jarak: {best_dist:.4f}"
+        ))
         db.commit()
-        raise HTTPException(status_code=401, detail="Wajah tidak dikenali")
-
-
-@router.post("/fingerprint", response_model=AuthResponse)
-def auth_fingerprint(payload: AuthFingerprintRequest, db: Session = Depends(get_db)):
-    """
-    Endpoint dipanggil oleh Raspberry Pi saat fingerprint terbaca.
-    """
-    user = db.query(User).filter(
-        User.fingerprint_id == payload.fingerprint_id,
-        User.aktif == True,
-        User.ruangan_id == payload.ruangan_id
-    ).first()
-
-    if user:
-        log = AccessLog(
-            user_id=user.id,
-            ruangan_id=payload.ruangan_id,
-            metode="fingerprint",
-            status="berhasil",
-            keterangan=f"Fingerprint ID: {payload.fingerprint_id}"
-        )
-        db.add(log)
-        db.commit()
-        return AuthResponse(
-            status="berhasil",
-            user_id=user.id,
-            nama=user.nama,
-            pesan="Akses diberikan via fingerprint"
-        )
+        return {
+            "status":  "berhasil",
+            "user_id": best_match.id,
+            "nama":    best_match.nama,
+            "pesan":   f"Akses diberikan — {alasan}"
+        }
     else:
-        log = AccessLog(
-            user_id=None,
-            ruangan_id=payload.ruangan_id,
-            metode="fingerprint",
-            status="ditolak",
-            keterangan=f"Fingerprint ID {payload.fingerprint_id} tidak terdaftar"
-        )
-        db.add(log)
+        db.add(AccessLog(
+            user_id=best_match.id, ruangan_id=payload.ruangan_id,
+            metode="face", status="ditolak",
+            keterangan=f"Ditolak: {alasan}"
+        ))
         db.commit()
-        raise HTTPException(status_code=401, detail="Fingerprint tidak terdaftar")
+        raise HTTPException(
+            status_code=403,
+            detail=f"Akses ditolak — {alasan}"
+        )

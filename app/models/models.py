@@ -11,6 +11,13 @@ penanggung_jawab = Table(
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
 )
 
+jadwal_mahasiswa = Table(
+    "jadwal_mahasiswa",
+    Base.metadata,
+    Column("jadwal_id",  Integer, ForeignKey("jadwal_ruangan.id"), primary_key=True),
+    Column("user_id",    Integer, ForeignKey("users.id"),          primary_key=True),
+)
+
 class Ruangan(Base):
     __tablename__ = "ruangan"
 
@@ -105,15 +112,24 @@ class InventarisAlat(Base):
 class JadwalRuangan(Base):
     __tablename__ = "jadwal_ruangan"
 
-    id = Column(Integer, primary_key=True, index=True)
-    ruangan_id = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
-    nama_kegiatan = Column(String(150), nullable=False)
-    dosen = Column(String(100), nullable=True)
-    mata_kuliah = Column(String(100), nullable=True)
-    tanggal = Column(String(20), nullable=False)   # format: YYYY-MM-DD
-    jam_mulai = Column(String(10), nullable=False)   # format: HH:MM
-    jam_selesai = Column(String(10), nullable=False)
-    keterangan = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id             = Column(Integer, primary_key=True, index=True)
+    ruangan_id     = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
+    nama_kegiatan  = Column(String(150), nullable=False)
+    kelas          = Column(String(50),  nullable=True)   # ← TAMBAH: misal "6CF", "4A", dll
+    dosen          = Column(String(100), nullable=True)
+    mata_kuliah    = Column(String(100), nullable=True)
+    tanggal        = Column(String(20),  nullable=False)
+    jam_mulai      = Column(String(10),  nullable=False)
+    jam_selesai    = Column(String(10),  nullable=False)
+    keterangan     = Column(Text,        nullable=True)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+
+    ruangan  = relationship("Ruangan", backref="jadwal")
+    # Relasi mahasiswa yang boleh akses jadwal ini
+    mahasiswa_diizinkan = relationship(
+        "User",
+        secondary="jadwal_mahasiswa",
+        backref="jadwal_diizinkan"
+    )
 
     ruangan = relationship("Ruangan", back_populates="jadwal")

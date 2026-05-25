@@ -101,8 +101,14 @@
       <div class="modal-body p-4">
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">Nama Kegiatan</label>
-          <input class="form-control" id="jNama"
-                 placeholder="contoh: Praktikum Jaringan Komputer">
+          <input class="form-control" id="jNama">
+        </div>
+        <!-- Tambah field Kelas setelah Nama Kegiatan -->
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Kelas
+          </label>
+          <input class="form-control" id="jKelas">
         </div>
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">
@@ -168,6 +174,65 @@
         <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
         <button class="btn btn-primary" onclick="tambahJadwal()">
           <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Kelola Mahasiswa Jadwal -->
+<div class="modal fade" id="modalMahasiswa" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;">
+          <i class="bi bi-people me-2"></i>
+          Mahasiswa — <span id="mhsNamaJadwal"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="mhsJadwalId">
+
+        <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+          <i class="bi bi-info-circle me-2"></i>
+          Hanya mahasiswa yang terdaftar di sini yang bisa membuka pintu
+          saat jadwal ini aktif. Jika kosong, semua mahasiswa terdaftar
+          bisa akses.
+        </div>
+
+        <!-- Daftar mahasiswa terdaftar -->
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Mahasiswa Terdaftar
+          </label>
+          <div id="listMhsJadwal" class="d-flex flex-column gap-2">
+            <div class="text-muted" style="font-size:.83rem;">
+              Belum ada
+            </div>
+          </div>
+        </div>
+
+        <hr>
+
+        <!-- Tambah mahasiswa -->
+        <div class="mb-2">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Tambah Mahasiswa
+          </label>
+          <select class="form-select" id="selectMhsJadwal">
+            <option value="">— Pilih mahasiswa —</option>
+          </select>
+        </div>
+        <div id="alertMhsJadwal"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">
+          Tutup
+        </button>
+        <button class="btn btn-primary" onclick="tambahMhsJadwal()">
+          <i class="bi bi-plus-lg me-1"></i>Tambah
         </button>
       </div>
     </div>
@@ -331,6 +396,7 @@
 
 {% block extra_js %}
 <script>
+
 // ── Load daftar dosen untuk dropdown ─────────────────────
 async function loadDosenList() {
   try {
@@ -500,27 +566,46 @@ function renderList() {
     return;
   }
 
-  document.getElementById('listJadwal').innerHTML = data.map(j => `
-    <div class="jadwal-item">
-      <div class="jadwal-date-box">
-        <div class="month">${BULAN_SHORT[parseInt(j.tanggal.slice(5,7))-1]}</div>
-        <div class="day">${j.tanggal.slice(8,10)}</div>
-      </div>
-      <div class="jadwal-info">
-        <div class="title">${j.nama_kegiatan}</div>
-        <div class="meta">
-          <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
-          ${j.dosen ? `&nbsp;·&nbsp;<i class="bi bi-person me-1"></i>${j.dosen}` : ''}
-        </div>
-        ${j.keterangan
-          ? `<div style="font-size:.73rem;color:#94a3b8;margin-top:2px;">${j.keterangan}</div>`
+document.getElementById('listJadwal').innerHTML = data.map(j => `
+  <div class="jadwal-item">
+    <div class="jadwal-date-box">
+      <div class="month">${BULAN_SHORT[parseInt(j.tanggal.slice(5,7))-1]}</div>
+      <div class="day">${j.tanggal.slice(8,10)}</div>
+    </div>
+    <div class="jadwal-info">
+      <div class="title">${j.nama_kegiatan}
+        ${j.kelas
+          ? `<span style="background:#eff6ff;color:#1d4ed8;
+                          padding:1px 7px;border-radius:10px;
+                          font-size:.68rem;font-weight:600;
+                          margin-left:4px;">${j.kelas}</span>`
           : ''}
       </div>
-      <button class="btn btn-sm" style="color:#ef4444;padding:2px 6px;flex-shrink:0;"
-              onclick="hapusJadwal(${j.id})" title="Hapus">
+      <div class="meta">
+        <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
+        ${j.dosen ? `&nbsp;·&nbsp;<i class="bi bi-person me-1"></i>${j.dosen}` : ''}
+      </div>
+      <!-- Info mahasiswa terdaftar -->
+      <div style="font-size:.72rem;color:#64748b;margin-top:3px;">
+        <i class="bi bi-people me-1"></i>
+        ${j.mahasiswa_diizinkan?.length
+          ? `${j.mahasiswa_diizinkan.length} mahasiswa terdaftar`
+          : '<span style="color:#f59e0b;">Belum ada mahasiswa — semua bisa akses</span>'}
+      </div>
+    </div>
+    <div class="d-flex flex-column gap-1" style="flex-shrink:0;">
+      <button class="btn btn-outline-primary btn-sm"
+              onclick="openModalMahasiswa(${j.id}, '${j.nama_kegiatan.replace(/'/g,"\\'")}',
+                       ${JSON.stringify(j.mahasiswa_diizinkan||[])})"
+              title="Kelola mahasiswa">
+        <i class="bi bi-people"></i>
+      </button>
+      <button class="btn btn-sm" style="color:#ef4444;padding:2px 6px;"
+              onclick="hapusJadwal(${j.id})">
         <i class="bi bi-trash"></i>
       </button>
-    </div>`).join('');
+    </div>
+  </div>`).join('');
 }
 
 function selectDay(dateStr) {
@@ -550,7 +635,7 @@ async function tambahJadwal() {
   const mulaiEl = document.getElementById('jMulai');
   const selesaiEl = document.getElementById('jSelesai');
   const ketEl   = document.getElementById('jKet');
-
+  
   // Validasi element ada
   if (!namaEl || !tglEl || !mulaiEl || !selesaiEl) {
     console.error('Element form tidak ditemukan');
@@ -569,6 +654,7 @@ async function tambahJadwal() {
   const body = {
     ruangan_id:    rid,
     nama_kegiatan: namaEl.value.trim(),
+    kelas:         document.getElementById('jKelas')?.value.trim() || null, // ← TAMBAH
     dosen:         getNamaDosen(),
     tanggal:       tglEl.value,
     jam_mulai:     mulaiEl.value,
@@ -638,9 +724,6 @@ async function hapusJadwal(id) {
   await render();
 }
 
-// Default tanggal hari ini
-document.getElementById('jTanggal').value = new Date().toISOString().slice(0,10);
-render();
 // ── Listener perubahan ruangan ────────────────────────
 window.addEventListener('ruanganChanged', (e) => {
   filterDate = null;
@@ -648,6 +731,139 @@ window.addEventListener('ruanganChanged', (e) => {
   document.getElementById('jadwalNamaRuangan').textContent =
     e.detail?.nama || 'Semua Ruangan';
 });
+
+// ── Daftar semua mahasiswa (untuk dropdown) ───────────────
+let allMahasiswa = [];
+
+async function loadMahasiswaList() {
+  const res  = await fetch('/users/');
+  const data = await res.json();
+  allMahasiswa = data.filter(u => u.role === 'mahasiswa' && u.aktif);
+}
+
+function openModalMahasiswa(jadwalId, namaJadwal, currentMhs) {
+  document.getElementById('mhsJadwalId').value          = jadwalId;
+  document.getElementById('mhsNamaJadwal').textContent  = namaJadwal;
+  document.getElementById('alertMhsJadwal').innerHTML   = '';
+
+  renderListMhsJadwal(jadwalId, currentMhs);
+
+  // Isi dropdown — filter yang belum terdaftar
+  const terdaftarIds = currentMhs.map(m => m.id);
+  const options = allMahasiswa
+    .filter(m => !terdaftarIds.includes(m.id))
+    .map(m =>
+      `<option value="${m.id}">${m.nama} — ${m.nim_nip}</option>`
+    ).join('');
+
+  document.getElementById('selectMhsJadwal').innerHTML =
+    `<option value="">— Pilih mahasiswa —</option>${options}`;
+
+  new bootstrap.Modal(document.getElementById('modalMahasiswa')).show();
+}
+
+function renderListMhsJadwal(jadwalId, mhsList) {
+  const el = document.getElementById('listMhsJadwal');
+  if (!mhsList.length) {
+    el.innerHTML = `
+      <div class="text-muted" style="font-size:.82rem;font-style:italic;">
+        Kosong — semua mahasiswa terdaftar bisa akses
+      </div>`;
+    return;
+  }
+  el.innerHTML = mhsList.map(m => `
+    <div class="d-flex align-items-center gap-2 p-2 rounded-3"
+         style="background:#f8fafc;border:1px solid #e2e8f0;">
+      <div style="width:32px;height:32px;border-radius:50%;
+                  background:linear-gradient(135deg,#1F3864,#2E75B6);
+                  display:flex;align-items:center;justify-content:center;
+                  color:#fff;font-weight:700;font-size:.8rem;flex-shrink:0;">
+        ${m.nama[0].toUpperCase()}
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-bold" style="font-size:.83rem;">${m.nama}</div>
+        <div style="font-size:.71rem;color:#64748b;">${m.nim_nip}</div>
+      </div>
+      <button class="btn btn-outline-danger btn-sm"
+              onclick="hapusMhsJadwal(${jadwalId}, ${m.id},
+                       '${m.nama.replace(/'/g,"\\'")}')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>`).join('');
+}
+
+async function tambahMhsJadwal() {
+  const jadwalId = document.getElementById('mhsJadwalId').value;
+  const userId   = document.getElementById('selectMhsJadwal').value;
+  const alertEl  = document.getElementById('alertMhsJadwal');
+
+  if (!userId) {
+    alertEl.innerHTML =
+      '<div class="alert alert-warning py-2">Pilih mahasiswa terlebih dahulu.</div>';
+    return;
+  }
+
+  const res = await fetch(`/jadwal/${jadwalId}/mahasiswa/${userId}`,
+    { method: 'POST' });
+
+  if (res.ok) {
+    alertEl.innerHTML =
+      '<div class="alert alert-success py-2">Mahasiswa berhasil ditambahkan!</div>';
+
+    // Refresh data jadwal dan update modal
+    const jadwalRes = await fetch(
+      `/jadwal/?ruangan_id=${getRuanganId() || ''}`
+    );
+    const jadwalData = await jadwalRes.json();
+    const jadwal     = jadwalData.find(j => j.id == jadwalId);
+    if (jadwal) {
+      renderListMhsJadwal(jadwalId, jadwal.mahasiswa_diizinkan);
+      // Hapus dari dropdown
+      const opt = document.querySelector(
+        `#selectMhsJadwal option[value="${userId}"]`
+      );
+      if (opt) opt.remove();
+    }
+    document.getElementById('selectMhsJadwal').value = '';
+    await render();
+  } else {
+    const err = await res.json();
+    alertEl.innerHTML =
+      `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function hapusMhsJadwal(jadwalId, userId, nama) {
+  if (!confirm(`Hapus ${nama} dari jadwal ini?`)) return;
+
+  const res = await fetch(
+    `/jadwal/${jadwalId}/mahasiswa/${userId}`,
+    { method: 'DELETE' }
+  );
+
+  if (res.ok) {
+    const jadwalRes  = await fetch(
+      `/jadwal/?ruangan_id=${getRuanganId() || ''}`
+    );
+    const jadwalData = await jadwalRes.json();
+    const jadwal     = jadwalData.find(j => j.id == jadwalId);
+    if (jadwal) {
+      renderListMhsJadwal(jadwalId, jadwal.mahasiswa_diizinkan);
+      // Kembalikan ke dropdown
+      const mhs = allMahasiswa.find(m => m.id === userId);
+      if (mhs) {
+        const opt       = document.createElement('option');
+        opt.value       = mhs.id;
+        opt.textContent = `${mhs.nama} — ${mhs.nim_nip}`;
+        document.getElementById('selectMhsJadwal').appendChild(opt);
+      }
+    }
+    await render();
+  }
+}
+
+// Panggil di init
+loadMahasiswaList();
 
 // Juga di DOMContentLoaded:
 document.addEventListener('DOMContentLoaded', () => {

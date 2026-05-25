@@ -1,41 +1,98 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from typing import Optional
+from sqlalchemy.orm import Session, joinedload
+from typing import Optional, List
+from datetime import datetime, date
 from pydantic import BaseModel
 from app.database import get_db
-from app.models.models import JadwalRuangan
+from app.models.models import JadwalRuangan, User
 
 router = APIRouter(prefix="/jadwal", tags=["Jadwal Ruangan"])
 
 
 class JadwalCreate(BaseModel):
-    ruangan_id: int
+    ruangan_id:    int
     nama_kegiatan: str
-    dosen: Optional[str] = None
-    mata_kuliah: Optional[str] = None
-    tanggal: str        # YYYY-MM-DD
-    jam_mulai: str      # HH:MM
-    jam_selesai: str    # HH:MM
-    keterangan: Optional[str] = None
+    kelas:         Optional[str] = None
+    dosen:         Optional[str] = None
+    mata_kuliah:   Optional[str] = None
+    tanggal:       str
+    jam_mulai:     str
+    jam_selesai:   str
+    keterangan:    Optional[str] = None
+
+
+class MahasiswaInfo(BaseModel):
+    id:      int
+    nama:    str
+    nim_nip: str
+    role:    str
+    model_config = {"from_attributes": True}
 
 
 class JadwalOut(JadwalCreate):
     id: int
+    mahasiswa_diizinkan: List[MahasiswaInfo] = []
     model_config = {"from_attributes": True}
 
 
-@router.get("/", response_model=list[JadwalOut])
+@router.get("/", response_model=List[JadwalOut])
 def get_jadwal(
     ruangan_id: Optional[int] = Query(None),
-    bulan: Optional[str] = Query(None),   # format: YYYY-MM
+    bulan:      Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    q = db.query(JadwalRuangan)
+    q = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    )
     if ruangan_id:
         q = q.filter(JadwalRuangan.ruangan_id == ruangan_id)
     if bulan:
         q = q.filter(JadwalRuangan.tanggal.startswith(bulan))
     return q.order_by(JadwalRuangan.tanggal, JadwalRuangan.jam_mulai).all()
+
+
+@router.get("/dosen-list")
+def get_dosen_list(db: Session = Depends(get_db)):
+    dosens = db.query(User).filter(
+        User.role == "dosen", User.aktif == True
+    ).order_by(User.nama).all()
+    return [{"id": d.id, "nama": d.nama, "nim_nip": d.nim_nip} for d in dosens]
+
+
+@router.get("/aktif/{ruangan_id}")
+def get_jadwal_aktif(ruangan_id: int, db: Session = Depends(get_db)):
+    """
+    Cek apakah ada jadwal yang sedang aktif sekarang di ruangan ini.
+    Dipakai oleh endpoint autentikasi.
+    """
+    now      = datetime.now()
+    today    = now.strftime("%Y-%m-%d")
+    now_time = now.strftime("%H:%M")
+
+    jadwal = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(
+        JadwalRuangan.ruangan_id == ruangan_id,
+        JadwalRuangan.tanggal    == today,
+        JadwalRuangan.jam_mulai  <= now_time,
+        JadwalRuangan.jam_selesai > now_time,
+    ).first()
+
+    if not jadwal:
+        return {"aktif": False, "jadwal": None}
+
+    return {
+        "aktif": True,
+        "jadwal": {
+            "id":            jadwal.id,
+            "nama_kegiatan": jadwal.nama_kegiatan,
+            "kelas":         jadwal.kelas,
+            "dosen":         jadwal.dosen,
+            "jam_mulai":     jadwal.jam_mulai,
+            "jam_selesai":   jadwal.jam_selesai,
+            "mahasiswa_ids": [m.id for m in jadwal.mahasiswa_diizinkan]
+        }
+    }
 
 
 @router.post("/", response_model=JadwalOut)
@@ -49,19 +106,62 @@ def buat_jadwal(payload: JadwalCreate, db: Session = Depends(get_db)):
 
 @router.delete("/{jadwal_id}")
 def hapus_jadwal(jadwal_id: int, db: Session = Depends(get_db)):
-    jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()
+    jadwal = db.query(JadwalRuangan).filter(
+        JadwalRuangan.id == jadwal_id
+    ).first()
     if not jadwal:
         raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan")
     db.delete(jadwal)
     db.commit()
     return {"pesan": "Jadwal dihapus"}
 
-@router.get("/dosen-list")
-def get_dosen_list(db: Session = Depends(get_db)):
-    """Ambil daftar user dengan role dosen untuk dropdown jadwal."""
-    from app.models.models import User
-    dosens = db.query(User).filter(
-        User.role == "dosen",
-        User.aktif == True
-    ).order_by(User.nama).all()
-    return [{"id": d.id, "nama": d.nama, "nim_nip": d.nim_nip} for d in dosens]
+
+@router.post("/{jadwal_id}/mahasiswa/{user_id}")
+def tambah_mahasiswa(
+    jadwal_id: int, user_id: int, db: Session = Depends(get_db)
+):
+    """Tambahkan mahasiswa ke daftar yang boleh akses jadwal ini."""
+    jadwal = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(JadwalRuangan.id == jadwal_id).first()
+    if not jadwal:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+
+    if any(m.id == user_id for m in jadwal.mahasiswa_diizinkan):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{user.nama} sudah terdaftar di jadwal ini"
+        )
+
+    jadwal.mahasiswa_diizinkan.append(user)
+    db.commit()
+    return {"pesan": f"{user.nama} ditambahkan ke jadwal {jadwal.nama_kegiatan}"}
+
+
+@router.delete("/{jadwal_id}/mahasiswa/{user_id}")
+def hapus_mahasiswa(
+    jadwal_id: int, user_id: int, db: Session = Depends(get_db)
+):
+    """Hapus mahasiswa dari daftar akses jadwal."""
+    jadwal = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(JadwalRuangan.id == jadwal_id).first()
+    if not jadwal:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan")
+
+    user = next(
+        (m for m in jadwal.mahasiswa_diizinkan if m.id == user_id), None
+    )
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="Mahasiswa tidak ditemukan di jadwal ini"
+        )
+
+    jadwal.mahasiswa_diizinkan.remove(user)
+    db.commit()
+    return {"pesan": f"{user.nama} dihapus dari jadwal"}
