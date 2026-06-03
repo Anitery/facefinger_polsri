@@ -264,6 +264,9 @@
     <a href="/dashboard/jadwal"    class="nav-link {% if active=='jadwal'    %}active{% endif %}">
       <i class="bi bi-calendar3"></i> Jadwal Ruangan
     </a>
+    <a href="/dashboard/absensi" class="nav-link {% if active=='absensi' %}active{% endif %}">
+      <i class="bi bi-clipboard-check"></i> Absensi
+    </a>
     <a href="/dashboard/kamera"    class="nav-link {% if active=='kamera'    %}active{% endif %}">
       <i class="bi bi-camera-video"></i> Kamera Monitoring
     </a>
@@ -329,10 +332,9 @@
     </a>
     {% endif %}
 
-    <a href="/dashboard/inventaris" class="nav-link {% if active=='inventaris' %}active{% endif %}">
+    <!-- <a href="/dashboard/inventaris" class="nav-link {% if active=='inventaris' %}active{% endif %}">
       <i class="bi bi-box-seam"></i> Inventaris Alat
-    </a>
-
+    </a> -->
     <div class="nav-section">Akun</div>
     <a href="/dashboard/profil"    class="nav-link {% if active=='profil'    %}active{% endif %}">
       <i class="bi bi-person-circle"></i> Profil Saya

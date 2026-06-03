@@ -20,19 +20,18 @@ if db.query(Ruangan).first():
 
 # ── 12 Ruangan ───────────────────────────────────────────
 ruangan_list = [
-    {"nama": "Ruang Multimedia",                "lokasi": "Lantai 2", "lantai": 2},
-    {"nama": "Lab Pemrograman 1",               "lokasi": "Lantai 1", "lantai": 1},
-    {"nama": "Lab Pemrograman 2",               "lokasi": "Lantai 1", "lantai": 1},
-    {"nama": "Lab Pemrograman 3",               "lokasi": "Lantai 1", "lantai": 1},
-    {"nama": "Lab Pemrograman 4",               "lokasi": "Lantai 1", "lantai": 1},
+    {"nama": "Lab Pemrograman 1",               "lokasi": "Lantai 2", "lantai": 2},
+    {"nama": "Lab Pemrograman 2",               "lokasi": "Lantai 2", "lantai": 2},
+    {"nama": "Lab Pemrograman 3",               "lokasi": "Lantai 2", "lantai": 2},
+    {"nama": "Lab Pemrograman 4",               "lokasi": "Lantai 2", "lantai": 2},
     {"nama": "Lab Multimedia",                  "lokasi": "Lantai 2", "lantai": 2},
     {"nama": "Lab Sensor & Wireless",           "lokasi": "Lantai 2", "lantai": 2},
     {"nama": "Lab Video & Audio",               "lokasi": "Lantai 2", "lantai": 2},
     {"nama": "Lab Multimedia 2",                "lokasi": "Lantai 2", "lantai": 2},
-    {"nama": "Lab Keamanan & Jaringan",         "lokasi": "Lantai 3", "lantai": 3},
-    {"nama": "Lab Infrastruktur & Komputasi Awan", "lokasi": "Lantai 3", "lantai": 3},
-    {"nama": "Perpustakaan Tekkom",             "lokasi": "Lantai 1", "lantai": 1},
-    {"nama": "Gudang Teknisi",                  "lokasi": "Lantai 1", "lantai": 1},
+    {"nama": "Lab Keamanan & Jaringan",         "lokasi": "Lantai 2", "lantai": 2},
+    {"nama": "Lab Infrastruktur & Komputasi Awan", "lokasi": "Lantai 2", "lantai": 2},
+    {"nama": "Perpustakaan Tekkom",             "lokasi": "Lantai Dasar", "lantai": 0},
+    {"nama": "Gudang Teknisi",                  "lokasi": "Lantai Dasar", "lantai": 0},
 ]
 
 ruangan_objs = []

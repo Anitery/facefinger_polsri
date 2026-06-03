@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+{% block title %}Absensi{% endblock %}
+{% block page_title %}Absensi{% endblock %}
+
+{% block content %}
+
+<!-- ── Filter bar ── -->
+<div class="section-card p-3 mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-sm-4 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
+        Bulan
+      </label>
+      <input type="month" class="form-control form-control-sm"
+             id="filterBulan">
+    </div>
+    <div class="col-6 col-sm-4 col-lg-2">
+      <button class="btn btn-sm btn-primary w-100" onclick="loadRekap()">
+        <i class="bi bi-search me-1"></i>Tampilkan
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Stat cards ── -->
+<div class="row g-3 mb-3" id="absensiStats" style="display:none;">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#dcfce7;color:#15803d;">
+        <i class="bi bi-check-circle"></i>
+      </div>
+      <div>
+        <div class="val text-success" id="statHadir">0</div>
+        <div class="lbl">Total Hadir</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#fef9c3;color:#a16207;">
+        <i class="bi bi-clock-history"></i>
+      </div>
+      <div>
+        <div class="val text-warning" id="statTerlambat">0</div>
+        <div class="lbl">Terlambat</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#fee2e2;color:#b91c1c;">
+        <i class="bi bi-x-circle"></i>
+      </div>
+      <div>
+        <div class="val text-danger" id="statTidakHadir">0</div>
+        <div class="lbl">Tidak Hadir</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#eff6ff;color:#1d4ed8;">
+        <i class="bi bi-clipboard-check"></i>
+      </div>
+      <div>
+        <div class="val text-primary" id="statSesi">0</div>
+        <div class="lbl">Total Sesi</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tabel jadwal + ringkasan absensi ── -->
+<div class="tbl-wrap d-none d-md-block mb-3" id="tabelRekap">
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0" style="min-width:640px;">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Tanggal</th>
+          <th>Kegiatan / Kelas</th>
+          <th>Jam</th>
+          <th>Dosen</th>
+          <th style="text-align:center;">Hadir</th>
+          <th style="text-align:center;">Terlambat</th>
+          <th style="text-align:center;">Absen</th>
+          <th style="text-align:center;">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="rekapBody">
+        <tr>
+          <td colspan="9" class="text-center py-4 text-muted">
+            Pilih bulan dan klik Tampilkan
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mobile cards -->
+<div id="rekapMobile" class="d-md-none d-flex flex-column gap-2 mb-3"></div>
+
+<!-- ── Modal Detail Absensi ── -->
+<div class="modal fade" id="modalAbsensi" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px;overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864;color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;" id="absensiTitle">
+          <i class="bi bi-clipboard-check me-2"></i>Detail Absensi
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+
+        <!-- Info jadwal -->
+        <div class="px-4 py-3 border-bottom"
+             style="background:#f8fafc; font-size:.82rem;">
+          <div class="row g-2">
+            <div class="col-6 col-md-3">
+              <div class="text-muted">Tanggal</div>
+              <div class="fw-bold" id="detailTanggal">—</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="text-muted">Jam</div>
+              <div class="fw-bold" id="detailJam">—</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="text-muted">Kelas</div>
+              <div class="fw-bold" id="detailKelas">—</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="text-muted">Dosen</div>
+              <div class="fw-bold" id="detailDosen">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ringkasan -->
+        <div class="px-4 py-2 border-bottom d-flex gap-4 flex-wrap"
+             style="font-size:.82rem;">
+          <span>
+            <span class="badge-ok me-1">✓</span>
+            Hadir: <strong id="detailHadir">0</strong>
+          </span>
+          <span>
+            <span style="background:#fef9c3;color:#a16207;padding:2px 7px;
+                         border-radius:10px;font-size:.72rem;font-weight:600;">
+              ⚠
+            </span>
+            Terlambat: <strong id="detailTerlambat">0</strong>
+          </span>
+          <span>
+            <span class="badge-no me-1">✗</span>
+            Absen: <strong id="detailAbsen">0</strong>
+          </span>
+          <span>
+            <span style="background:#eff6ff;color:#1d4ed8;padding:2px 7px;
+                         border-radius:10px;font-size:.72rem;font-weight:600;">
+              📋
+            </span>
+            Izin: <strong id="detailIzin">0</strong>
+          </span>
+        </div>
+
+        <!-- Tabel detail -->
+        <div style="overflow-x:auto; max-height:380px; overflow-y:auto;">
+          <table class="table table-hover mb-0" style="min-width:480px;">
+            <thead style="position:sticky;top:0;">
+              <tr>
+                <th>No</th>
+                <th>Nama</th>
+                <th>NIM/NIP</th>
+                <th>Status</th>
+                <th>Jam Masuk</th>
+                <th>Ubah</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody">
+              <tr>
+                <td colspan="6" class="text-center py-3 text-muted">
+                  Memuat...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+      <div class="modal-footer px-4 d-flex justify-content-between">
+        <button class="btn btn-sm btn-warning"
+                id="btnTutupAbsensi" onclick="tutupAbsensiManual()">
+          <i class="bi bi-lock me-1"></i>Tutup Absensi
+        </button>
+        <div class="d-flex gap-2">
+          <a class="btn btn-sm btn-success" id="btnExportAbsensi"
+             href="#" target="_blank">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+          </a>
+          <button class="btn btn-sm btn-secondary"
+                  data-bs-dismiss="modal">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ubah status -->
+<div class="modal fade" id="modalUbahStatus" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius:14px;overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864;color:#fff;">
+        <h5 class="modal-title" style="font-size:.88rem;">
+          Ubah Status Absensi
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="mb-2" style="font-size:.84rem;">
+          Mahasiswa: <strong id="ubahNama"></strong>
+        </p>
+        <input type="hidden" id="ubahAbsensiId">
+        <input type="hidden" id="ubahJadwalId">
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-success"
+                  onclick="setStatus('hadir')">
+            ✓ Hadir
+          </button>
+          <button class="btn btn-outline-warning"
+                  onclick="setStatus('terlambat')">
+            ⚠ Terlambat
+          </button>
+          <button class="btn btn-outline-danger"
+                  onclick="setStatus('tidak_hadir')">
+            ✗ Tidak Hadir
+          </button>
+          <button class="btn btn-outline-primary"
+                  onclick="setStatus('izin')">
+            📋 Izin
+          </button>
+        </div>
+        <div class="mt-3">
+          <input class="form-control form-control-sm" id="ubahKet"
+                 placeholder="Keterangan (opsional)">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── State ────────────────────────────────────────────────
+let currentJadwalId = null;
+
+function getRuanganId() {
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s).id : null;
+}
+
+function getBulan() {
+  return document.getElementById('filterBulan').value;
+}
+
+// ── Load rekap ───────────────────────────────────────────
+async function loadRekap() {
+  const rid   = getRuanganId();
+  const bulan = getBulan();
+  let url     = '/absensi/rekap?';
+  if (rid)   url += `ruangan_id=${rid}&`;
+  if (bulan) url += `bulan=${bulan}`;
+
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    // Update stat cards
+    const totalHadir      = data.reduce((s,j) => s + j.hadir,       0);
+    const totalTerlambat  = data.reduce((s,j) => s + j.terlambat,   0);
+    const totalTidakHadir = data.reduce((s,j) => s + j.tidak_hadir, 0);
+
+    document.getElementById('statHadir').textContent      = totalHadir;
+    document.getElementById('statTerlambat').textContent  = totalTerlambat;
+    document.getElementById('statTidakHadir').textContent = totalTidakHadir;
+    document.getElementById('statSesi').textContent       = data.length;
+    document.getElementById('absensiStats').style.display = 'flex';
+
+    renderRekap(data);
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function statusBadge(status) {
+  const map = {
+    hadir:       '<span class="badge-ok">✓ Hadir</span>',
+    terlambat:   '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.73rem;font-weight:600;">⚠ Terlambat</span>',
+    tidak_hadir: '<span class="badge-no">✗ Absen</span>',
+    izin:        '<span class="badge-role">📋 Izin</span>',
+  };
+  return map[status] || status;
+}
+
+function renderRekap(data) {
+  const tbody  = document.getElementById('rekapBody');
+  const mobile = document.getElementById('rekapMobile');
+
+  if (!data.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="9" class="text-center py-4 text-muted">
+        Tidak ada jadwal pada periode ini
+      </td></tr>`;
+    mobile.innerHTML = `
+      <div class="text-center text-muted py-4">
+        Tidak ada jadwal pada periode ini
+      </div>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map((j, i) => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i+1}</td>
+      <td style="font-size:.8rem;white-space:nowrap;">${j.tanggal}</td>
+      <td>
+        <div class="fw-bold" style="font-size:.83rem;">
+          ${j.nama_kegiatan}
+        </div>
+        ${j.kelas
+          ? `<span style="background:#eff6ff;color:#1d4ed8;
+                          padding:1px 7px;border-radius:10px;
+                          font-size:.68rem;font-weight:600;">
+               ${j.kelas}
+             </span>`
+          : ''}
+      </td>
+      <td style="font-size:.78rem;white-space:nowrap;">
+        ${j.jam_mulai}–${j.jam_selesai}
+      </td>
+      <td style="font-size:.78rem;">${j.dosen || '—'}</td>
+      <td style="text-align:center;">
+        <span class="badge-ok">${j.hadir}</span>
+      </td>
+      <td style="text-align:center;">
+        <span style="background:#fef9c3;color:#a16207;
+                     padding:3px 8px;border-radius:20px;
+                     font-size:.73rem;font-weight:600;">
+          ${j.terlambat}
+        </span>
+      </td>
+      <td style="text-align:center;">
+        <span class="badge-no">${j.tidak_hadir}</span>
+      </td>
+      <td style="text-align:center;">
+        <button class="btn btn-outline-primary btn-sm"
+                onclick="lihatDetail(${j.jadwal_id})"
+                title="Lihat detail">
+          <i class="bi bi-eye"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map((j, i) => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold" style="font-size:.87rem;">
+            ${j.nama_kegiatan}
+            ${j.kelas
+              ? `<span style="background:#eff6ff;color:#1d4ed8;
+                              padding:1px 6px;border-radius:10px;
+                              font-size:.67rem;font-weight:600;
+                              margin-left:4px;">${j.kelas}</span>`
+              : ''}
+          </div>
+          <div style="font-size:.74rem;color:#64748b;">
+            ${j.tanggal} · ${j.jam_mulai}–${j.jam_selesai}
+          </div>
+        </div>
+        <button class="btn btn-outline-primary btn-sm"
+                onclick="lihatDetail(${j.jadwal_id})">
+          <i class="bi bi-eye"></i>
+        </button>
+      </div>
+      <div class="d-flex gap-2" style="font-size:.77rem;">
+        <span class="badge-ok">✓ ${j.hadir}</span>
+        <span style="background:#fef9c3;color:#a16207;padding:3px 8px;
+                     border-radius:20px;font-size:.73rem;font-weight:600;">
+          ⚠ ${j.terlambat}
+        </span>
+        <span class="badge-no">✗ ${j.tidak_hadir}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── Detail absensi ───────────────────────────────────────
+async function lihatDetail(jadwalId) {
+  currentJadwalId = jadwalId;
+  document.getElementById('detailBody').innerHTML =
+    '<tr><td colspan="6" class="text-center py-3 text-muted">Memuat...</td></tr>';
+
+  const res  = await fetch(`/absensi/jadwal/${jadwalId}`);
+  const data = await res.json();
+
+  document.getElementById('absensiTitle').innerHTML =
+    `<i class="bi bi-clipboard-check me-2"></i>${data.nama_kegiatan}`;
+  document.getElementById('detailTanggal').textContent = data.tanggal;
+  document.getElementById('detailJam').textContent =
+    `${data.jam_mulai}–${data.jam_selesai}`;
+  document.getElementById('detailKelas').textContent   = data.kelas   || '—';
+  document.getElementById('detailDosen').textContent   = data.dosen   || '—';
+  document.getElementById('detailHadir').textContent   = data.hadir;
+  document.getElementById('detailTerlambat').textContent = data.terlambat;
+  document.getElementById('detailAbsen').textContent   = data.tidak_hadir;
+  document.getElementById('detailIzin').textContent    = data.izin;
+
+  document.getElementById('btnExportAbsensi').href =
+    `/absensi/export/excel/${jadwalId}`;
+
+  if (!data.detail?.length) {
+    document.getElementById('detailBody').innerHTML =
+      '<tr><td colspan="6" class="text-center py-3 text-muted">Belum ada data absensi</td></tr>';
+  } else {
+    document.getElementById('detailBody').innerHTML =
+      data.detail.map((d, i) => `
+        <tr style="background:${getStatusBg(d.status)};">
+          <td class="text-muted" style="font-size:.75rem;">${i+1}</td>
+          <td>
+            <div class="fw-bold" style="font-size:.83rem;">${d.nama}</div>
+            <div style="font-size:.7rem;color:#94a3b8;">${d.role}</div>
+          </td>
+          <td style="font-size:.78rem;">${d.nim_nip}</td>
+          <td>${statusBadge(d.status)}</td>
+          <td style="font-size:.78rem;">${d.waktu_masuk}</td>
+          <td>
+            <button class="btn btn-outline-secondary btn-sm"
+                    onclick="bukaUbahStatus(${d.user_id},'${d.nama}',
+                             ${jadwalId})">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </td>
+        </tr>`).join('');
+  }
+
+  new bootstrap.Modal(document.getElementById('modalAbsensi')).show();
+}
+
+function getStatusBg(status) {
+  const map = {
+    hadir:       '#f0fdf4',
+    terlambat:   '#fefce8',
+    tidak_hadir: '#fef2f2',
+    izin:        '#eff6ff',
+  };
+  return map[status] || '#fff';
+}
+
+// ── Tutup absensi manual ─────────────────────────────────
+async function tutupAbsensiManual() {
+  if (!currentJadwalId) return;
+  if (!confirm('Tutup absensi dan isi "Tidak Hadir" untuk yang belum scan?'))
+    return;
+
+  const res  = await fetch(
+    `/absensi/tutup/${currentJadwalId}`, { method:'POST' }
+  );
+  const data = await res.json();
+  alert(data.pesan);
+  lihatDetail(currentJadwalId);
+  loadRekap();
+}
+
+// ── Ubah status absensi ──────────────────────────────────
+let ubahUserId   = null;
+let ubahJadwalId = null;
+
+async function bukaUbahStatus(userId, nama, jadwalId) {
+  // Ambil absensi_id dari data
+  const res  = await fetch(`/absensi/jadwal/${jadwalId}`);
+  const data = await res.json();
+  const ab   = data.detail?.find(d => d.user_id === userId);
+
+  if (!ab) {
+    alert('Data absensi tidak ditemukan. Mungkin belum ada scan.');
+    return;
+  }
+
+  ubahUserId   = userId;
+  ubahJadwalId = jadwalId;
+
+  document.getElementById('ubahNama').textContent = nama;
+  document.getElementById('ubahAbsensiId').value  = ab.absensi_id || '';
+  document.getElementById('ubahJadwalId').value   = jadwalId;
+  document.getElementById('ubahKet').value        = '';
+
+  new bootstrap.Modal(document.getElementById('modalUbahStatus')).show();
+}
+
+async function setStatus(status) {
+  const absensiId = document.getElementById('ubahAbsensiId').value;
+  const ket       = document.getElementById('ubahKet').value.trim();
+
+  if (!absensiId) {
+    alert('ID absensi tidak ditemukan.');
+    return;
+  }
+
+  let url = `/absensi/${absensiId}/status?status=${status}`;
+  if (ket) url += `&keterangan=${encodeURIComponent(ket)}`;
+
+  const res = await fetch(url, { method:'PATCH' });
+  if (res.ok) {
+    bootstrap.Modal.getInstance(
+      document.getElementById('modalUbahStatus')).hide();
+    lihatDetail(ubahJadwalId);
+    loadRekap();
+  }
+}
+
+// ── Listener ─────────────────────────────────────────────
+window.addEventListener('ruanganChanged', () => {
+  loadRekap();
+});
+
+// ── Init ─────────────────────────────────────────────────
+// Set default bulan ke bulan ini
+const now = new Date();
+document.getElementById('filterBulan').value =
+  `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+loadRekap();
+</script>
+{% endblock %}

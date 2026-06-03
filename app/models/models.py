@@ -14,9 +14,10 @@ penanggung_jawab = Table(
 jadwal_mahasiswa = Table(
     "jadwal_mahasiswa",
     Base.metadata,
-    Column("jadwal_id",  Integer, ForeignKey("jadwal_ruangan.id"), primary_key=True),
-    Column("user_id",    Integer, ForeignKey("users.id"),          primary_key=True),
+    Column("jadwal_id", Integer, ForeignKey("jadwal_ruangan.id"), primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
 )
+
 
 class Ruangan(Base):
     __tablename__ = "ruangan"
@@ -69,9 +70,9 @@ class AccessLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     ruangan_id = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
     waktu_akses = Column(DateTime(timezone=True), server_default=func.now())
-    metode = Column(String(20))   # face / fingerprint / ditolak
+    metode = Column(String(20))  # face / fingerprint / ditolak
     foto_url = Column(Text, nullable=True)
-    status = Column(String(10))   # berhasil / ditolak
+    status = Column(String(10))  # berhasil / ditolak
     keterangan = Column(String(200), nullable=True)
 
     user = relationship("User", back_populates="access_logs")
@@ -115,17 +116,15 @@ class JadwalRuangan(Base):
     id             = Column(Integer, primary_key=True, index=True)
     ruangan_id     = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
     nama_kegiatan  = Column(String(150), nullable=False)
-    kelas          = Column(String(50),  nullable=True)   # ← TAMBAH: misal "6CF", "4A", dll
+    kelas          = Column(String(50), nullable=True)
     dosen          = Column(String(100), nullable=True)
     mata_kuliah    = Column(String(100), nullable=True)
-    tanggal        = Column(String(20),  nullable=False)
-    jam_mulai      = Column(String(10),  nullable=False)
-    jam_selesai    = Column(String(10),  nullable=False)
-    keterangan     = Column(Text,        nullable=True)
+    tanggal        = Column(String(20), nullable=False)
+    jam_mulai      = Column(String(10), nullable=False)
+    jam_selesai    = Column(String(10), nullable=False)
+    keterangan     = Column(Text, nullable=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
-    ruangan  = relationship("Ruangan", backref="jadwal")
-    # Relasi mahasiswa yang boleh akses jadwal ini
     mahasiswa_diizinkan = relationship(
         "User",
         secondary="jadwal_mahasiswa",
@@ -133,3 +132,18 @@ class JadwalRuangan(Base):
     )
 
     ruangan = relationship("Ruangan", back_populates="jadwal")
+
+
+class Absensi(Base):
+    __tablename__ = "absensi"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    jadwal_id   = Column(Integer, ForeignKey("jadwal_ruangan.id"), nullable=False)
+    user_id     = Column(Integer, ForeignKey("users.id"), nullable=False)
+    waktu_masuk = Column(DateTime(timezone=True), nullable=True)
+    status      = Column(String(20), nullable=False)
+    keterangan  = Column(Text, nullable=True)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+    jadwal = relationship("JadwalRuangan", backref="absensi_list")
+    user   = relationship("User", backref="absensi_list")
