@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
+import time
 
 # Import database dan model
 from app.database import engine, Base, SessionLocal, get_db
@@ -16,6 +17,7 @@ from app.routers import (
     setup, stream as stream_router,
     absensi as absensi_router  # Router baru
 )
+from app.routers import device as device_router
 
 # Inisiasi database
 Base.metadata.create_all(bind=engine)
@@ -26,14 +28,29 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+
 # ── Middleware ───────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.middleware("http")
+async def log_semua_request(request: Request, call_next):
+    """Log semua request masuk — untuk debug device ADMS."""
+    body = await request.body()
+    
+    print(f"\n{'='*60}")
+    print(f"[REQUEST] {request.method} {request.url}")
+    print(f"[HEADERS] {dict(request.headers)}")
+    print(f"[PARAMS]  {dict(request.query_params)}")
+    if body:
+        print(f"[BODY]    {body.decode('utf-8', errors='ignore')[:500]}")
+    print(f"{'='*60}")
+    
+    # Rebuild body agar bisa dibaca lagi oleh endpoint
+    async def receive():
+        return {"type": "http.request", "body": body}
+    
+    request._receive = receive
+    response = await call_next(request)
+    return response
 
 # ── Static & Templates ───────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -43,6 +60,7 @@ templates = Jinja2Templates(directory="app/templates")
 app.include_router(login_router.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(device_router.router)
 app.include_router(logs.router)
 app.include_router(inventaris.router)
 app.include_router(ruangan.router)
@@ -243,6 +261,23 @@ def dashboard_absensi(request: Request, db: Session = Depends(get_db)):
                  "ruangan_list": get_ruangan_list(db)}
     )
 
+@app.api_route(
+    "/iclock/{full_path:path}",
+    methods=["GET", "POST"],
+    include_in_schema=False
+)
+async def iclock_catchall(full_path: str, request: Request):
+    """Catch semua request ke /iclock/* yang tidak tertangkap router."""
+    body   = await request.body()
+    params = dict(request.query_params)
+    
+    print(f"\n[CATCHALL] Path  : /iclock/{full_path}")
+    print(f"[CATCHALL] Method: {request.method}")
+    print(f"[CATCHALL] Params: {params}")
+    print(f"[CATCHALL] Body  : {body.decode('utf-8', errors='ignore')[:300]}")
+    
+    return PlainTextResponse("OK")
+
 # ── Root & Health ──────────────────────────────────────
 @app.get("/")
 def root():
@@ -255,4 +290,4 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "SmartDoorLock"}
