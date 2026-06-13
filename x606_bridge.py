@@ -275,16 +275,22 @@ def main():
 
     # ── Test Railway ─────────────────────────────────────
     log.info("Test koneksi Railway...")
-    res = railway_get(
-        "/device-bridge/status",
-        {"device_sn": DEVICE_SN}
-    )
 
-if res.get("status") == "online":
-        log.info(f"  ✓ Railway online — {res.get('server','')}")
-    else:
-        log.error("  ✗ Railway tidak merespons!")
-        log.error(f"  Cek SERVER_URL: {SERVER_URL}")
+    try:
+        r = requests.get(
+            f"{SERVER_URL}/device-bridge/status-public",
+            params={"ruangan_id": DEVICE_RUANGAN_ID},
+            timeout=10
+        )
+
+        if r.status_code == 200:
+            log.info("  ✓ Railway online")
+        else:
+            log.error("  ✗ Railway tidak merespons!")
+            return
+
+    except Exception as e:
+        log.error(f"  ✗ Railway gagal diakses: {e}")
         return
 
     # ── Test Device ──────────────────────────────────────
@@ -299,19 +305,55 @@ if res.get("status") == "online":
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S")
             )
-        log.info(
-            f"  ✓ Device online — "
-            f"{t.get('date','')} {t.get('time','')} "
-            f"(waktu disinkronkan)"
-        )
+            log.info(
+                f"  ✓ Device online — "
+                f"{t.get('date','')} {t.get('time','')} "
+                f"(waktu disinkronkan)"
+            )
 
-        heartbeat(client)
+            heartbeat(client)
         else:
             log.warning("  ⚠ Device merespons tapi data kosong")
     except Exception as e:
         log.error(f"  ✗ Gagal konek ke {DEVICE_IP}: {e}")
         log.error("  Pastikan STB dan device satu jaringan WiFi")
         return
+
+def heartbeat(client: X606SOAPClient):
+    """Kirim status bridge + info device ke Railway."""
+    try:
+        # jumlah user di device
+        users = client.get_all_users()
+        total = len(users) if users else 0
+
+        # waktu device
+        try:
+            t = client.get_time()
+            device_time = (
+                f"{t.get('date','')} {t.get('time','')}"
+            ).strip()
+        except Exception:
+            device_time = ""
+
+        requests.post(
+            f"{SERVER_URL}/device-bridge/status",
+            headers=HEADERS,
+            params={
+                "device_sn":   DEVICE_SN,
+                "device_ip":   DEVICE_IP,
+                "device_time": device_time,
+                "total_user":  total,
+                "ruangan_id":  DEVICE_RUANGAN_ID,
+            },
+            timeout=10
+        )
+
+        log.debug(
+            f"Heartbeat terkirim — {total} user di device"
+        )
+
+    except Exception as e:
+        log.warning(f"Heartbeat gagal: {e}")
 
     # ── Sync awal ────────────────────────────────────────
     log.info("Sync awal user...")

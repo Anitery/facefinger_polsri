@@ -598,3 +598,33 @@ def bridge_status_public(
             for j in jadwals
         ],
     }
+
+@router.get("/debug-logs")
+def debug_recent_logs(
+    limit: int = 10,
+    key=Depends(verify_key),
+    db: Session = Depends(get_db)
+):
+    """Lihat log terbaru dengan detail lengkap untuk debug."""
+    from sqlalchemy.orm import joinedload
+    logs = db.query(AccessLog).options(
+        joinedload(AccessLog.user)
+    ).order_by(
+        AccessLog.waktu_akses.desc()
+    ).limit(limit).all()
+
+    return [
+        {
+            "id":          l.id,
+            "waktu":       l.waktu_akses.isoformat() if l.waktu_akses else None,
+            "user_id":     l.user_id,
+            "nama":        l.user.nama    if l.user else "TIDAK DIKENAL",
+            "nim_nip":     l.user.nim_nip if l.user else "—",
+            "fp_id":       l.user.fingerprint_id if l.user else "—",
+            "metode":      l.metode,
+            "status":      l.status,
+            "keterangan":  l.keterangan,
+            "ruangan_id":  l.ruangan_id,
+        }
+        for l in logs
+    ]
