@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +18,15 @@ from app.routers import (
     absensi as absensi_router  # Router baru
 )
 from app.routers import device as device_router
+from app.routers import x606 as x606_router
+from app.routers import x606_lab as x606_lab_router  # ←TAMBAHKAN
+from app.routers import device_bridge as device_bridge_router
+
+# Import model X606 untuk trigger create_all
+from app.models import x606_models  # ←TAMBAHKAN
+
+# Import services
+from app.services.x606_scheduler import start_x606_scheduler
 
 # Inisiasi database
 Base.metadata.create_all(bind=engine)
@@ -27,8 +36,6 @@ app = FastAPI(
     description="Sistem Smart Door Lock Ruang Multimedia Polsri",
     version="1.0.0"
 )
-
-
 
 # ── Middleware ───────────────────────────────────────────────
 @app.middleware("http")
@@ -68,10 +75,115 @@ app.include_router(jadwal.router)
 app.include_router(kamera_router.router)
 app.include_router(setup.router)
 app.include_router(stream_router.router)
-app.include_router(absensi_router.router) # Include router absensi
+app.include_router(absensi_router.router)
+app.include_router(x606_router.router)
+app.include_router(x606_lab_router.router)  # ←TAMBAHKAN
+app.include_router(device_bridge_router.router)
+
+# ── Helper Functions ────────────────────────────────────────────────────
+
+def get_session(request: Request):
+    from app.services.auth_service import decode_session_token
+    token = request.cookies.get("session_token")
+    if not token:
+        return None
+    return decode_session_token(token)
+
+def get_ruangan_list(db):
+    from app.models.models import Ruangan as RuanganModel
+    return db.query(RuanganModel).filter(
+        RuanganModel.aktif == True
+    ).order_by(RuanganModel.id).all()
 
 
-# ── Scheduler: Tutup Absensi Otomatis ───────────────────
+# ── X606 Scheduler Jobs ─────────────────────────────────────────────────
+
+def job_pull_x606():
+    """
+    Tarik log dari semua X606-S aktif setiap 2 menit.
+    """
+    from app.models.x606_models import X606Device
+    from app.services.x606_service import X606LabService
+
+    print("[X606 SCHEDULER] Memulai pull logs...")
+    
+    db = SessionLocal()
+    try:
+        devices = db.query(X606Device).filter(
+            X606Device.is_active == True
+        ).all()
+
+        if not devices:
+            print("[X606 SCHEDULER] Tidak ada device aktif")
+            return
+
+        svc = X606LabService(db)
+        for dev in devices:
+            try:
+                result = svc.pull_logs_from_device(dev.device_id)
+                if result["success"] and result.get("new_records", 0) > 0:
+                    print(
+                        f"[X606] {dev.device_id}: "
+                        f"{result['new_records']} log baru - "
+                        f"{result['message']}"
+                    )
+            except Exception as e:
+                print(f"[X606 ERROR] {dev.device_id}: {e}")
+    except Exception as e:
+        print(f"[X606 SCHEDULER ERROR] {e}")
+    finally:
+        db.close()
+
+
+def job_sync_jadwal_x606():
+    """
+    Sync jadwal ke semua device X606-S setiap 5 menit.
+    """
+    from app.models.x606_models import X606Device, X606JadwalKBM
+    from app.models.x606_models import HariEnum
+    from datetime import datetime
+    from app.services.x606_service import X606LabService
+
+    print("[X606 SCHEDULER] Memulai sync jadwal...")
+    
+    db = SessionLocal()
+    try:
+        # Cari jadwal hari ini
+        hari_ini = datetime.now().strftime("%A")
+        hari_map = {
+            "Monday": "SENIN", "Tuesday": "SELASA", "Wednesday": "RABU",
+            "Thursday": "KAMIS", "Friday": "JUMAT", "Saturday": "SABTU", "Sunday": "Minggu"
+        }
+        hari_db = hari_map.get(hari_ini, "SENIN")
+        
+        jadwals = db.query(X606JadwalKBM).filter(
+            X606JadwalKBM.hari == hari_db,
+            X606JadwalKBM.is_active == True
+        ).all()
+        
+        devices = db.query(X606Device).filter(
+            X606Device.is_active == True
+        ).all()
+        
+        svc = X606LabService(db)
+        
+        for dev in devices:
+            for jadwal in jadwals:
+                try:
+                    result = svc.sync_users_to_device(dev.device_id, jadwal.id)
+                    if result["success"]:
+                        print(f"[X606 SYNC] {dev.device_id} <- Jadwal #{jadwal.id}")
+                except Exception as e:
+                    print(f"[X606 SYNC ERROR] {dev.device_id}: {e}")
+                    
+    except Exception as e:
+        print(f"[X606 SYNC SCHEDULER ERROR] {e}")
+    finally:
+        db.close()
+
+
+# ── Absensi Otomatis Scheduler Job ──────────────────────────────────────
+
 def job_tutup_absensi():
     """
     Cek setiap menit — jika ada jadwal yang baru selesai (jam_selesai == sekarang),
@@ -105,35 +217,58 @@ def job_tutup_absensi():
     finally:
         db.close()
 
-# Jalankan scheduler
+
+# ── Setup Scheduler ───────────────────────────────────────────────────────
+
 scheduler = BackgroundScheduler()
-scheduler.add_job(job_tutup_absensi, "interval", minutes=1)
+
+# Job: Tutup Absensi Otomatis (setiap 1 menit)
+scheduler.add_job(
+    func=job_tutup_absensi,
+    trigger="interval",
+    minutes=1,
+    id="tutup_absensi",
+    replace_existing=True
+)
+
+# Job: Pull X606 Logs (setiap 2 menit) ←TAMBAHKAN
+scheduler.add_job(
+    func=job_pull_x606,
+    trigger="interval",
+    minutes=2,
+    id="x606_pull_logs",
+    replace_existing=True
+)
+
+# Job: Sync Jadwal X606 (setiap 5 menit) ←TAMBAHKAN
+scheduler.add_job(
+    func=job_sync_jadwal_x606,
+    trigger="interval",
+    minutes=5,
+    id="x606_sync_jadwal",
+    replace_existing=True
+)
+
 scheduler.start()
 
-# ── Event Shutdown ──────────────────────────────────────
+@app.on_event("startup")
+def startup_event():
+    """Start X606 background scheduler jika ada."""
+    start_x606_scheduler()
+    print("[STARTUP] Scheduler X606 dimulai")
+
+
+# ── Event Shutdown ──────────────────────────────────────────────────────
+
 @app.on_event("shutdown")
 def shutdown_scheduler():
     if scheduler.running:
         scheduler.shutdown()
+    print("[SHUTDOWN] Scheduler dihentikan")
 
 
-# ── Helper: Cek Session ───────────────────────────────────
-def get_session(request: Request):
-    from app.services.auth_service import decode_session_token
-    token = request.cookies.get("session_token")
-    if not token:
-        return None
-    return decode_session_token(token)
+# ── Dashboard Routes ────────────────────────────────────────────────────────
 
-# ── Helper: Ambil Daftar Ruangan ─────────────────────────
-def get_ruangan_list(db):
-    from app.models.models import Ruangan as RuanganModel
-    return db.query(RuanganModel).filter(
-        RuanganModel.aktif == True
-    ).order_by(RuanganModel.id).all()
-
-
-# ── Dashboard Routes ────────────────────────────────────└───────────────────────────────────────────────────────────
 @app.get("/dashboard")
 def dashboard_home(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
@@ -155,6 +290,18 @@ def dashboard_log(request: Request, db: Session = Depends(get_db)):
         request=request,
         name="pages/log_akses.html",
         context={"active": "log", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/device")
+def dashboard_device(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="pages/device_status.html",
+        context={"active": "device", "user": user,
                  "ruangan_list": get_ruangan_list(db)}
     )
 
@@ -248,7 +395,6 @@ def dashboard_enroll(request: Request, db: Session = Depends(get_db)):
                  "ruangan_list": get_ruangan_list(db)}
     )
 
-# ── Route Absensi Baru ──────────────────────────────────
 @app.get("/dashboard/absensi")
 def dashboard_absensi(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
@@ -260,6 +406,9 @@ def dashboard_absensi(request: Request, db: Session = Depends(get_db)):
         context={"active": "absensi", "user": user,
                  "ruangan_list": get_ruangan_list(db)}
     )
+
+
+# ── iWatch Catchall ────────────────────────────────────────────────────────
 
 @app.api_route(
     "/iclock/{full_path:path}",
@@ -278,7 +427,9 @@ async def iclock_catchall(full_path: str, request: Request):
     
     return PlainTextResponse("OK")
 
-# ── Root & Health ──────────────────────────────────────
+
+# ── Root & Health ────────────────────────────────────────────────────────
+
 @app.get("/")
 def root():
     return {

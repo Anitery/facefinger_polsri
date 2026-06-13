@@ -1,3 +1,4 @@
+from app.models.x606_models import X606Device, X606JadwalKBM, X606JadwalPeserta, AbsensiX606, X606UserCache
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -43,6 +44,10 @@ class Ruangan(Base):
         backref="ruangan_tanggung_jawab"
     )
 
+    # Relasi alat
+    x606_devices    = relationship("X606Device",    back_populates="ruangan")
+    x606_jadwal_kbm = relationship("X606JadwalKBM", back_populates="ruangan")
+    absensi_x606    = relationship("AbsensiX606",   back_populates="ruangan")
 
 class User(Base):
     __tablename__ = "users"
@@ -62,6 +67,9 @@ class User(Base):
     access_logs = relationship("AccessLog", back_populates="user")
     # Relasi many-to-many otomatis tersedia via backref="ruangan_tanggung_jawab"
 
+    # Relasi alat
+    absensi_x606       = relationship("AbsensiX606",       back_populates="user")
+    x606_jadwal_peserta = relationship("X606JadwalPeserta", back_populates="user")
 
 class AccessLog(Base):
     __tablename__ = "access_log"

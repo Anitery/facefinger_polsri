@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Status Device{% endblock %}
+{% block page_title %}Status X606-S{% endblock %}
+
+{% block content %}
+
+<!-- Status cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#dcfce7;color:#15803d;">
+        <i class="bi bi-router"></i>
+      </div>
+      <div>
+        <div class="val" id="statusDevice">—</div>
+        <div class="lbl">Status Device</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#dbeafe;color:#1d4ed8;">
+        <i class="bi bi-people"></i>
+      </div>
+      <div>
+        <div class="val text-primary" id="totalUserDevice">—</div>
+        <div class="lbl">User di Device</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#fef9c3;color:#a16207;">
+        <i class="bi bi-calendar-check"></i>
+      </div>
+      <div>
+        <div class="val text-warning" id="totalJadwalHariIni">—</div>
+        <div class="lbl">Jadwal Hari Ini</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="icon" style="background:#fee2e2;color:#b91c1c;">
+        <i class="bi bi-clock-history"></i>
+      </div>
+      <div>
+        <div class="val text-danger" id="totalLogHariIni">—</div>
+        <div class="lbl">Scan Hari Ini</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- Info device + jadwal hari ini -->
+  <div class="col-12 col-xl-5">
+    <div class="section-card p-3 mb-3">
+      <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
+        <i class="bi bi-router me-2 text-primary"></i>Info Device
+      </h6>
+      <div class="d-flex flex-column gap-2" id="infoDevice"
+           style="font-size:.83rem;">
+        <div class="text-muted text-center py-3">Memuat...</div>
+      </div>
+    </div>
+
+    <div class="section-card p-3">
+      <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
+        <i class="bi bi-calendar3 me-2 text-primary"></i>
+        Jadwal Aktif Hari Ini
+      </h6>
+      <div id="jadwalHariIni">
+        <div class="text-muted text-center py-3">Memuat...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log scan terbaru dari device -->
+  <div class="col-12 col-xl-7">
+    <div class="section-card">
+      <div class="d-flex justify-content-between align-items-center
+                  px-3 py-3 border-bottom">
+        <h6 class="mb-0 fw-bold" style="font-size:.9rem;color:#1e293b;">
+          <i class="bi bi-activity me-2 text-primary"></i>
+          Log Scan Terbaru (Device)
+        </h6>
+        <span style="font-size:.73rem;color:#64748b;background:#f1f5f9;
+                     padding:3px 10px;border-radius:20px;">
+          Auto-refresh 15 detik
+        </span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0" style="min-width:480px;">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Nama</th>
+              <th>Metode</th>
+              <th>Status</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="logBody">
+            <tr>
+              <td colspan="5" class="text-center py-4 text-muted">
+                Memuat...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getRuanganId() {
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s).id : null;
+}
+function fmt(iso) {
+  return new Date(iso).toLocaleString('id-ID', {
+    day:'2-digit', month:'short',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+}
+function metodeIcon(m) {
+  if (m === 'face')        return '<i class="bi bi-camera text-primary me-1"></i>Face';
+  if (m === 'fingerprint') return '<i class="bi bi-fingerprint text-success me-1"></i>FP';
+  return m;
+}
+
+async function loadDeviceInfo() {
+  const rid = getRuanganId();
+  if (!rid) {
+    document.getElementById('infoDevice').innerHTML =
+      '<div class="text-warning text-center">Pilih ruangan di sidebar</div>';
+    return;
+  }
+
+  try {
+    const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}`);
+    const data = await r.json();
+
+    document.getElementById('statusDevice').textContent =
+      data.bridge_aktif ? '🟢 Online' : '🔴 Offline';
+    document.getElementById('totalUserDevice').textContent =
+      data.total_user_device ?? '—';
+    document.getElementById('totalJadwalHariIni').textContent =
+      data.jadwal_hari_ini?.length ?? 0;
+
+    document.getElementById('infoDevice').innerHTML = `
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Device IP</span>
+        <code style="font-size:.8rem;">${data.device_ip || '—'}</code>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Serial Number</span>
+        <span class="fw-bold">${data.device_sn || '—'}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Waktu Device</span>
+        <span class="fw-bold">${data.device_time || '—'}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Bridge Terakhir</span>
+        <span style="font-size:.78rem;color:#64748b;">
+          ${data.last_bridge || '—'}
+        </span>
+      </div>`;
+
+    const jadwals = data.jadwal_hari_ini || [];
+    document.getElementById('jadwalHariIni').innerHTML =
+      jadwals.length === 0
+        ? '<div class="text-muted text-center py-3" style="font-size:.83rem;">Tidak ada jadwal hari ini</div>'
+        : jadwals.map(j => `
+            <div class="d-flex align-items-start gap-2 p-2 mb-2 rounded-3"
+                 style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="min-width:48px;text-align:center;background:#eff6ff;
+                          border-radius:8px;padding:4px;">
+                <div style="font-size:.62rem;color:#64748b;">${j.kelas}</div>
+                <div style="font-size:.85rem;font-weight:700;color:#1d4ed8;">
+                  Lab
+                </div>
+              </div>
+              <div>
+                <div class="fw-bold" style="font-size:.83rem;">
+                  ${j.nama_kegiatan}
+                </div>
+                <div style="font-size:.75rem;color:#64748b;">
+                  <i class="bi bi-clock me-1"></i>${j.jam_mulai}–${j.jam_selesai}
+                  &nbsp;·&nbsp;
+                  <i class="bi bi-people me-1"></i>${j.fp_ids_diizinkan?.length || 0} mahasiswa
+                </div>
+              </div>
+            </div>`).join('');
+  } catch(e) {
+    document.getElementById('infoDevice').innerHTML =
+      '<div class="text-danger text-center">Bridge belum aktif</div>';
+  }
+}
+
+async function loadLog() {
+  const rid = getRuanganId();
+  if (!rid) return;
+
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const r = await fetch(
+      `/log-akses/?ruangan_id=${rid}&tanggal_dari=${today}&tanggal_sampai=${today}&limit=20`
+    );
+    const data = await r.json();
+
+    document.getElementById('totalLogHariIni').textContent = data.length;
+
+    const tbody = document.getElementById('logBody');
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">
+        <i class="bi bi-inbox d-block mb-1" style="font-size:1.5rem;"></i>
+        Belum ada scan hari ini
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(l => `
+      <tr>
+        <td style="font-size:.78rem;white-space:nowrap;">
+          ${fmt(l.waktu_akses)}
+        </td>
+        <td>
+          <div class="fw-bold" style="font-size:.83rem;">
+            ${l.nama_user || '<span class="text-muted">—</span>'}
+          </div>
+          <div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip || ''}</div>
+        </td>
+        <td style="font-size:.78rem;">${metodeIcon(l.metode)}</td>
+        <td>
+          ${l.status === 'berhasil'
+            ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>OK</span>'
+            : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Tolak</span>'}
+        </td>
+        <td style="font-size:.74rem;color:#64748b;max-width:180px;
+                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${l.keterangan || '—'}
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// Init
+loadDeviceInfo();
+loadLog();
+setInterval(loadDeviceInfo, 30000);
+setInterval(loadLog, 15000);
+
+window.addEventListener('ruanganChanged', () => {
+  loadDeviceInfo();
+  loadLog();
+});
+</script>
+{% endblock %}

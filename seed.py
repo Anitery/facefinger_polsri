@@ -63,23 +63,6 @@ for u in users_data:
 db.commit()
 print(f"✓ {len(users_data)} user dibuat")
 
-# ── Inventaris (hanya untuk Ruang Multimedia) ────────────
-r_multimedia = ruangan_objs[0]
-inventaris_data = [
-    {"kode_barcode": "KMP-PC-001",  "nama_alat": "Komputer Desktop HP",   "jumlah": 1},
-    {"kode_barcode": "KMP-PC-002",  "nama_alat": "Komputer Desktop HP",   "jumlah": 1},
-    {"kode_barcode": "KMP-PC-003",  "nama_alat": "Komputer Desktop HP",   "jumlah": 1},
-    {"kode_barcode": "KMP-MON-001", "nama_alat": "Monitor LCD 24 inch",   "jumlah": 1},
-    {"kode_barcode": "KMP-MON-002", "nama_alat": "Monitor LCD 24 inch",   "jumlah": 1},
-    {"kode_barcode": "KMP-KBD-001", "nama_alat": "Keyboard + Mouse set",  "jumlah": 3},
-    {"kode_barcode": "KMP-UPS-001", "nama_alat": "UPS APC 650VA",         "jumlah": 1},
-    {"kode_barcode": "KMP-RTR-001", "nama_alat": "Router WiFi TP-Link",   "jumlah": 1},
-]
-for item in inventaris_data:
-    db.add(InventarisAlat(**item, ruangan_id=r_multimedia.id))
-db.commit()
-print(f"✓ {len(inventaris_data)} item inventaris dibuat")
-
 db.close()
 print("\n✅ Seed selesai!")
 print("\nAkun login:")

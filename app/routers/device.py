@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 from typing import Optional
 import os
+import json
 
 from app.database import get_db
 from app.models.models import User, AccessLog, JadwalRuangan
 
-router = APIRouter(prefix="/iclock", tags=["Device ADMS"])
+router = APIRouter(prefix="/iclock", tags=["Device"])
 
 # Ruangan ID default untuk device ini
 DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "1"))
@@ -133,6 +134,33 @@ def catat_absensi_device(
 # ══════════════════════════════════════════════════════════
 # ENDPOINT 1 — Heartbeat (device polling perintah dari server)
 # ══════════════════════════════════════════════════════════
+
+@router.api_route(
+    "/{full_path:path}",
+    methods=["GET", "POST", "PUT", "DELETE"],
+    include_in_schema=False
+)
+async def capture_semua(full_path: str, request: Request):
+    """
+    Tangkap SEMUA request dari device — untuk analisis format ADMS.
+    """
+    body    = await request.body()
+    headers = dict(request.headers)
+    params  = dict(request.query_params)
+
+    print("\n" + "█" * 60)
+    print(f"[CAPTURE] Method  : {request.method}")
+    print(f"[CAPTURE] Path    : /iclock/{full_path}")
+    print(f"[CAPTURE] Params  : {json.dumps(params, indent=2)}")
+    print(f"[CAPTURE] Headers :")
+    for k, v in headers.items():
+        print(f"           {k}: {v}")
+    print(f"[CAPTURE] Body ({len(body)} bytes):")
+    print(body.decode("utf-8", errors="replace"))
+    print("█" * 60 + "\n")
+
+    return PlainTextResponse("OK")
+
 @router.get("/getrequest", response_class=PlainTextResponse)
 async def device_heartbeat(
     SN:   str = Query(default=""),
