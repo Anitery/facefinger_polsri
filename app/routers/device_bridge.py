@@ -14,7 +14,7 @@ from app.models.models import User, AccessLog, JadwalRuangan, Absensi
 
 router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 
-BRIDGE_API_KEY = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2025")
+BRIDGE_API_KEY = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2026")
 
 # Mapping kode Verified dari device ke metode
 VERIFY_MAP = {
