@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import Ruangan, User, InventarisAlat
+from app.models.models import Ruangan, User, InventarisAlat, JadwalRuangan
 import bcrypt
 import os
+from datetime import date, timedelta
 
 router = APIRouter(prefix="/setup", tags=["Setup"])
 
@@ -46,9 +47,10 @@ def init_database(key: str, db: Session = Depends(get_db)):
     for r in ruangan_list:
         obj = Ruangan(**r)
         db.add(obj)
-        db.commit()
-        db.refresh(obj)
         ruangan_objs.append(obj)
+    
+    # Commit once after loop for better performance
+    db.commit() 
 
     # ── Users ─────────────────────────────────────────────
     users_data = [
@@ -70,12 +72,15 @@ def init_database(key: str, db: Session = Depends(get_db)):
         user_objs.append(obj)
     db.commit()
 
+    # Hitung inventaris setelah init
+    inventaris_count = db.query(InventarisAlat).count()
+
     return {
         "status": "berhasil",
         "data": {
             "ruangan":   len(ruangan_objs),
-            "users":     len(users_data),
-            "inventaris": len(inventaris_data)
+            "users":     len(user_objs),
+            "inventaris": inventaris_count
         },
         "akun": [
             {"role": "admin",   "nim_nip": "ADMIN001",             "password": "admin123"},
@@ -85,17 +90,15 @@ def init_database(key: str, db: Session = Depends(get_db)):
         "PENTING": "Segera ganti password setelah login pertama!"
     }
 
+
 @router.post("/seed-kbm-real")
 def seed_kbm_real(key: str, db: Session = Depends(get_db)):
     """Seed data KBM real Lab Multimedia 2 ke production."""
     if not SETUP_KEY or key != SETUP_KEY:
         raise HTTPException(403, "Kunci tidak valid")
 
-    from datetime import date, timedelta
-    from app.models.models import Ruangan, JadwalRuangan
-
-    import bcrypt
-    def h(pw): return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+    def h(pw): 
+        return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
     def upsert_user(nim_nip, nama, role, fp_id=None, password=None):
         u = db.query(User).filter(User.nim_nip == nim_nip).first()
@@ -159,11 +162,11 @@ def seed_kbm_real(key: str, db: Session = Depends(get_db)):
         ("062330701452","NICCO DWI SATRIA"),
         ("062330701453","RIDHO FEBRIAN"),
         ("062330701454","RIZKI ANUGRAH"),
-        ("062330701455","SILPI HAIRUNNISA"),
+        ("062330701455","SILPI HAIRUNNASA"),
         ("062330701456","TIO SANDIKA"),
         ("062330701457","WINDA MUFIDAH"),
     ]
-    users_6cc = [upsert_user(n,nm,fp_id=10+i)
+    users_6cc = [upsert_user(n,nm,"mahasiswa",fp_id=10+i)
                  for i,(n,nm) in enumerate(data_6cc)]
 
     # Mahasiswa 6CM
@@ -189,13 +192,13 @@ def seed_kbm_real(key: str, db: Session = Depends(get_db)):
         ("062330701548","YAZID ZINADIN ZIDAN"),
         ("062330701549","ZAKIA PUTRI"),
     ]
-    users_6cm = [upsert_user(n,nm,fp_id=33+i)
+    users_6cm = [upsert_user(n,nm,"mahasiswa",fp_id=33+i)
                  for i,(n,nm) in enumerate(data_6cm)]
     db.commit()
 
     # Jadwal
     today = date.today()
-    tgl_6cc = gen_dates(today, 2, 8)  # Rabu
+    tgl_6cc = gen_dates(today, 2, 8)  # Rabin
     tgl_6cm = gen_dates(today, 4, 8)  # Jumat
 
     def buat_jadwal(tgl, kegiatan, kelas, dosen_nama,
@@ -238,6 +241,7 @@ def seed_kbm_real(key: str, db: Session = Depends(get_db)):
         },
         "catatan": "Fingerprint ID sudah disiapkan, daftarkan di alat sesuai urutan"
     }
+
 
 @router.get("/status")
 def check_status(db: Session = Depends(get_db)):
