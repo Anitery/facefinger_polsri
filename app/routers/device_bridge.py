@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, date
+from datetime import timezone, timedelta
 import os
 
 from app.database import get_db
@@ -28,6 +29,8 @@ from app.models.models import (
 router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 
 BRIDGE_API_KEY = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2026")
+
+WIB = timezone(timedelta(hours=7))
 
 # Mapping kode Verified dari device ke metode
 VERIFY_MAP = {
@@ -235,17 +238,30 @@ def receive_logs(
     berhasil = ditolak = duplikat = error = 0
 
     for log_item in payload.logs:
+        # Ganti bagian parse waktu di receive_logs():
         try:
-            # Parse waktu
-            try:
+            dt_str = log_item.datetime
+            # Coba parse dengan timezone info
+            if "+07:00" in dt_str:
                 waktu = datetime.strptime(
-                    log_item.datetime, "%Y-%m-%d %H:%M:%S"
+                    dt_str, "%Y-%m-%d %H:%M:%S+07:00"
                 )
-            except ValueError:
-                error += 1
-                continue
+            else:
+                waktu = datetime.strptime(
+                    dt_str, "%Y-%m-%d %H:%M:%S"
+                )
+        except ValueError:
+            error += 1
+            continue
 
-            metode = VERIFY_MAP.get(str(log_item.verified), "fingerprint")
+            metode = VERIFY_MAP.get(str(log_item.verified))
+            if not metode:
+                # Log kode yang belum dikenal untuk debug
+                log.warning(
+                    f"Verified code tidak dikenal: {log_item.verified!r} "
+                    f"→ default 'fingerprint'"
+                )
+                metode = "fingerprint"
 
             # Cari user berdasarkan fingerprint_id = PIN device
             try:

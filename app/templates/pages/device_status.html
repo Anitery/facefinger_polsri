@@ -153,7 +153,8 @@ async function loadDeviceInfo() {
       data.total_user_device ?? '—';
     document.getElementById('totalJadwalHariIni').textContent =
       data.jadwal_hari_ini?.length ?? 0;
-
+    document.getElementById('totalLogHariIni').textContent =
+      data.log_hari_ini ?? 0;
     document.getElementById('infoDevice').innerHTML = `
       <div class="d-flex justify-content-between">
         <span class="text-muted">Device IP</span>
