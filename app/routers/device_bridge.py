@@ -8,9 +8,11 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, date
 import os
+import json as _json
 
 from app.database import get_db
 from app.models.models import User, AccessLog, JadwalRuangan, Absensi
+from app.models.models import BridgeHeartbeat
 
 router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 
@@ -484,17 +486,72 @@ def bridge_status(key=Depends(verify_key)):
     }
 
 
+@router.post("/status")
+def bridge_heartbeat(
+    request: Request,
+    device_sn:   str = Query(default=""),
+    device_ip:   str = Query(default=""),
+    device_time: str = Query(default=""),
+    total_user:  int = Query(default=0),
+    ruangan_id:  int = Query(default=0),
+    key=Depends(verify_key),
+    db: Session = Depends(get_db)
+):
+    """
+    Bridge ping endpoint — simpan status ke database.
+    Dipanggil bridge setiap loop.
+    """
+    hb = db.query(BridgeHeartbeat).filter(
+        BridgeHeartbeat.device_sn == device_sn
+    ).first()
+
+    if hb:
+        hb.device_ip   = device_ip
+        hb.device_time = device_time
+        hb.total_user  = total_user
+        hb.ruangan_id  = ruangan_id or DEVICE_RUANGAN_ID
+        hb.last_seen   = datetime.now()
+    else:
+        hb = BridgeHeartbeat(
+            device_sn   = device_sn or DEVICE_SN,
+            device_ip   = device_ip,
+            device_time = device_time,
+            total_user  = total_user,
+            ruangan_id  = ruangan_id or DEVICE_RUANGAN_ID,
+        )
+        db.add(hb)
+
+    db.commit()
+    return {"status": "ok", "time": datetime.now().isoformat()}
+
+
 @router.get("/status-public")
 def bridge_status_public(
     ruangan_id: int,
     db: Session = Depends(get_db)
 ):
     """Status bridge + info device untuk dashboard (tanpa API key)."""
-    last = _bridge_cache.get("last_seen")
-    aktif = False
-    if last:
-        diff = (datetime.now() - datetime.fromisoformat(last)).seconds
-        aktif = diff < 180  # bridge dianggap aktif jika < 3 menit
+
+    # Ambil heartbeat terbaru dari DB
+    hb = db.query(BridgeHeartbeat).filter(
+        BridgeHeartbeat.ruangan_id == ruangan_id
+    ).order_by(BridgeHeartbeat.last_seen.desc()).first()
+
+    bridge_aktif = False
+    device_ip    = "—"
+    device_sn    = "—"
+    device_time  = "—"
+    last_bridge  = "—"
+    total_user   = 0
+
+    if hb:
+        diff         = (datetime.now() - hb.last_seen.replace(tzinfo=None)).seconds
+        bridge_aktif = diff < 300   # aktif jika < 5 menit
+        device_ip    = hb.device_ip   or "—"
+        device_sn    = hb.device_sn   or "—"
+        device_time  = hb.device_time or "—"
+        total_user   = hb.total_user  or 0
+        last_bridge  = hb.last_seen.strftime("%d/%m %H:%M:%S")
 
     # Jadwal hari ini
     today   = date.today().strftime("%Y-%m-%d")
@@ -505,12 +562,22 @@ def bridge_status_public(
         JadwalRuangan.tanggal    == today
     ).all()
 
+    # Log scan hari ini
+    log_hari_ini = db.query(AccessLog).filter(
+        AccessLog.ruangan_id  == ruangan_id,
+        AccessLog.waktu_akses >= datetime.combine(
+            date.today(), __import__('datetime').time.min
+        )
+    ).count()
+
     return {
-        "bridge_aktif":  aktif,
-        "last_bridge":   last,
-        "device_ip":     BRIDGE_API_KEY and "Terhubung",
-        "device_sn":     _bridge_cache.get("device_sn", "—"),
-        "device_time":   _bridge_cache.get("device_time", "—"),
+        "bridge_aktif":    bridge_aktif,
+        "last_bridge":     last_bridge,
+        "device_ip":       device_ip,
+        "device_sn":       device_sn,
+        "device_time":     device_time,
+        "total_user_device": total_user,
+        "log_hari_ini":    log_hari_ini,
         "jadwal_hari_ini": [
             {
                 "jadwal_id":        j.id,
@@ -518,6 +585,7 @@ def bridge_status_public(
                 "kelas":            j.kelas,
                 "jam_mulai":        j.jam_mulai,
                 "jam_selesai":      j.jam_selesai,
+                "dosen":            j.dosen,
                 "fp_ids_diizinkan": [
                     m.fingerprint_id
                     for m in j.mahasiswa_diizinkan
@@ -526,5 +594,34 @@ def bridge_status_public(
             }
             for j in jadwals
         ],
-        "total_user_device": None,
     }
+
+@router.get("/debug-logs")
+def debug_recent_logs(
+    limit: int = 10,
+    key=Depends(verify_key),
+    db: Session = Depends(get_db)
+):
+    """Lihat log terbaru dengan detail lengkap untuk debug."""
+    from sqlalchemy.orm import joinedload
+    logs = db.query(AccessLog).options(
+        joinedload(AccessLog.user)
+    ).order_by(
+        AccessLog.waktu_akses.desc()
+    ).limit(limit).all()
+
+    return [
+        {
+            "id":          l.id,
+            "waktu":       l.waktu_akses.isoformat() if l.waktu_akses else None,
+            "user_id":     l.user_id,
+            "nama":        l.user.nama    if l.user else "TIDAK DIKENAL",
+            "nim_nip":     l.user.nim_nip if l.user else "—",
+            "fp_id":       l.user.fingerprint_id if l.user else "—",
+            "metode":      l.metode,
+            "status":      l.status,
+            "keterangan":  l.keterangan,
+            "ruangan_id":  l.ruangan_id,
+        }
+        for l in logs
+    ]

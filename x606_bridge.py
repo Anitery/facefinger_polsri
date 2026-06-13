@@ -275,8 +275,12 @@ def main():
 
     # ── Test Railway ─────────────────────────────────────
     log.info("Test koneksi Railway...")
-    res = railway_get("/device-bridge/status")
-    if res.get("status") == "online":
+    res = railway_get(
+        "/device-bridge/status",
+        {"device_sn": DEVICE_SN}
+    )
+
+if res.get("status") == "online":
         log.info(f"  ✓ Railway online — {res.get('server','')}")
     else:
         log.error("  ✗ Railway tidak merespons!")
@@ -295,11 +299,13 @@ def main():
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S")
             )
-            log.info(
-                f"  ✓ Device online — "
-                f"{t.get('date','')} {t.get('time','')} "
-                f"(waktu disinkronkan)"
-            )
+        log.info(
+            f"  ✓ Device online — "
+            f"{t.get('date','')} {t.get('time','')} "
+            f"(waktu disinkronkan)"
+        )
+
+        heartbeat(client)
         else:
             log.warning("  ⚠ Device merespons tapi data kosong")
     except Exception as e:
@@ -329,6 +335,8 @@ def main():
         try:
             time.sleep(PULL_INTERVAL)
             loop += 1
+
+            heartbeat(client)
 
             # Pull log setiap interval
             n = pull_logs(client)
