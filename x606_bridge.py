@@ -24,8 +24,8 @@ load_dotenv()
 # ── Konfigurasi ──────────────────────────────────────────
 DEVICE_IP         = os.getenv("DEVICE_IP",         "192.168.0.177")
 DEVICE_COMKEY     = os.getenv("DEVICE_COMKEY",     "0")
-DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "8"))
-SERVER_URL        = os.getenv("SERVER_URL",        "http://192.168.0.176:8000/")
+DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "9"))
+SERVER_URL        = os.getenv("SERVER_URL",        "https://facefingerpolsri-production.up.railway.app/")
 BRIDGE_API_KEY    = os.getenv("BRIDGE_API_KEY",    "bridge-key-polsri-2026")
 PULL_INTERVAL     = int(os.getenv("PULL_INTERVAL", "30"))
 SYNC_INTERVAL     = int(os.getenv("SYNC_INTERVAL", "10"))
@@ -365,18 +365,14 @@ def main():
         return
 
 def heartbeat(client: X606SOAPClient):
-    """Kirim status bridge + info device ke Railway."""
+    """Kirim status bridge + info device ke Railway. HANYA heartbeat — tidak ada loop di sini."""
     try:
-        # jumlah user di device
         users = client.get_all_users()
         total = len(users) if users else 0
 
-        # waktu device
         try:
             t = client.get_time()
-            device_time = (
-                f"{t.get('date','')} {t.get('time','')}"
-            ).strip()
+            device_time = f"{t.get('date','')} {t.get('time','')}".strip()
         except Exception:
             device_time = ""
 
@@ -392,13 +388,65 @@ def heartbeat(client: X606SOAPClient):
             },
             timeout=10
         )
-
-        log.debug(
-            f"Heartbeat terkirim — {total} user di device"
-        )
-
+        log.debug(f"Heartbeat terkirim — {total} user di device")
     except Exception as e:
         log.warning(f"Heartbeat gagal: {e}")
+
+
+def main():
+    print("\n" + "═" * 58)
+    print("  Smart Door Lock Bridge — Polsri")
+    print("  STB Linux ↔ X606-S ↔ Railway")
+    print("═" * 58)
+    print(f"  Device     : {DEVICE_IP}")
+    print(f"  Server     : {SERVER_URL}")
+    print(f"  Ruangan    : {DEVICE_RUANGAN_ID}")
+    print(f"  Pull setiap: {PULL_INTERVAL}s | Sync tiap {SYNC_INTERVAL} loop")
+    print("═" * 58)
+
+    # ── Test Railway ─────────────────────────────────────
+    log.info("Test koneksi Railway...")
+    try:
+        r = requests.get(
+            f"{SERVER_URL}/device-bridge/status-public",
+            params={"ruangan_id": DEVICE_RUANGAN_ID},
+            timeout=10
+        )
+        if r.status_code == 200:
+            log.info("  ✓ Railway online")
+        else:
+            log.error("  ✗ Railway tidak merespons!")
+            return
+    except Exception as e:
+        log.error(f"  ✗ Railway gagal diakses: {e}")
+        return
+
+    # ── Test Device ──────────────────────────────────────
+    log.info("Test koneksi X606-S...")
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    try:
+        t = client.ping()
+        if t.get("date") or t.get("time"):
+            now = datetime.now()
+            client.set_time(
+                now.strftime("%Y-%m-%d"),
+                now.strftime("%H:%M:%S")
+            )
+            log.info(
+                f"  ✓ Device online — "
+                f"{t.get('date','')} {t.get('time','')} "
+                f"(waktu disinkronkan)"
+            )
+        else:
+            log.warning("  ⚠ Device merespons tapi data kosong")
+            return
+    except Exception as e:
+        log.error(f"  ✗ Gagal konek ke {DEVICE_IP}: {e}")
+        log.error("  Pastikan STB dan device satu jaringan WiFi")
+        return
+
+    # ── Heartbeat awal ────────────────────────────────────
+    heartbeat(client)
 
     # ── Sync awal ────────────────────────────────────────
     log.info("Sync awal user...")
@@ -413,9 +461,7 @@ def heartbeat(client: X606SOAPClient):
     sync_enrollment(client)
 
     # ── Main loop ─────────────────────────────────────────
-    log.info(
-        f"Bridge aktif — loop setiap {PULL_INTERVAL} detik\n"
-    )
+    log.info(f"Bridge aktif — loop setiap {PULL_INTERVAL} detik\n")
 
     loop = 0
     while True:
@@ -425,18 +471,15 @@ def heartbeat(client: X606SOAPClient):
 
             heartbeat(client)
 
-            # Pull log setiap interval
             n = pull_logs(client)
             if n > 0:
                 log.info(f"Loop #{loop}: {n} log diproses")
 
-            # Sync user periodik
             if loop % SYNC_INTERVAL == 0:
                 log.info(f"Loop #{loop}: Sync periodik...")
                 sync_users(client)
                 sync_enrollment(client)
 
-            # Sync waktu device setiap 1 jam
             if loop % (3600 // PULL_INTERVAL) == 0:
                 now = datetime.now()
                 client.set_time(

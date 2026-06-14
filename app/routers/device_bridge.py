@@ -10,6 +10,7 @@ from fastapi import (
     Request,
     Query
 )
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import List, Optional
@@ -35,6 +36,10 @@ router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 BRIDGE_API_KEY = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2026")
 
 WIB = timezone(timedelta(hours=7))
+
+def wib_today_str() -> str:
+    """Tanggal hari ini dalam WIB, bukan UTC server Railway."""
+    return (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
 
 # Mapping kode Verified dari device ke metode
 VERIFY_MAP = {
@@ -192,7 +197,7 @@ def get_jadwal_hari_ini(
     Return jadwal hari ini + fingerprint_id mahasiswa per jadwal.
     Bridge gunakan ini untuk set timezone akses di device.
     """
-    today   = date.today().strftime("%Y-%m-%d")
+    today   = wib_today_str()
     jadwals = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     ).filter(
@@ -622,7 +627,7 @@ def bridge_status_public(
             "%d/%m %H:%M:%S"
         )
 
-    today = date.today().strftime("%Y-%m-%d")
+    today = wib_today_str()
 
     jadwals = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
@@ -633,10 +638,7 @@ def bridge_status_public(
 
     log_hari_ini = db.query(AccessLog).filter(
         AccessLog.ruangan_id == ruangan_id,
-        AccessLog.waktu_akses >= datetime.combine(
-            date.today(),
-            __import__("datetime").time.min
-        )
+        func.date(AccessLog.waktu_akses) == today
     ).count()
 
     return {
