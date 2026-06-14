@@ -112,8 +112,9 @@ def catat_absensi_device(
 
     today  = waktu_scan.strftime("%Y-%m-%d")
     jam_dt = datetime.strptime(
-        f"{today} {jam_mulai}", "%Y-%m-%d %H:%M"
-    )
+        f"{today} {jam_mulai}",
+        "%Y-%m-%d %H:%M"
+    ).replace(tzinfo=WIB)
     selisih = (waktu_scan - jam_dt).total_seconds() / 60
     status  = "hadir" if selisih <= 15 else "terlambat"
 
@@ -247,14 +248,6 @@ def receive_logs(
     error    = 0
 
     log.info(f"TOTAL LOGS: {len(payload.logs)}")
-    try:
-        log.info(
-        f"Processing PIN={log_item.pin} "
-        f"verified={log_item.verified} "
-        f"datetime={log_item.datetime}"
-)
-    except Exception:
-        traceback.print_exc()
 
     for log_item in payload.logs:
         log.info(
@@ -364,12 +357,26 @@ def receive_logs(
 
             # ── Catat absensi jika berhasil + ada jadwal ─
             if boleh and jadwal_aktif:
+                log.info(
+                    f"ABSENSI START "
+                    f"user={user.id} "
+                    f"jadwal={jadwal_aktif.id}"
+                )
+
                 catat_absensi_device(
-                    db         = db,
-                    jadwal_id  = jadwal_aktif.id,
-                    user_id    = user.id,
-                    jam_mulai  = jadwal_aktif.jam_mulai,
-                    waktu_scan = waktu
+                    db=db,
+                    jadwal_id=jadwal_aktif.id,
+                    user_id=user.id,
+                    jam_mulai=jadwal_aktif.jam_mulai,
+                    waktu_scan=waktu
+                    
+                )
+                log.info(
+                    f"waktu={waktu} "
+                    f"tz={waktu.tzinfo}"
+                )
+                log.info(
+                    f"ABSENSI BERHASIL: user={user.id}"
                 )
 
             if boleh:
@@ -384,9 +391,14 @@ def receive_logs(
                 )
 
         except Exception as e:
+            import traceback
+
             log.error(
-                f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}"
+                f"[BRIDGE ERROR] PIN:{log_item.pin}"
             )
+
+            log.error(str(e))
+
             log.error(traceback.format_exc())
 
             error += 1
