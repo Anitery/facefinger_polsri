@@ -1,10 +1,11 @@
-from app.models.x606_models import X606Device, X606JadwalKBM, X606JadwalPeserta, AbsensiX606, X606UserCache
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
 
-# Tabel relasi many-to-many: ruangan ↔ penanggung jawab
+# ── Tabel Relasi Many-to-Many ───────────────────────────────────────────
+
+# Relasi: Ruangan ↔ Penanggung Jawab (User)
 penanggung_jawab = Table(
     "penanggung_jawab",
     Base.metadata,
@@ -12,6 +13,7 @@ penanggung_jawab = Table(
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
 )
 
+# Relasi: Jadwal Ruangan ↔ Mahasiswa (User) yang Diizinkan
 jadwal_mahasiswa = Table(
     "jadwal_mahasiswa",
     Base.metadata,
@@ -19,6 +21,8 @@ jadwal_mahasiswa = Table(
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
 )
 
+
+# ── Model Tabel ─────────────────────────────────────────────────────────
 
 class Ruangan(Base):
     __tablename__ = "ruangan"
@@ -30,24 +34,20 @@ class Ruangan(Base):
     aktif = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relasi yang sudah ada
+    # Relasi standard
     users = relationship("User", back_populates="ruangan")
     access_logs = relationship("AccessLog", back_populates="ruangan")
     rekaman_kamera = relationship("RekamanKamera", back_populates="ruangan")
     inventaris = relationship("InventarisAlat", back_populates="ruangan")
     jadwal = relationship("JadwalRuangan", back_populates="ruangan")
 
-    # Relasi baru — penanggung jawab (many-to-many)
+    # Relasi many-to-many penanggung jawab
     penanggung_jawab = relationship(
         "User",
         secondary="penanggung_jawab",
         backref="ruangan_tanggung_jawab"
     )
 
-    # Relasi alat
-    x606_devices    = relationship("X606Device",    back_populates="ruangan")
-    x606_jadwal_kbm = relationship("X606JadwalKBM", back_populates="ruangan")
-    absensi_x606    = relationship("AbsensiX606",   back_populates="ruangan")
 
 class User(Base):
     __tablename__ = "users"
@@ -65,11 +65,9 @@ class User(Base):
 
     ruangan = relationship("Ruangan", back_populates="users")
     access_logs = relationship("AccessLog", back_populates="user")
-    # Relasi many-to-many otomatis tersedia via backref="ruangan_tanggung_jawab"
+    # Relasi many-to-many penanggung jawab otomatis via backref="ruangan_tanggung_jawab"
+    # Relasi jadwal otomatis via backref="jadwal_diizinkan"
 
-    # Relasi alat
-    absensi_x606       = relationship("AbsensiX606",       back_populates="user")
-    x606_jadwal_peserta = relationship("X606JadwalPeserta", back_populates="user")
 
 class AccessLog(Base):
     __tablename__ = "access_log"
@@ -78,7 +76,7 @@ class AccessLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     ruangan_id = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
     waktu_akses = Column(DateTime(timezone=True), server_default=func.now())
-    metode = Column(String(20))  # face / fingerprint / ditolak
+    metode = Column(String(20))  # face / fingerprint / card / pin
     foto_url = Column(Text, nullable=True)
     status = Column(String(10))  # berhasil / ditolak
     keterangan = Column(String(200), nullable=True)
@@ -149,23 +147,24 @@ class Absensi(Base):
     jadwal_id   = Column(Integer, ForeignKey("jadwal_ruangan.id"), nullable=False)
     user_id     = Column(Integer, ForeignKey("users.id"), nullable=False)
     waktu_masuk = Column(DateTime(timezone=True), nullable=True)
-    status      = Column(String(20), nullable=False)
+    status      = Column(String(20), nullable=False)  # hadir / tidak hadir / terlambat
     keterangan  = Column(Text, nullable=True)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
 
     jadwal = relationship("JadwalRuangan", backref="absensi_list")
     user   = relationship("User", backref="absensi_list")
 
+
 class BridgeHeartbeat(Base):
     __tablename__ = "bridge_heartbeat"
 
-    id         = Column(Integer, primary_key=True)
-    device_sn  = Column(String(50), nullable=False)
-    device_ip  = Column(String(50), nullable=True)
-    ruangan_id = Column(Integer, nullable=True)
-    last_seen  = Column(DateTime(timezone=True),
-                        server_default=func.now(),
-                        onupdate=func.now())
+    id          = Column(Integer, primary_key=True)
+    device_sn   = Column(String(50), nullable=False)
+    device_ip   = Column(String(50), nullable=True)
+    ruangan_id  = Column(Integer, nullable=True)
+    last_seen   = Column(DateTime(timezone=True),
+                         server_default=func.now(),
+                         onupdate=func.now())
     device_time = Column(String(30), nullable=True)
     total_user  = Column(Integer, default=0)
-    extra_info  = Column(Text, nullable=True)  # JSON
+    extra_info  = Column(Text, nullable=True)  # JSON metadata tambahan dari STB
