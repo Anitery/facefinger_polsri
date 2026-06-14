@@ -245,6 +245,8 @@ def receive_logs(
     """
     berhasil = ditolak = duplikat = error = 0
 
+    log.info(f"Push-logs: {len(payload.logs)} log, ruangan={payload.ruangan_id}, SN={payload.device_sn}")
+
     for log_item in payload.logs:
         try:
             # ── Parse waktu ──────────────────────────────
@@ -257,17 +259,14 @@ def receive_logs(
                     waktu = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
                     waktu = waktu.replace(tzinfo=WIB)
             except (ValueError, TypeError) as e:
-                log.warning(f"Parse waktu gagal untuk '{dt_str}': {e}")
+                log.warning(f"Parse waktu gagal '{dt_str}': {e}")
                 error += 1
                 continue
 
             # ── Tentukan metode verifikasi ───────────────
             metode = VERIFY_MAP.get(str(log_item.verified))
             if not metode:
-                log.warning(
-                    f"Verified code tidak dikenal: {log_item.verified!r} "
-                    f"(PIN:{log_item.pin}) → default 'other'"
-                )
+                log.warning(f"Verified tidak dikenal: {log_item.verified} (PIN:{log_item.pin})")
                 metode = "other"
 
             # ── Cari user berdasarkan fingerprint_id ────
@@ -275,37 +274,38 @@ def receive_logs(
                 fp_id = int(log_item.pin)
             except ValueError:
                 fp_id = None
-                log.warning(f"PIN tidak valid: {log_item.pin!r}")
 
             user = None
             if fp_id is not None:
                 user = db.query(User).filter(
                     User.fingerprint_id == fp_id,
-                    User.aktif          == True
+                    User.aktif == True
                 ).first()
 
             # ── User tidak ditemukan ─────────────────────
             if not user:
                 dup = db.query(AccessLog).filter(
-                    AccessLog.ruangan_id  == payload.ruangan_id,
+                    AccessLog.ruangan_id == payload.ruangan_id,
                     AccessLog.waktu_akses == waktu,
                     AccessLog.keterangan.contains(f"PIN:{log_item.pin}")
                 ).first()
+                
                 if dup:
                     duplikat += 1
                     continue
 
+                # ✅ FIX: Gunakan = (satu sama dengan), bukan ==
+                keterangan = f"PIN:{log_item.pin} tidak terdaftar | {metode} | SN:{payload.device_sn}"
+                # Truncate kalau terlalu panjang (max 200 chars di DB)
+                keterangan = keterangan[:200]
+
                 db.add(AccessLog(
-                    user_id=None,
-                    ruangan_id=payload.ruangan_id,
-                    waktu_akses=waktu,
-                    metode=metode,
-                    status="ditolak",
-                    keterangan=(
-                        f"PIN:{log_item.pin} tidak terdaftar "
-                        f"| verified:{log_item.verified} "
-                        f"| SN:{payload.device_sn}"
-                    )
+                    user_id     = None,
+                    ruangan_id  = payload.ruangan_id,   # ✅ = BUKAN ==
+                    waktu_akses = waktu,
+                    metode      = metode,
+                    status      = "ditolak",
+                    keterangan  = keterangan
                 ))
                 db.commit()
                 ditolak += 1
@@ -313,10 +313,11 @@ def receive_logs(
 
             # ── Cek duplikat untuk user ini ──────────────
             dup = db.query(AccessLog).filter(
-                AccessLog.user_id     == user.id,
-                AccessLog.ruangan_id  == payload.ruangan_id,
+                AccessLog.user_id == user.id,
+                AccessLog.ruangan_id == payload.ruangan_id,
                 AccessLog.waktu_akses == waktu
             ).first()
+            
             if dup:
                 duplikat += 1
                 continue
@@ -332,14 +333,16 @@ def receive_logs(
 
             status_akses = "berhasil" if boleh else "ditolak"
 
-            # ── Catat log akses ──────────────────────────
+            # ✅ FIX: = BUKAN == untuk semua field
+            keterangan = f"{alasan} | {metode} | SN:{payload.device_sn}"[:200]
+
             db.add(AccessLog(
-                user_id     = user.id,
-                ruangan_id  = payload.ruangan_id,
-                waktu_akses = waktu,
-                metode      = metode,
-                status      = status_akses,
-                keterangan  = f"{alasan} | verified:{log_item.verified} | SN:{payload.device_sn}"
+                user_id     = user.id,                  # ✅ =
+                ruangan_id  = payload.ruangan_id,       # ✅ =
+                waktu_akses = waktu,                    # ✅ =
+                metode      = metode,                   # ✅ =
+                status      = status_akses,             # ✅ =
+                keterangan  = keterangan                # ✅ =
             ))
             db.commit()
 
@@ -362,6 +365,8 @@ def receive_logs(
 
         except Exception as e:
             log.error(f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}")
+            import traceback
+            log.error(traceback.format_exc())
             error += 1
             db.rollback()
 
