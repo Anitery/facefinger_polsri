@@ -16,6 +16,7 @@ from typing import List, Optional
 from datetime import datetime, date
 from datetime import timezone, timedelta
 import os
+import traceback
 import logging
 
 log = logging.getLogger(__name__)
@@ -240,15 +241,14 @@ def receive_logs(
     key=Depends(verify_key),
     db: Session = Depends(get_db)
 ):
-    """
-    Terima raw SOAP log dari bridge, proses:
-    1. Cari user dari fingerprint_id (PIN di device)
-    2. Validasi jadwal KBM
-    3. Simpan ke access_log + absensi
-    """
-    berhasil = ditolak = duplikat = error = 0
-
-    log.info(f"Push-logs: {len(payload.logs)} log, ruangan={payload.ruangan_id}, SN={payload.device_sn}")
+    try:
+        log.info(
+        f"Processing PIN={log_item.pin} "
+        f"verified={log_item.verified} "
+        f"datetime={log_item.datetime}"
+)
+    except Exception:
+        traceback.print_exc()
 
     for log_item in payload.logs:
         try:
@@ -337,7 +337,9 @@ def receive_logs(
             status_akses = "berhasil" if boleh else "ditolak"
 
             # ✅ FIX: = BUKAN == untuk semua field
-            keterangan = f"{alasan} | {metode} | SN:{payload.device_sn}"[:200]
+            keterangan = (
+                f"{alasan} | {metode} | SN:{payload.device_sn}"
+            )[:190]
 
             db.add(AccessLog(
                 user_id     = user.id,                  # ✅ =
@@ -361,29 +363,32 @@ def receive_logs(
 
             if boleh:
                 berhasil += 1
-                log.info(f"✓ PIN:{log_item.pin} ({user.nama}) — {alasan}")
+                log.info(
+                    f"✓ PIN:{log_item.pin} ({user.nama}) — {alasan}"
+                )
             else:
                 ditolak += 1
-                log.info(f"✗ PIN:{log_item.pin} ({user.nama}) — {alasan}")
-
-            except Exception as e:
-                print(traceback.format_exc())
-
-                log.error(
-                    f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}"
+                log.info(
+                    f"✗ PIN:{log_item.pin} ({user.nama}) — {alasan}"
                 )
 
-                error += 1
-                db.rollback()
+        except Exception as e:
+            log.error(
+                f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}"
+            )
+            log.error(traceback.format_exc())
 
-            return {
-                "status":   "ok",
-                "berhasil": berhasil,
-                "ditolak":  ditolak,
-                "duplikat": duplikat,
-                "error":    error,
-                "total":    len(payload.logs)
-            }
+            error += 1
+            db.rollback()
+
+    return {
+        "status":   "ok",
+        "berhasil": berhasil,
+        "ditolak":  ditolak,
+        "duplikat": duplikat,
+        "error":    error,
+        "total":    len(payload.logs)
+    }
 
 # ══════════════════════════════════════════════════════════
 # ENDPOINT 5 — Sync manual (trigger dari dashboard)
