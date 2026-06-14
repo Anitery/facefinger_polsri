@@ -74,9 +74,17 @@ def railway_post(path: str, data: dict) -> dict:
             f"{SERVER_URL}{path}",
             headers=HEADERS, json=data, timeout=30
         )
-        return r.json() if r.ok else {}
+        
+        log.info(f"POST {path} status={r.status_code}")
+        
+        if not r.ok:
+            log.error(f"Response error {r.status_code}: {r.text[:500]}")
+            return {}
+            
+        return r.json()
+        
     except Exception as e:
-        log.error(f"POST {path} gagal: {e}")
+        log.error(f"POST {path} exception: {e}")
         return {}
 
 
@@ -88,23 +96,37 @@ ZONE_BLOCKED_ID = int(os.getenv("ZONE_BLOCKED_ID", "2"))
 
 def get_timezone_for_user(user: dict, jadwals: list) -> int:
     """
-    Tentukan ID Zona Waktu (integer, sesuai konfigurasi GUI Tahap 1).
-
-    Returns:
-        ZONE_OPEN_ID    -> akses diizinkan
-        ZONE_BLOCKED_ID -> akses ditolak (zona end<start, blokir 24 jam)
+    Tentukan ID Zona Waktu secara bulletproof.
+    Menggunakan konversi waktu ke menit untuk menghindari bug komparasi string.
     """
     role  = user.get("role", "mahasiswa")
-    fp_id = user.get("fingerprint_id")
+    # 1. Paksa fp_id menjadi string
+    fp_id = str(user.get("fingerprint_id", "")).strip()
 
     if role in ("admin", "teknisi", "dosen"):
         return ZONE_OPEN_ID
 
-    now_time = datetime.now().strftime("%H:%M")
+    # Helper: Ubah format "HH:MM" atau "HH:MM:SS" menjadi integer total menit
+    def time_to_minutes(t_str):
+        try:
+            parts = str(t_str).split(":")
+            return int(parts[0]) * 60 + int(parts[1])
+        except (ValueError, TypeError, IndexError):
+            return 0
+
+    # Waktu sekarang dalam bentuk total menit (cth: "01:49" -> 109 menit)
+    now_minutes = time_to_minutes(datetime.now().strftime("%H:%M"))
 
     for j in jadwals:
-        if fp_id in (j.get("fp_ids_diizinkan") or []):
-            if j["jam_mulai"] <= now_time <= j["jam_selesai"]:
+        # 2. Paksa semua array id yang diizinkan menjadi string list
+        allowed_fps = [str(x).strip() for x in (j.get("fp_ids_diizinkan") or [])]
+        
+        if fp_id in allowed_fps:
+            start_min = time_to_minutes(j.get("jam_mulai", "00:00"))
+            end_min   = time_to_minutes(j.get("jam_selesai", "00:00"))
+            
+            # 3. Bandingkan secara matematis integer
+            if start_min <= now_minutes <= end_min:
                 return ZONE_OPEN_ID
 
     return ZONE_BLOCKED_ID
@@ -130,32 +152,32 @@ def sync_users(client: X606SOAPClient):
     log.info(f"  {len(users)} user | {len(jadwals)} jadwal hari ini")
 
     synced = failed = 0
-        for u in users:
-            fp_id = str(u.get("fingerprint_id", ""))
-            nama  = u.get("nama", "")
-            role  = u.get("role", "mahasiswa")
-            zone  = get_timezone_for_user(u, jadwals)   # int: ZONE_OPEN_ID / ZONE_BLOCKED_ID
-            priv  = "14" if role in ("admin", "teknisi") else "0"
+    for u in users:
+        fp_id = str(u.get("fingerprint_id", ""))
+        nama  = u.get("nama", "")
+        role  = u.get("role", "mahasiswa")
+        zone  = get_timezone_for_user(u, jadwals)   # int: ZONE_OPEN_ID / ZONE_BLOCKED_ID
+        priv  = "14" if role in ("admin", "teknisi") else "0"
 
-            try:
-                ok = client.set_user(
-                    pin=fp_id, name=nama,
-                    privilege=priv,
-                    tz1=zone, tz2=zone, tz3=zone   # ← semua slot sama, hindari OR-fallback
+        try:
+            ok = client.set_user(
+                pin=fp_id, name=nama,
+                privilege=priv,
+                tz1=zone, tz2=zone, tz3=zone   # ← semua slot sama, hindari OR-fallback
+            )
+            if ok:
+                synced += 1
+                log.info(
+                    f"  ✓ [{role:10}] {nama:25} "
+                    f"FP:{fp_id:3} ZONE:{zone}"
                 )
-                if ok:
-                    synced += 1
-                    log.info(
-                        f"  ✓ [{role:10}] {nama:25} "
-                        f"FP:{fp_id:3} ZONE:{zone}"
-                    )
-                else:
-                    failed += 1
-                    log.warning(f"  ✗ {nama} — set_user gagal")
-            except Exception as e:
+            else:
                 failed += 1
-                log.error(f"  ✗ {nama}: {e}")
-
+                log.warning(f"  ✗ {nama} — set_user gagal")
+        except Exception as e:
+            failed += 1
+            log.error(f"  ✗ {nama}: {e}")
+            
     if synced > 0:
         client.refresh_db()
         log.info(f"  RefreshDB OK — {synced} user aktif")
@@ -192,7 +214,6 @@ def pull_logs(client: X606SOAPClient) -> int:
 
     log.info(f"Mengirim {len(new_logs)} log baru ke Railway...")
 
-    # ── FIX: Kirim verified & status sebagai INT ────────
     payload = {
         "ruangan_id": DEVICE_RUANGAN_ID,
         "device_sn":  DEVICE_SN,
@@ -200,8 +221,8 @@ def pull_logs(client: X606SOAPClient) -> int:
             {
                 "pin":      str(l.get("PIN", "")),
                 "datetime": l.get("DateTime", "") + "+07:00",
-                "verified": int(l.get("Verified", 0)),   # INT!
-                "status":   int(l.get("Status", 0)),     # INT!
+                "verified": int(l.get("Verified", 0)),
+                "status":   int(l.get("Status", 0)),
                 "workcode": str(l.get("WorkCode", "0")),
             }
             for l in new_logs
@@ -233,7 +254,6 @@ def pull_logs(client: X606SOAPClient) -> int:
             f"{duplikat} duplikat | {error} error (total:{total})"
         )
         
-        # ── FIX: Warning kalau semua 0 tapi ada log ─────
         if berhasil + ditolak + duplikat == 0 and total > 0:
             log.error("  ⚠️ ANOMALI: Semua log error atau tidak diproses!")
             log.error("  Cek log backend untuk detail error.")
@@ -245,26 +265,6 @@ def pull_logs(client: X606SOAPClient) -> int:
         return berhasil + ditolak
 
     return 0
-
-
-def railway_post(path: str, data: dict) -> dict:
-    try:
-        r = requests.post(
-            f"{SERVER_URL}{path}",
-            headers=HEADERS, json=data, timeout=30
-        )
-        
-        log.info(f"POST {path} status={r.status_code}")
-        
-        if not r.ok:
-            log.error(f"Response error {r.status_code}: {r.text[:500]}")
-            return {}
-            
-        return r.json()
-        
-    except Exception as e:
-        log.error(f"POST {path} exception: {e}")
-        return {}
 
 
 # ══════════════════════════════════════════════════════════
@@ -304,70 +304,8 @@ def sync_enrollment(client: X606SOAPClient):
         log.error(f"Enrollment sync gagal: {e}")
 
 
-# ══════════════════════════════════════════════════════════
-# MAIN
-# ══════════════════════════════════════════════════════════
-
-def main():
-    print("\n" + "═" * 58)
-    print("  Smart Door Lock Bridge — Polsri")
-    print("  STB Linux ↔ X606-S ↔ Railway")
-    print("═" * 58)
-    print(f"  Device     : {DEVICE_IP}")
-    print(f"  Server     : {SERVER_URL}")
-    print(f"  Ruangan    : {DEVICE_RUANGAN_ID}")
-    print(f"  Pull setiap: {PULL_INTERVAL}s | "
-          f"Sync tiap {SYNC_INTERVAL} loop")
-    print("═" * 58)
-
-    # ── Test Railway ─────────────────────────────────────
-    log.info("Test koneksi Railway...")
-
-    try:
-        r = requests.get(
-            f"{SERVER_URL}/device-bridge/status-public",
-            params={"ruangan_id": DEVICE_RUANGAN_ID},
-            timeout=10
-        )
-
-        if r.status_code == 200:
-            log.info("  ✓ Railway online")
-        else:
-            log.error("  ✗ Railway tidak merespons!")
-            return
-
-    except Exception as e:
-        log.error(f"  ✗ Railway gagal diakses: {e}")
-        return
-
-    # ── Test Device ──────────────────────────────────────
-    log.info("Test koneksi X606-S...")
-    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
-    try:
-        t = client.ping()
-        if t.get("date") or t.get("time"):
-            # Sinkronisasi waktu device dengan STB
-            now = datetime.now()
-            client.set_time(
-                now.strftime("%Y-%m-%d"),
-                now.strftime("%H:%M:%S")
-            )
-            log.info(
-                f"  ✓ Device online — "
-                f"{t.get('date','')} {t.get('time','')} "
-                f"(waktu disinkronkan)"
-            )
-
-            heartbeat(client)
-        else:
-            log.warning("  ⚠ Device merespons tapi data kosong")
-    except Exception as e:
-        log.error(f"  ✗ Gagal konek ke {DEVICE_IP}: {e}")
-        log.error("  Pastikan STB dan device satu jaringan WiFi")
-        return
-
 def heartbeat(client: X606SOAPClient):
-    """Kirim status bridge + info device ke Railway. HANYA heartbeat — tidak ada loop di sini."""
+    """Kirim status bridge + info device ke Railway."""
     try:
         users = client.get_all_users()
         total = len(users) if users else 0
@@ -394,6 +332,10 @@ def heartbeat(client: X606SOAPClient):
     except Exception as e:
         log.warning(f"Heartbeat gagal: {e}")
 
+
+# ══════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════
 
 def main():
     print("\n" + "═" * 58)
