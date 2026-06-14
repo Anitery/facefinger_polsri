@@ -3,7 +3,18 @@
 {% block page_title %}Status X606-S{% endblock %}
 
 {% block content %}
+<style>
+  /* ── Fix: status device text+emoji jangan wrap di mobile ── */
+#statusDevice {
+  white-space: nowrap;
+}
 
+@media (max-width: 575px) {
+  #statusDevice {
+    font-size: 1.05rem;   /* sedikit lebih kecil dari .val default */
+  }
+}
+</style>
 <!-- Status cards -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-lg-3">
