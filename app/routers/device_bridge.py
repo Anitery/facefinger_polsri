@@ -16,6 +16,9 @@ from typing import List, Optional
 from datetime import datetime, date
 from datetime import timezone, timedelta
 import os
+import logging
+
+log = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.models import (
@@ -363,21 +366,24 @@ def receive_logs(
                 ditolak += 1
                 log.info(f"✗ PIN:{log_item.pin} ({user.nama}) — {alasan}")
 
-        except Exception as e:
-            log.error(f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}")
-            import traceback
-            log.error(traceback.format_exc())
-            error += 1
-            db.rollback()
+            except Exception as e:
+                print(traceback.format_exc())
 
-    return {
-        "status":   "ok",
-        "berhasil": berhasil,
-        "ditolak":  ditolak,
-        "duplikat": duplikat,
-        "error":    error,
-        "total":    len(payload.logs)
-    }
+                log.error(
+                    f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}"
+                )
+
+                error += 1
+                db.rollback()
+
+            return {
+                "status":   "ok",
+                "berhasil": berhasil,
+                "ditolak":  ditolak,
+                "duplikat": duplikat,
+                "error":    error,
+                "total":    len(payload.logs)
+            }
 
 # ══════════════════════════════════════════════════════════
 # ENDPOINT 5 — Sync manual (trigger dari dashboard)
