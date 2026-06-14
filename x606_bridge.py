@@ -83,30 +83,31 @@ def railway_post(path: str, data: dict) -> dict:
 # ══════════════════════════════════════════════════════════
 # BAGIAN A — Sync user + timezone ke device
 # ══════════════════════════════════════════════════════════
+ZONE_OPEN_ID    = int(os.getenv("ZONE_OPEN_ID",    "1"))
+ZONE_BLOCKED_ID = int(os.getenv("ZONE_BLOCKED_ID", "2"))
 
-def get_timezone_for_user(user: dict, jadwals: list) -> str:
+def get_timezone_for_user(user: dict, jadwals: list) -> int:
     """
-    Tentukan TZ1 device berdasarkan role + jadwal hari ini.
-    
-    Admin/Teknisi : 0000-2359 (bebas kapan saja)
-    Dosen         : 0000-2359 (bebas, absensi tetap dicatat)
-    Mahasiswa     : HHMM-HHMM sesuai jadwal, atau 0000-0000
+    Tentukan ID Zona Waktu (integer, sesuai konfigurasi GUI Tahap 1).
+
+    Returns:
+        ZONE_OPEN_ID    -> akses diizinkan
+        ZONE_BLOCKED_ID -> akses ditolak (zona end<start, blokir 24 jam)
     """
     role  = user.get("role", "mahasiswa")
     fp_id = user.get("fingerprint_id")
 
     if role in ("admin", "teknisi", "dosen"):
-        return "0000-2359"
+        return ZONE_OPEN_ID
 
-    # Mahasiswa: cari di jadwal hari ini
+    now_time = datetime.now().strftime("%H:%M")
+
     for j in jadwals:
         if fp_id in (j.get("fp_ids_diizinkan") or []):
-            mulai   = j["jam_mulai"][:5].replace(":", "")   # "07:00" → "0700"
-            selesai = j["jam_selesai"][:5].replace(":", "")  # "09:30" → "0930"
-            return f"{mulai}-{selesai}"
+            if j["jam_mulai"] <= now_time <= j["jam_selesai"]:
+                return ZONE_OPEN_ID
 
-    # Tidak ada jadwal → blokir
-    return "0000-0000"
+    return ZONE_BLOCKED_ID
 
 
 def sync_users(client: X606SOAPClient):
@@ -129,30 +130,31 @@ def sync_users(client: X606SOAPClient):
     log.info(f"  {len(users)} user | {len(jadwals)} jadwal hari ini")
 
     synced = failed = 0
-    for u in users:
-        fp_id = str(u.get("fingerprint_id", ""))
-        nama  = u.get("nama", "")
-        role  = u.get("role", "mahasiswa")
-        tz    = get_timezone_for_user(u, jadwals)
-        priv  = "14" if role in ("admin", "teknisi") else "0"
+        for u in users:
+            fp_id = str(u.get("fingerprint_id", ""))
+            nama  = u.get("nama", "")
+            role  = u.get("role", "mahasiswa")
+            zone  = get_timezone_for_user(u, jadwals)   # int: ZONE_OPEN_ID / ZONE_BLOCKED_ID
+            priv  = "14" if role in ("admin", "teknisi") else "0"
 
-        try:
-            ok = client.set_user(
-                pin=fp_id, name=nama,
-                privilege=priv, tz1=tz
-            )
-            if ok:
-                synced += 1
-                log.info(
-                    f"  ✓ [{role:10}] {nama:25} "
-                    f"FP:{fp_id:3} TZ:{tz}"
+            try:
+                ok = client.set_user(
+                    pin=fp_id, name=nama,
+                    privilege=priv,
+                    tz1=zone, tz2=zone, tz3=zone   # ← semua slot sama, hindari OR-fallback
                 )
-            else:
+                if ok:
+                    synced += 1
+                    log.info(
+                        f"  ✓ [{role:10}] {nama:25} "
+                        f"FP:{fp_id:3} ZONE:{zone}"
+                    )
+                else:
+                    failed += 1
+                    log.warning(f"  ✗ {nama} — set_user gagal")
+            except Exception as e:
                 failed += 1
-                log.warning(f"  ✗ {nama} — set_user gagal")
-        except Exception as e:
-            failed += 1
-            log.error(f"  ✗ {nama}: {e}")
+                log.error(f"  ✗ {nama}: {e}")
 
     if synced > 0:
         client.refresh_db()

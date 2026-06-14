@@ -85,17 +85,14 @@ class X606SOAPClient:
         return self._rows(self._send(xml), "GetAllUserInfoResponse")
 
     def set_user(self, pin: str, name: str,
-                 privilege: str = "0",
-                 tz1: str = "0000-2359",
-                 tz2: str = "", tz3: str = "") -> bool:
+                privilege: str = "0",
+                tz1: int = 1,
+                tz2: int = 1, tz3: int = 1) -> bool:
         """
-        Tambah/update user di device.
-        pin      = fingerprint_id dari database kita
-        tz1      = timezone akses, format "HHMM-HHMM"
-                   "0000-2359" = bebas akses
-                   "0800-1000" = hanya jam 08:00-10:00
-                   "0000-0000" = tidak bisa masuk
-        privilege = "0" = user biasa, "14" = admin device
+        tz1/tz2/tz3 = ID Zona Waktu (1-50) yang sudah dikonfigurasi
+        via software GUI (Pengaturan > Akses Kontrol > Zona Waktu).
+        Bukan string rentang jam — device mengabaikan/fallback jika
+        diberi format selain ID integer.
         """
         xml = (
             f'<SetUserInfo>'
