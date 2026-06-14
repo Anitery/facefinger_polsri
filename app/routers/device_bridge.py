@@ -219,10 +219,10 @@ def get_jadwal_hari_ini(
 # ══════════════════════════════════════════════════════════
 class LogItem(BaseModel):
     pin:        str
-    datetime:   str
-    verified:   int      
-    status:     int      
-    workcode:   str = "0" 
+    datetime:   str   # "YYYY-MM-DD HH:MM:SS+07:00"
+    verified:   int   # 0=password, 1=fingerprint, 15=face
+    status:     int   # 0=masuk, 1=keluar
+    workcode:   str = "0"
 
 
 class PushLogsPayload(BaseModel):
@@ -246,32 +246,31 @@ def receive_logs(
     berhasil = ditolak = duplikat = error = 0
 
     for log_item in payload.logs:
-        # Ganti bagian parse waktu di receive_logs():
         try:
+            # ── Parse waktu ──────────────────────────────
             dt_str = log_item.datetime
             
-            # Parse ISO format dengan timezone
-            if "+07:00" in dt_str:
-                waktu = datetime.fromisoformat(dt_str)
-            else:
-                waktu = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-                # Naive datetime → tambahkan WIB
-                waktu = waktu.replace(tzinfo=WIB)
-                
-        except (ValueError, TypeError) as e:
-            log.warning(f"Parse waktu gagal untuk '{dt_str}': {e}")
-            error += 1
-            continue
+            try:
+                if "+07:00" in dt_str:
+                    waktu = datetime.fromisoformat(dt_str)
+                else:
+                    waktu = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+                    waktu = waktu.replace(tzinfo=WIB)
+            except (ValueError, TypeError) as e:
+                log.warning(f"Parse waktu gagal untuk '{dt_str}': {e}")
+                error += 1
+                continue
 
-        metode = VERIFY_MAP.get(str(log_item.verified))
-                if not metode:
-                    log.warning(
-                        f"Verified code tidak dikenal: {log_item.verified!r} "
-                        f"(PIN:{log_item.pin}) → default 'other'"
-                    )
-                    metode = "other"
+            # ── Tentukan metode verifikasi ───────────────
+            metode = VERIFY_MAP.get(str(log_item.verified))
+            if not metode:
+                log.warning(
+                    f"Verified code tidak dikenal: {log_item.verified!r} "
+                    f"(PIN:{log_item.pin}) → default 'other'"
+                )
+                metode = "other"
 
-            # Cari user berdasarkan fingerprint_id = PIN device
+            # ── Cari user berdasarkan fingerprint_id ────
             try:
                 fp_id = int(log_item.pin)
             except ValueError:
@@ -297,14 +296,16 @@ def receive_logs(
                     continue
 
                 db.add(AccessLog(
-                    user_id     = None,
-                    ruangan_id  = payload.ruangan_id,
-                    waktu_akses = waktu,
-                    metode      = metode,
-                    status      = "ditolak",
-                    keterangan  = (f"PIN:{log_item.pin} tidak terdaftar "
-                                f"| verified:{log_item.verified} "
-                                f"| SN:{payload.device_sn}")
+                    user_id=None,
+                    ruangan_id=payload.ruangan_id,
+                    waktu_akses=waktu,
+                    metode=metode,
+                    status="ditolak",
+                    keterangan=(
+                        f"PIN:{log_item.pin} tidak terdaftar "
+                        f"| verified:{log_item.verified} "
+                        f"| SN:{payload.device_sn}"
+                    )
                 ))
                 db.commit()
                 ditolak += 1
@@ -372,7 +373,6 @@ def receive_logs(
         "error":    error,
         "total":    len(payload.logs)
     }
-
 
 # ══════════════════════════════════════════════════════════
 # ENDPOINT 5 — Sync manual (trigger dari dashboard)
