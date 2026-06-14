@@ -241,6 +241,12 @@ def receive_logs(
     key=Depends(verify_key),
     db: Session = Depends(get_db)
 ):
+    berhasil = 0
+    ditolak  = 0
+    duplikat = 0
+    error    = 0
+
+    log.info(f"TOTAL LOGS: {len(payload.logs)}")
     try:
         log.info(
         f"Processing PIN={log_item.pin} "
@@ -251,6 +257,11 @@ def receive_logs(
         traceback.print_exc()
 
     for log_item in payload.logs:
+        log.info(
+            f"PIN={log_item.pin} "
+            f"verified={log_item.verified} "
+            f"datetime={log_item.datetime}"
+        )
         try:
             # ── Parse waktu ──────────────────────────────
             dt_str = log_item.datetime
