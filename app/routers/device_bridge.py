@@ -34,10 +34,17 @@ WIB = timezone(timedelta(hours=7))
 
 # Mapping kode Verified dari device ke metode
 VERIFY_MAP = {
-    "0": "password",
-    "1": "fingerprint", "2": "fingerprint", "3": "fingerprint",
-    "4": "face",        "5": "face",        "6": "face",
-    "15": "password",
+    "0":  "password",
+    "1":  "fingerprint",
+    "2":  "fingerprint",
+    "3":  "password",     
+    "4":  "face",
+    "5":  "face",
+    "6":  "face",
+    "7":  "face",
+    "9":  "face",
+    "15": "face",         
+    "200": "other",
 }
 
 ROLE_BEBAS = {"admin", "teknisi"}
@@ -212,9 +219,10 @@ def get_jadwal_hari_ini(
 # ══════════════════════════════════════════════════════════
 class LogItem(BaseModel):
     pin:        str
-    datetime:   str   # "YYYY-MM-DD HH:MM:SS"
-    verified:   str   # "1"=fp, "4"=face, "0"=password
-    status:     str   # "0"=masuk, "1"=keluar
+    datetime:   str
+    verified:   int      
+    status:     int      
+    workcode:   str = "0" 
 
 
 class PushLogsPayload(BaseModel):
@@ -241,33 +249,34 @@ def receive_logs(
         # Ganti bagian parse waktu di receive_logs():
         try:
             dt_str = log_item.datetime
-            # Coba parse dengan timezone info
+            
+            # Parse ISO format dengan timezone
             if "+07:00" in dt_str:
-                waktu = datetime.strptime(
-                    dt_str, "%Y-%m-%d %H:%M:%S+07:00"
-                )
+                waktu = datetime.fromisoformat(dt_str)
             else:
-                waktu = datetime.strptime(
-                    dt_str, "%Y-%m-%d %H:%M:%S"
-                )
-        except ValueError:
+                waktu = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+                # Naive datetime → tambahkan WIB
+                waktu = waktu.replace(tzinfo=WIB)
+                
+        except (ValueError, TypeError) as e:
+            log.warning(f"Parse waktu gagal untuk '{dt_str}': {e}")
             error += 1
             continue
 
-            metode = VERIFY_MAP.get(str(log_item.verified))
-            if not metode:
-                # Log kode yang belum dikenal untuk debug
-                log.warning(
-                    f"Verified code tidak dikenal: {log_item.verified!r} "
-                    f"→ default 'fingerprint'"
-                )
-                metode = "fingerprint"
+        metode = VERIFY_MAP.get(str(log_item.verified))
+                if not metode:
+                    log.warning(
+                        f"Verified code tidak dikenal: {log_item.verified!r} "
+                        f"(PIN:{log_item.pin}) → default 'other'"
+                    )
+                    metode = "other"
 
             # Cari user berdasarkan fingerprint_id = PIN device
             try:
                 fp_id = int(log_item.pin)
             except ValueError:
                 fp_id = None
+                log.warning(f"PIN tidak valid: {log_item.pin!r}")
 
             user = None
             if fp_id is not None:
@@ -278,7 +287,6 @@ def receive_logs(
 
             # ── User tidak ditemukan ─────────────────────
             if not user:
-                # Cek duplikat
                 dup = db.query(AccessLog).filter(
                     AccessLog.ruangan_id  == payload.ruangan_id,
                     AccessLog.waktu_akses == waktu,
@@ -295,7 +303,8 @@ def receive_logs(
                     metode      = metode,
                     status      = "ditolak",
                     keterangan  = (f"PIN:{log_item.pin} tidak terdaftar "
-                                   f"| SN:{payload.device_sn}")
+                                f"| verified:{log_item.verified} "
+                                f"| SN:{payload.device_sn}")
                 ))
                 db.commit()
                 ditolak += 1
@@ -329,7 +338,7 @@ def receive_logs(
                 waktu_akses = waktu,
                 metode      = metode,
                 status      = status_akses,
-                keterangan  = f"{alasan} | SN:{payload.device_sn}"
+                keterangan  = f"{alasan} | verified:{log_item.verified} | SN:{payload.device_sn}"
             ))
             db.commit()
 
@@ -345,11 +354,13 @@ def receive_logs(
 
             if boleh:
                 berhasil += 1
+                log.info(f"✓ PIN:{log_item.pin} ({user.nama}) — {alasan}")
             else:
                 ditolak += 1
+                log.info(f"✗ PIN:{log_item.pin} ({user.nama}) — {alasan}")
 
         except Exception as e:
-            print(f"[BRIDGE ERROR] {log_item}: {e}")
+            log.error(f"[BRIDGE ERROR] PIN:{log_item.pin}: {e}")
             error += 1
             db.rollback()
 

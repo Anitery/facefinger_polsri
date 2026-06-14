@@ -177,7 +177,7 @@ def pull_logs(client: X606SOAPClient) -> int:
     if not logs:
         return 0
 
-    # Filter yang belum diproses session ini
+    # Filter yang belum diproses
     new_logs = []
     for l in logs:
         key = f"{l.get('PIN','')}|{l.get('DateTime','')}"
@@ -190,35 +190,79 @@ def pull_logs(client: X606SOAPClient) -> int:
 
     log.info(f"Mengirim {len(new_logs)} log baru ke Railway...")
 
+    # ── FIX: Kirim verified & status sebagai INT ────────
     payload = {
         "ruangan_id": DEVICE_RUANGAN_ID,
         "device_sn":  DEVICE_SN,
         "logs": [
             {
-                "pin":      l.get("PIN",      ""),
-                # Tandai eksplisit bahwa ini waktu WIB
+                "pin":      str(l.get("PIN", "")),
                 "datetime": l.get("DateTime", "") + "+07:00",
-                "verified": l.get("Verified", "1"),
-                "status":   l.get("Status",   "0"),
+                "verified": int(l.get("Verified", 0)),   # INT!
+                "status":   int(l.get("Status", 0)),     # INT!
+                "workcode": str(l.get("WorkCode", "0")),
             }
             for l in new_logs
         ]
     }
 
+    # Debug: tampilkan setiap log
+    for l in new_logs:
+        pin = l.get("PIN", "")
+        v = int(l.get("Verified", 0))
+        method = {
+            0: "Password", 1: "Fingerprint", 2: "Card",
+            3: "Password", 4: "Face", 5: "Face", 6: "Face",
+            15: "Face", 200: "Other"
+        }.get(v, f"Unknown({v})")
+        log.info(f"  → PIN:{pin} Method:{method}(verified={v}) DT:{l.get('DateTime')}")
+
     res = railway_post("/device-bridge/push-logs", payload)
+    
     if res:
+        berhasil = res.get("berhasil", 0)
+        ditolak  = res.get("ditolak", 0)
+        duplikat = res.get("duplikat", 0)
+        error    = res.get("error", 0)
+        total    = res.get("total", 0)
+        
         log.info(
-            f"  Railway: {res.get('berhasil',0)} berhasil | "
-            f"{res.get('ditolak',0)} ditolak | "
-            f"{res.get('duplikat',0)} duplikat"
+            f"  Railway: {berhasil} berhasil | {ditolak} ditolak | "
+            f"{duplikat} duplikat | {error} error (total:{total})"
         )
+        
+        # ── FIX: Warning kalau semua 0 tapi ada log ─────
+        if berhasil + ditolak + duplikat == 0 and total > 0:
+            log.error("  ⚠️ ANOMALI: Semua log error atau tidak diproses!")
+            log.error("  Cek log backend untuk detail error.")
+
         # Tandai sudah diproses
         for l in new_logs:
             key = f"{l.get('PIN','')}|{l.get('DateTime','')}"
             _processed.add(key)
-        return res.get("berhasil", 0) + res.get("ditolak", 0)
+        return berhasil + ditolak
 
     return 0
+
+
+def railway_post(path: str, data: dict) -> dict:
+    try:
+        r = requests.post(
+            f"{SERVER_URL}{path}",
+            headers=HEADERS, json=data, timeout=30
+        )
+        
+        log.info(f"POST {path} status={r.status_code}")
+        
+        if not r.ok:
+            log.error(f"Response error {r.status_code}: {r.text[:500]}")
+            return {}
+            
+        return r.json()
+        
+    except Exception as e:
+        log.error(f"POST {path} exception: {e}")
+        return {}
 
 
 # ══════════════════════════════════════════════════════════
