@@ -86,14 +86,8 @@ class X606SOAPClient:
 
     def set_user(self, pin: str, name: str,
                 privilege: str = "0",
-                tz1: int = 1,
-                tz2: int = 1, tz3: int = 1) -> bool:
-        """
-        tz1/tz2/tz3 = ID Zona Waktu (1-50) yang sudah dikonfigurasi
-        via software GUI (Pengaturan > Akses Kontrol > Zona Waktu).
-        Bukan string rentang jam — device mengabaikan/fallback jika
-        diberi format selain ID integer.
-        """
+                group: int = 1,
+                tz1: int = 1, tz2: int = 1, tz3: int = 1) -> bool:
         xml = (
             f'<SetUserInfo>'
             f'<ArgComKey xsi:type="xsd:integer">{self.com_key}</ArgComKey>'
@@ -101,6 +95,7 @@ class X606SOAPClient:
             f'<PIN>{pin}</PIN>'
             f'<Name>{name}</Name>'
             f'<Privilege>{privilege}</Privilege>'
+            f'<Group>{group}</Group>'
             f'<TZ1>{tz1}</TZ1>'
             f'<TZ2>{tz2}</TZ2>'
             f'<TZ3>{tz3}</TZ3>'

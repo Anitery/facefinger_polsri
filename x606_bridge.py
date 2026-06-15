@@ -91,20 +91,23 @@ def railway_post(path: str, data: dict) -> dict:
 # ══════════════════════════════════════════════════════════
 # BAGIAN A — Sync user + timezone ke device
 # ══════════════════════════════════════════════════════════
-ZONE_OPEN_ID    = int(os.getenv("ZONE_OPEN_ID",    "1"))
-ZONE_BLOCKED_ID = int(os.getenv("ZONE_BLOCKED_ID", "2"))
 
-def get_timezone_for_user(user: dict, jadwals: list) -> int:
+ZONE_OPEN_ID     = int(os.getenv("ZONE_OPEN_ID",     "1"))
+ZONE_BLOCKED_ID  = int(os.getenv("ZONE_BLOCKED_ID",  "2"))
+GROUP_TERKONTROL = 1   # ← default device, fail-safe tertutup (mahasiswa)
+GROUP_BEBAS      = 2   # ← eksplisit via bridge (admin/teknisi/dosen)
+
+def get_access_config(user: dict, jadwals: list) -> tuple[int, int]:
     """
-    Tentukan ID Zona Waktu secara bulletproof.
-    Menggunakan konversi waktu ke menit untuk menghindari bug komparasi string.
+    Tentukan Group dan ID Zona Waktu secara bulletproof.
+    Returns: (group, tz_personal)
     """
     role  = user.get("role", "mahasiswa")
     # 1. Paksa fp_id menjadi string
     fp_id = str(user.get("fingerprint_id", "")).strip()
 
     if role in ("admin", "teknisi", "dosen"):
-        return ZONE_OPEN_ID
+        return GROUP_BEBAS, ZONE_OPEN_ID
 
     # Helper: Ubah format "HH:MM" atau "HH:MM:SS" menjadi integer total menit
     def time_to_minutes(t_str):
@@ -127,13 +130,13 @@ def get_timezone_for_user(user: dict, jadwals: list) -> int:
             
             # 3. Bandingkan secara matematis integer
             if start_min <= now_minutes <= end_min:
-                return ZONE_OPEN_ID
+                return GROUP_TERKONTROL, ZONE_OPEN_ID  # TZ personal override
 
-    return ZONE_BLOCKED_ID
+    return GROUP_TERKONTROL, ZONE_BLOCKED_ID
 
 
 def sync_users(client: X606SOAPClient):
-    """Sync semua user dari Railway ke device dengan timezone yang benar."""
+    """Sync semua user dari Railway ke device dengan timezone dan group yang benar."""
     log.info("── Sync user ke device...")
 
     users   = railway_get("/device-bridge/users")
@@ -156,20 +159,22 @@ def sync_users(client: X606SOAPClient):
         fp_id = str(u.get("fingerprint_id", ""))
         nama  = u.get("nama", "")
         role  = u.get("role", "mahasiswa")
-        zone  = get_timezone_for_user(u, jadwals)   # int: ZONE_OPEN_ID / ZONE_BLOCKED_ID
-        priv  = "14" if role in ("admin", "teknisi") else "0"
+        
+        # Ambil setelan akses baru (Group & Zone)
+        group, zone = get_access_config(u, jadwals)  
+        priv = "14" if role in ("admin", "teknisi") else "0"
 
         try:
             ok = client.set_user(
-                pin=fp_id, name=nama,
-                privilege=priv,
+                pin=fp_id, name=nama, 
+                privilege=priv, group=group,
                 tz1=zone, tz2=zone, tz3=zone   # ← semua slot sama, hindari OR-fallback
             )
             if ok:
                 synced += 1
                 log.info(
                     f"  ✓ [{role:10}] {nama:25} "
-                    f"FP:{fp_id:3} ZONE:{zone}"
+                    f"FP:{fp_id:3} GRP:{group} ZONE:{zone}"
                 )
             else:
                 failed += 1
