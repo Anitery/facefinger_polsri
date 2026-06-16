@@ -242,6 +242,33 @@ def seed_kbm_real(key: str, db: Session = Depends(get_db)):
         "catatan": "Fingerprint ID sudah disiapkan, daftarkan di alat sesuai urutan"
     }
 
+@router.post("/cleanup-old-tables")
+def cleanup_old_tables(key: str, db: Session = Depends(get_db)):
+    """Hapus tabel sisa arsitektur X606 generasi lama. Sekali pakai."""
+    if not SETUP_KEY or key != SETUP_KEY:
+        raise HTTPException(403, "Kunci tidak valid")
+
+    from sqlalchemy import text
+
+    tabel_dihapus = [
+        "absensi_x606",
+        "x606_jadwal_peserta",
+        "x606_user_cache",
+        "x606_jadwal_kbm",
+        "x606_devices",
+    ]
+
+    hasil = []
+    for tabel in tabel_dihapus:
+        try:
+            db.execute(text(f"DROP TABLE IF EXISTS {tabel} CASCADE"))
+            db.commit()
+            hasil.append({"tabel": tabel, "status": "dihapus"})
+        except Exception as e:
+            db.rollback()
+            hasil.append({"tabel": tabel, "status": f"gagal: {e}"})
+
+    return {"status": "selesai", "detail": hasil}
 
 @router.get("/status")
 def check_status(db: Session = Depends(get_db)):
