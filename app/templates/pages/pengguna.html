@@ -12,14 +12,13 @@
   </button>
 </div>
 
-<!-- Desktop table -->
 <div class="tbl-wrap d-none d-md-block">
   <div style="overflow-x:auto;">
     <table class="table table-hover mb-0" style="min-width:680px;">
       <thead>
         <tr>
-          <th>No</th><th>Nama</th><th>NIM / NIP</th>
-          <th>Role</th><th>Fingerprint</th><th>Wajah</th>
+          <th>No</th><th>Nama</th><th>NIM / NIP</th><th>Kelas</th>
+          <th>Role</th><th>Fingerprint</th>
           <th>Status</th><th style="text-align:center;">Aksi</th>
         </tr>
       </thead>
@@ -30,12 +29,10 @@
   </div>
 </div>
 
-<!-- Mobile cards -->
 <div id="userBodyMobile" class="d-md-none d-flex flex-column gap-2">
   <div class="text-center text-muted py-4">Memuat...</div>
 </div>
 
-<!-- ═══ Modal Tambah / Edit ═══ -->
 <div class="modal fade" id="modalUser" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -57,15 +54,30 @@
           <input type="text" class="form-control" id="inputNimNip"
                  placeholder="contoh: 062330701514">
         </div>
+        
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">Role</label>
-          <select class="form-select" id="inputRole">
-            <option value="mahasiswa">Mahasiswa</option>
-            <option value="dosen">Dosen</option>
-            <option value="teknisi">Teknisi</option>
-            <option value="admin">Admin</option>
+          <select class="form-select" id="inputRole" onchange="toggleKelasField()">
+            {% if user.role == 'admin' %}
+              <option value="admin">Admin</option>
+              <option value="teknisi">Teknisi</option>
+              <option value="dosen">Dosen</option>
+              <option value="mahasiswa">Mahasiswa</option>
+            {% elif user.role == 'dosen' %}
+              <option value="mahasiswa">Mahasiswa</option>
+            {% elif user.role == 'teknisi' %}
+              <option value="dosen">Dosen</option>
+            {% endif %}
           </select>
         </div>
+        
+        <div class="mb-3" id="kelasFieldWrap" style="display:none;">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Kelas <small class="text-muted fw-normal">(contoh: 6CC, 6CM)</small>
+          </label>
+          <input type="text" class="form-control" id="inputKelas" placeholder="6CC">
+        </div>
+
         <div class="mb-3" id="sectionFp">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             Fingerprint ID <small class="text-muted fw-normal">(opsional)</small>
@@ -104,7 +116,6 @@
   </div>
 </div>
 
-<!-- Modal Reset Password (admin) -->
 <div class="modal fade" id="modalResetPw" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -154,6 +165,13 @@ const roleBadge = {
 
 let editMode = false;
 
+// Tampilkan / sembunyikan input kelas jika role "mahasiswa"
+function toggleKelasField() {
+  const role = document.getElementById('inputRole').value;
+  document.getElementById('kelasFieldWrap').style.display = 
+    role === 'mahasiswa' ? 'block' : 'none';
+}
+
 function togglePw(inputId, iconId) {
   const input = document.getElementById(inputId);
   const icon  = document.getElementById(iconId);
@@ -167,7 +185,13 @@ function openModal() {
   document.getElementById('editUserId').value   = '';
   document.getElementById('inputNama').value    = '';
   document.getElementById('inputNimNip').value  = '';
-  document.getElementById('inputRole').value    = 'mahasiswa';
+  
+  const inputRole = document.getElementById('inputRole');
+  if (inputRole.options.length > 0) {
+    inputRole.selectedIndex = 0; // Set ke option pertama default sesuai role login
+  }
+  
+  document.getElementById('inputKelas').value   = '';
   document.getElementById('inputFpId').value    = '';
   document.getElementById('inputPassword').value = '';
   document.getElementById('alertModal').innerHTML = '';
@@ -175,6 +199,8 @@ function openModal() {
     '<i class="bi bi-person-plus me-2"></i>Tambah Pengguna';
   document.getElementById('pwHint').textContent = '(wajib untuk admin/teknisi/dosen)';
   document.getElementById('pwEditNote').style.display = 'none';
+  
+  toggleKelasField();
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 }
 
@@ -185,6 +211,7 @@ function openEdit(u) {
   document.getElementById('inputNama').value    = u.nama;
   document.getElementById('inputNimNip').value  = u.nim_nip;
   document.getElementById('inputRole').value    = u.role;
+  document.getElementById('inputKelas').value   = u.kelas || '';
   document.getElementById('inputFpId').value    = u.fingerprint_id || '';
   document.getElementById('inputPassword').value = '';
   document.getElementById('alertModal').innerHTML = '';
@@ -192,25 +219,30 @@ function openEdit(u) {
     '<i class="bi bi-pencil me-2"></i>Edit Pengguna';
   document.getElementById('pwHint').textContent = '(opsional — kosongkan jika tidak diubah)';
   document.getElementById('pwEditNote').style.display = 'block';
+  
+  toggleKelasField();
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 }
 
 async function simpanUser() {
   const id       = document.getElementById('editUserId').value;
-  const nama     = document.getElementById('inputNama').value.trim();
-  const nim_nip  = document.getElementById('inputNimNip').value.trim();
-  const role     = document.getElementById('inputRole').value;
   const fpId     = document.getElementById('inputFpId').value;
-  const password = document.getElementById('inputPassword').value;
   const alertEl  = document.getElementById('alertModal');
 
-  if (!nama || !nim_nip) {
+  // Menyusun body request sesuai pembaruan
+  const body = {
+    nama: document.getElementById('inputNama').value.trim(),
+    nim_nip: document.getElementById('inputNimNip').value.trim(),
+    role: document.getElementById('inputRole').value,
+    kelas: document.getElementById('inputKelas').value.trim() || null,
+    password: document.getElementById('inputPassword').value || null,
+  };
+
+  if (!body.nama || !body.nim_nip) {
     alertEl.innerHTML =
       '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
     return;
   }
-
-  const body = { nama, nim_nip, role, ruangan_id: null };
 
   let res;
   try {
@@ -238,10 +270,9 @@ async function simpanUser() {
   try {
     responseData = await res.json();
   } catch {
-    // Server return bukan JSON (misal 500 HTML error page)
     alertEl.innerHTML = `
       <div class="alert alert-danger py-2">
-        Server error (${res.status}). Cek Railway logs untuk detail.
+        Server error (${res.status}). Cek logs untuk detail.
       </div>`;
     return;
   }
@@ -249,7 +280,7 @@ async function simpanUser() {
   if (res.ok) {
     const saved = responseData;
 
-    // Set fingerprint jika diisi
+    // Set fingerprint jika diisi melalui endpoint terpisah (opsional sesuai backend Anda)
     if (fpId) {
       try {
         await fetch(
@@ -257,16 +288,6 @@ async function simpanUser() {
           { method: 'PATCH' }
         );
       } catch(e) { console.warn('Gagal set fingerprint:', e); }
-    }
-
-    // Set password jika diisi
-    if (password && password.length >= 6) {
-      try {
-        await fetch(
-          `/users/${saved.id}/set-password?password_baru=${encodeURIComponent(password)}`,
-          { method: 'POST' }
-        );
-      } catch(e) { console.warn('Gagal set password:', e); }
     }
 
     alertEl.innerHTML = `
@@ -296,6 +317,7 @@ function openResetPw(id, nama) {
   document.getElementById('alertResetPw').innerHTML = '';
   new bootstrap.Modal(document.getElementById('modalResetPw')).show();
 }
+
 async function doResetPassword() {
   const id  = document.getElementById('resetUserId').value;
   const pw  = document.getElementById('resetPwInput').value;
@@ -341,13 +363,11 @@ async function loadUsers() {
       <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
       <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
       <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
+      <td>${u.kelas || '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
       <td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>
       <td>${u.fingerprint_id != null
             ? `<span class="badge-role">ID: ${u.fingerprint_id}</span>`
             : '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
-      <td>${(u.face_encoding && u.face_encoding.length > 10)
-            ? '<span class="badge-ok"><i class="bi bi-check"></i> Ada</span>'
-            : '<span style="background:#fef9c3;color:#a16207;padding:3px 8px;border-radius:20px;font-size:.72rem;">Belum</span>'}</td>
       <td>${u.aktif
             ? '<span class="badge-ok">Aktif</span>'
             : '<span class="badge-no">Nonaktif</span>'}</td>
@@ -379,6 +399,7 @@ async function loadUsers() {
             ${u.nama}
           </div>
           <code style="font-size:.74rem;color:#64748b;">${u.nim_nip}</code>
+          ${u.kelas ? `<div style="font-size:.74rem;color:#64748b;">Kelas: <strong>${u.kelas}</strong></div>` : ''}
         </div>
         <div class="d-flex flex-column align-items-end gap-1">
           <span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span>
@@ -390,9 +411,6 @@ async function loadUsers() {
       <div style="font-size:.77rem;color:#64748b;" class="mb-2">
         <i class="bi bi-fingerprint me-1"></i>
         ${u.fingerprint_id != null ? `ID: ${u.fingerprint_id}` : 'Belum'}
-        &nbsp;·&nbsp;
-        <i class="bi bi-camera me-1"></i>
-        ${(u.face_encoding && u.face_encoding.length > 10) ? 'Wajah ada' : 'Wajah belum'}
       </div>
       <div class="d-flex gap-2">
         <button class="btn btn-outline-primary btn-sm flex-fill"
@@ -411,6 +429,10 @@ async function loadUsers() {
     </div>`).join('');
 }
 
-loadUsers();
+// Inisialisasi awal saat load
+document.addEventListener('DOMContentLoaded', () => {
+  toggleKelasField();
+  loadUsers();
+});
 </script>
 {% endblock %}

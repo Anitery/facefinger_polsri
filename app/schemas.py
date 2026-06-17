@@ -30,12 +30,14 @@ class RuanganOut(RuanganBase):
 # ── User ───────────────────────────────────────────────────
 class UserBase(BaseModel):
     nama: str
-    nim_nip: str
+    nim_nip: Optional[str] = None
     role: Optional[str] = "mahasiswa"
+    kelas: Optional[str] = None  # ← TAMBAH
     ruangan_id: Optional[int] = None
 
 class UserCreate(UserBase):
-    pass
+    fingerprint_id: Optional[int] = None
+    password: Optional[str] = None
 
 class UserOut(UserBase):
     id: int

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from typing import Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel
@@ -35,12 +35,12 @@ class BulkDeletePayload(BaseModel):
 
 @router.get("/", response_model=list[AccessLogDetail])
 def get_logs(
-    ruangan_id:  Optional[int]  = Query(None),
-    status:      Optional[str]  = Query(None),
-    metode:      Optional[str]  = Query(None),
-    tanggal_dari: Optional[date] = Query(None),
-    tanggal_sampai: Optional[date] = Query(None),
-    limit:       int             = Query(100, le=1000),
+    ruangan_id:     Optional[int] = Query(None),
+    status:         Optional[str] = Query(None),
+    metode:         Optional[str] = Query(None),
+    tanggal_dari:   Optional[str] = Query(None),
+    tanggal_sampai: Optional[str] = Query(None),
+    limit:          Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     q = db.query(AccessLog).options(joinedload(AccessLog.user))
@@ -52,13 +52,16 @@ def get_logs(
     if metode:
         q = q.filter(AccessLog.metode == metode)
     if tanggal_dari:
-        q = q.filter(AccessLog.waktu_akses >= datetime.combine(
-            tanggal_dari, datetime.min.time()))
+        q = q.filter(func.date(AccessLog.waktu_akses) >= tanggal_dari)
     if tanggal_sampai:
-        q = q.filter(AccessLog.waktu_akses <= datetime.combine(
-            tanggal_sampai, datetime.max.time()))
+        q = q.filter(func.date(AccessLog.waktu_akses) <= tanggal_sampai)
 
-    logs = q.order_by(AccessLog.waktu_akses.desc()).limit(limit).all()
+    q = q.order_by(AccessLog.waktu_akses.desc())
+    
+    if limit:
+        q = q.limit(limit)
+
+    logs = q.all()
 
     result = []
     for log in logs:
@@ -116,7 +119,6 @@ def hapus_satu(log_id: int, db: Session = Depends(get_db)):
     """Hapus satu log berdasarkan ID."""
     log = db.query(AccessLog).filter(AccessLog.id == log_id).first()
     if not log:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Log tidak ditemukan")
     db.delete(log)
     db.commit()
@@ -125,11 +127,11 @@ def hapus_satu(log_id: int, db: Session = Depends(get_db)):
 
 @router.get("/export/excel")
 def export_excel(
-    ruangan_id:     Optional[int]  = Query(None),
-    status:         Optional[str]  = Query(None),
-    metode:         Optional[str]  = Query(None),
-    tanggal_dari:   Optional[date] = Query(None),
-    tanggal_sampai: Optional[date] = Query(None),
+    ruangan_id:     Optional[int] = Query(None),
+    status:         Optional[str] = Query(None),
+    metode:         Optional[str] = Query(None),
+    tanggal_dari:   Optional[str] = Query(None),
+    tanggal_sampai: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     q = db.query(AccessLog).options(joinedload(AccessLog.user))
@@ -140,11 +142,9 @@ def export_excel(
     if metode:
         q = q.filter(AccessLog.metode == metode)
     if tanggal_dari:
-        q = q.filter(AccessLog.waktu_akses >= datetime.combine(
-            tanggal_dari, datetime.min.time()))
+        q = q.filter(func.date(AccessLog.waktu_akses) >= tanggal_dari)
     if tanggal_sampai:
-        q = q.filter(AccessLog.waktu_akses <= datetime.combine(
-            tanggal_sampai, datetime.max.time()))
+        q = q.filter(func.date(AccessLog.waktu_akses) <= tanggal_sampai)
 
     logs = q.order_by(AccessLog.waktu_akses.desc()).limit(5000).all()
 

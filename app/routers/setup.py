@@ -270,6 +270,19 @@ def cleanup_old_tables(key: str, db: Session = Depends(get_db)):
 
     return {"status": "selesai", "detail": hasil}
 
+@router.post("/add-kelas-column")
+def add_kelas_column(key: str, db: Session = Depends(get_db)):
+    if not SETUP_KEY or key != SETUP_KEY:
+        raise HTTPException(403, "Kunci tidak valid")
+    from sqlalchemy import text
+    try:
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS kelas VARCHAR(50)"))
+        db.commit()
+        return {"status": "berhasil", "pesan": "Kolom kelas ditambahkan"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "gagal", "pesan": str(e)}
+
 @router.get("/status")
 def check_status(db: Session = Depends(get_db)):
     return {

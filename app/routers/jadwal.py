@@ -165,3 +165,40 @@ def hapus_mahasiswa(
     jadwal.mahasiswa_diizinkan.remove(user)
     db.commit()
     return {"pesan": f"{user.nama} dihapus dari jadwal"}
+
+@router.post("/{jadwal_id}/mahasiswa/by-kelas/{kelas}")
+def tambah_mahasiswa_by_kelas(
+    jadwal_id: int, kelas: str, db: Session = Depends(get_db)
+):
+    jadwal = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(JadwalRuangan.id == jadwal_id).first()
+    if not jadwal:
+        raise HTTPException(404, "Jadwal tidak ditemukan")
+
+    mahasiswa_kelas = db.query(User).filter(
+        User.role == "mahasiswa", User.kelas == kelas, User.aktif == True
+    ).all()
+
+    sudah_ada_ids = {m.id for m in jadwal.mahasiswa_diizinkan}
+    ditambahkan = 0
+    for m in mahasiswa_kelas:
+        if m.id not in sudah_ada_ids:
+            jadwal.mahasiswa_diizinkan.append(m)
+            ditambahkan += 1
+
+    db.commit()
+    return {
+        "pesan": f"{ditambahkan} mahasiswa kelas {kelas} ditambahkan",
+        "ditambahkan": ditambahkan,
+        "total_kelas": len(mahasiswa_kelas)
+    }
+
+
+@router.get("/kelas-list")
+def get_kelas_list(db: Session = Depends(get_db)):
+    """Daftar kelas unik dari mahasiswa terdaftar."""
+    rows = db.query(User.kelas).filter(
+        User.role == "mahasiswa", User.kelas.isnot(None), User.kelas != ""
+    ).distinct().all()
+    return sorted([r[0] for r in rows])

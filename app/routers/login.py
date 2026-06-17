@@ -6,7 +6,8 @@ from app.database import get_db
 from app.models.models import User
 from app.services.auth_service import (
     verify_password, create_session_token,
-    decode_session_token, ALLOWED_ROLES
+    decode_session_token, ALLOWED_ROLES, 
+    redirect_default_page # <- Impor fungsi baru
 )
 
 router = APIRouter(tags=["Login"])
@@ -22,10 +23,15 @@ ROLE_LABEL = {
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    # Kalau sudah login, redirect ke dashboard
+    # Kalau sudah login, redirect ke halaman default sesuai role
     token = request.cookies.get("session_token")
-    if token and decode_session_token(token):
-        return RedirectResponse("/dashboard", status_code=302)
+    if token:
+        user_data = decode_session_token(token)
+        if user_data:
+            # Ambil role dari data token untuk redirect
+            redirect_url = redirect_default_page(user_data.get("role"))
+            return RedirectResponse(redirect_url, status_code=302)
+            
     return templates.TemplateResponse(
         request=request,
         name="pages/login.html",
@@ -78,8 +84,9 @@ def login_post(
     }
     token = create_session_token(session_data)
 
-    # Set cookie dan redirect ke dashboard
-    response = RedirectResponse("/dashboard", status_code=302)
+    # Set cookie dan redirect sesuai role user
+    redirect_url = redirect_default_page(user.role)
+    response = RedirectResponse(redirect_url, status_code=302)
     response.set_cookie(
         key="session_token",
         value=token,

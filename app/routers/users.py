@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
@@ -21,6 +21,13 @@ router = APIRouter(prefix="/users", tags=["Pengguna"])
 
 class FaceEncodingPayload(BaseModel):
     encoding: List[float]
+
+ROLE_ALLOWED_TO_CREATE = {
+    "admin":   {"admin", "teknisi", "dosen", "mahasiswa"},
+    "dosen":   {"mahasiswa"},
+    "teknisi": {"dosen"},
+}
+
 
 @router.post("/{user_id}/enroll-face")
 def enroll_face(
@@ -45,6 +52,7 @@ def enroll_face(
         "nama":    user.nama
     }
 
+
 @router.delete("/{user_id}/enroll-face")
 def hapus_face(user_id: int, db: Session = Depends(get_db)):
     """Hapus face encoding user."""
@@ -54,6 +62,7 @@ def hapus_face(user_id: int, db: Session = Depends(get_db)):
     user.face_encoding = None
     db.commit()
     return {"pesan": f"Face encoding {user.nama} dihapus"}
+
 
 @router.get("/", response_model=list[UserOut])
 def get_all_users(aktif_only: bool = True, db: Session = Depends(get_db)):
@@ -72,28 +81,59 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=UserOut)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    from app.services.auth_service import decode_session_token
+    
+    token = request.cookies.get("session_token")
+    session_user = decode_session_token(token) if token else None
+    
+    if not session_user:
+        raise HTTPException(status_code=401, detail="Sesi tidak valid")
+        
+    allowed = ROLE_ALLOWED_TO_CREATE.get(session_user["role"], set())
+    if payload.role not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{session_user['role']}' tidak boleh menambahkan pengguna dengan role '{payload.role}'"
+        )
+
+    # Cek apakah NIP/NIM sudah ada (dipertahankan dari kode asli)
     existing = db.query(User).filter(User.nim_nip == payload.nim_nip).first()
     if existing:
         raise HTTPException(status_code=400, detail="NIM/NIP sudah terdaftar")
-    user = User(**payload.model_dump())
+        
+    user = User(
+        nama=payload.nama, 
+        nim_nip=payload.nim_nip, 
+        role=payload.role,
+        kelas=payload.kelas if hasattr(payload, 'kelas') else None, 
+        aktif=True,
+        password_hash=_hash_pw(payload.password) if getattr(payload, 'password', None) else None,
+    )
+    
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.put("/{user_id}")
 def update_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    user.nama      = payload.nama
-    user.nim_nip   = payload.nim_nip
-    user.role      = payload.role
-    user.ruangan_id = payload.ruangan_id
+    user.nama       = payload.nama
+    user.nim_nip    = payload.nim_nip
+    user.role       = payload.role
+    user.ruangan_id = getattr(payload, 'ruangan_id', None)
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.put("/{user_id}/face-encoding")
 def update_face_encoding(user_id: int, encoding: list[float], db: Session = Depends(get_db)):
@@ -117,6 +157,7 @@ def update_fingerprint(user_id: int, fingerprint_id: int, db: Session = Depends(
     db.commit()
     return {"pesan": f"Fingerprint ID {fingerprint_id} disimpan untuk {user.nama}"}
 
+
 @router.delete("/{user_id}")
 def deactivate_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
@@ -125,6 +166,7 @@ def deactivate_user(user_id: int, db: Session = Depends(get_db)):
     user.aktif = False
     db.commit()
     return {"pesan": f"User {user.nama} dinonaktifkan"}
+
 
 @router.patch("/{user_id}/password")
 def update_password(

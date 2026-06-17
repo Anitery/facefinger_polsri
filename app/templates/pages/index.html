@@ -4,302 +4,229 @@
 
 {% block content %}
 
-<!-- ── Stat Cards ── -->
-<div class="row g-3 mb-4" id="statCards">
+<!-- Stat cards -->
+<div class="row g-3 mb-3">
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="icon" style="background:#dbeafe; color:#1d4ed8">
+      <div class="icon" style="background:#dcfce7;color:#15803d;">
         <i class="bi bi-check-circle"></i>
       </div>
-      <div>
-        <div class="val text-primary" id="statBerhasil">—</div>
-        <div class="lbl">Akses Berhasil</div>
-      </div>
+      <div><div class="val text-success" id="statBerhasil">0</div>
+           <div class="lbl">Akses Berhasil (Hari Ini)</div></div>
     </div>
   </div>
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="icon" style="background:#fee2e2; color:#b91c1c">
+      <div class="icon" style="background:#fee2e2;color:#b91c1c;">
         <i class="bi bi-x-circle"></i>
       </div>
-      <div>
-        <div class="val text-danger" id="statDitolak">—</div>
-        <div class="lbl">Akses Ditolak</div>
-      </div>
+      <div><div class="val text-danger" id="statDitolak">0</div>
+           <div class="lbl">Akses Ditolak (Hari Ini)</div></div>
     </div>
   </div>
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="icon" style="background:#dcfce7; color:#15803d">
+      <div class="icon" style="background:#dbeafe;color:#1d4ed8;">
         <i class="bi bi-people"></i>
       </div>
-      <div>
-        <div class="val text-success" id="statUser">—</div>
-        <div class="lbl">Pengguna Aktif</div>
-      </div>
+      <div><div class="val text-primary" id="statPengguna">0</div>
+           <div class="lbl">Total Pengguna Aktif</div></div>
     </div>
   </div>
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="icon" style="background:#fef9c3; color:#a16207">
-        <i class="bi bi-box-seam"></i>
+      <div class="icon" style="background:#fef9c3;color:#a16207;">
+        <i class="bi bi-router"></i>
       </div>
-      <div>
-        <div class="val text-warning" id="statAlat">—</div>
-        <div class="lbl">Item Inventaris</div>
-      </div>
+      <div><div class="val" id="statusDevice" style="white-space:nowrap;">—</div>
+           <div class="lbl">Status Device</div></div>
     </div>
   </div>
 </div>
 
-<!-- ── Baris bawah ── -->
 <div class="row g-3">
 
-  <!-- Log Akses Terbaru -->
-  <div class="col-12 col-xl-8">
-    <div class="section-card">
-      <div class="d-flex align-items-center justify-content-between px-3 px-md-4 py-3 border-bottom flex-wrap gap-2">
-        <h6 class="mb-0 fw-bold" style="color:#1e293b; font-size:.9rem;">
-          <i class="bi bi-clock-history me-2 text-primary"></i>Log Akses Terbaru
-        </h6>
-        <span style="font-size:.73rem; color:#64748b; background:#f1f5f9;
-                     padding:3px 10px; border-radius:20px;">
-          Auto-refresh 10s
-        </span>
+  <!-- Info device + jadwal hari ini -->
+  <div class="col-12 col-xl-5">
+    <div class="section-card p-3 mb-3">
+      <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
+        <i class="bi bi-router me-2 text-primary"></i>Info Device
+      </h6>
+      <div class="d-flex flex-column gap-2" id="infoDevice" style="font-size:.83rem;">
+        <div class="text-muted text-center py-3">Memuat...</div>
       </div>
+    </div>
+    <div class="section-card p-3">
+      <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
+        <i class="bi bi-calendar3 me-2 text-primary"></i>Jadwal Aktif Hari Ini
+      </h6>
+      <div id="jadwalHariIni">
+        <div class="text-muted text-center py-3">Memuat...</div>
+      </div>
+    </div>
+  </div>
 
-      <!-- Tabel scroll horizontal di mobile -->
+  <!-- Log scan terbaru: HARI INI saja, max 15 -->
+  <div class="col-12 col-xl-7">
+    <div class="section-card">
+      <div class="d-flex justify-content-between align-items-center px-3 py-3 border-bottom">
+        <h6 class="mb-0 fw-bold" style="font-size:.9rem;color:#1e293b;">
+          <i class="bi bi-activity me-2 text-primary"></i>Log Akses Hari Ini
+        </h6>
+        <a href="/dashboard/log-akses" class="btn btn-sm btn-outline-primary"
+           style="font-size:.73rem;">
+          Lihat Semua
+        </a>
+      </div>
       <div style="overflow-x:auto;">
-        <table class="table table-hover mb-0" style="min-width:420px;">
+        <table class="table table-hover mb-0" style="min-width:480px;">
           <thead>
-            <tr>
-              <th>Waktu</th>
-              <th>Nama</th>
-              <th>Metode</th>
-              <th>Status</th>
-            </tr>
+            <tr><th>Waktu</th><th>Nama</th><th>Metode</th><th>Status</th></tr>
           </thead>
-          <tbody id="logTbody">
-            <tr>
-              <td colspan="4" class="text-center text-muted py-4">
-                <i class="bi bi-hourglass-split d-block mb-1"
-                   style="font-size:1.4rem;"></i>Memuat data...
-              </td>
-            </tr>
+          <tbody id="logBody">
+            <tr><td colspan="4" class="text-center py-4 text-muted">Memuat...</td></tr>
           </tbody>
         </table>
       </div>
-
-      <div class="px-3 px-md-4 py-2 border-top">
-        <a href="/dashboard/log-akses" class="text-primary text-decoration-none"
-           style="font-size:.82rem;">
-          Lihat semua log <i class="bi bi-arrow-right"></i>
-        </a>
-      </div>
     </div>
   </div>
 
-  <!-- Kolom kanan -->
-  <div class="col-12 col-xl-4">
-
-    <!-- Info Sistem -->
-    <div class="section-card p-3 p-md-4 mb-3">
-      <h6 class="fw-bold mb-3" style="color:#1e293b; font-size:.88rem;">
-        <i class="bi bi-info-circle me-2 text-primary"></i>Info Sistem
-      </h6>
-      <div class="d-flex flex-column gap-2" style="font-size:.83rem;">
-        <div class="d-flex justify-content-between">
-          <span class="text-muted">Ruangan</span>
-          <span class="fw-bold" id="infoNamaRuangan">Semua Ruangan</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted">Lokasi</span>
-          <span class="fw-bold" id="infoLokasiRuangan">—</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted">Penanggung Jawab</span>
-          <span class="fw-bold" id="infoPJRuangan" style="font-size:.78rem;
-                text-align:right; max-width:160px;">—</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted">Server</span>
-          <span class="badge-ok">Online</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted">Database</span>
-          <span class="badge-ok">Terhubung</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted">Versi</span>
-          <span class="fw-600">v1.1.0</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Metode Autentikasi -->
-    <div class="section-card p-3 p-md-4">
-      <h6 class="fw-bold mb-3" style="color:#1e293b; font-size:.88rem;">
-        <i class="bi bi-pie-chart me-2 text-primary"></i>Metode Hari Ini
-      </h6>
-      <div style="font-size:.83rem;">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <span><i class="bi bi-camera me-1 text-primary"></i>Face Recognition</span>
-          <span class="fw-bold" id="countFace">—</span>
-        </div>
-        <div class="progress mb-3" style="height:5px;">
-          <div class="progress-bar bg-primary" id="barFace" style="width:0%"></div>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <span><i class="bi bi-fingerprint me-1 text-success"></i>Fingerprint</span>
-          <span class="fw-bold" id="countFinger">—</span>
-        </div>
-        <div class="progress mb-3" style="height:5px;">
-          <div class="progress-bar bg-success" id="barFinger" style="width:0%"></div>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <span><i class="bi bi-x-circle me-1 text-danger"></i>Ditolak</span>
-          <span class="fw-bold" id="countTolak">—</span>
-        </div>
-        <div class="progress" style="height:5px;">
-          <div class="progress-bar bg-danger" id="barTolak" style="width:0%"></div>
-        </div>
-      </div>
-    </div>
-
-  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-async function updateInfoRuangan() {
-  const rid = getRuanganId();
-  const namaEl  = document.getElementById('infoNamaRuangan');
-  const lokasiEl = document.getElementById('infoLokasiRuangan');
-  const pjEl    = document.getElementById('infoPJRuangan');
-
-  if (!rid) {
-    namaEl.textContent   = 'Semua Ruangan';
-    lokasiEl.textContent = '—';
-    pjEl.textContent     = '—';
-    return;
-  }
-
-  try {
-    const res     = await fetch(`/ruangan/${rid}`);
-    const ruangan = await res.json();
-    namaEl.textContent = ruangan.nama;
-    lokasiEl.textContent = ruangan.lokasi
-      ? `${ruangan.lokasi} · Lt.${ruangan.lantai}`
-      : `Lantai ${ruangan.lantai || '—'}`;
-    pjEl.textContent = ruangan.penanggung_jawab?.length
-      ? ruangan.penanggung_jawab.map(p => p.nama).join(', ')
-      : 'Belum ditentukan';
-  } catch(e) {
-    namaEl.textContent = '—';
-  }
-}
-// ── Ikuti perubahan ruangan aktif ────────────────────────
 function getRuanganId() {
-  const saved = localStorage.getItem('ruangan_aktif');
-  return saved ? JSON.parse(saved).id : null;
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s).id : null;
 }
-
-window.addEventListener('ruanganChanged', () => { loadDashboard(); });
-
-function fmtTime(iso) {
-  if (!iso) return '—';
+function fmt(iso) {
   return new Date(iso).toLocaleString('id-ID', {
-    day:'2-digit', month:'short',
-    hour:'2-digit', minute:'2-digit'
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
   });
 }
-
-function metodeBadge(m) {
-  if (m === 'face')
-    return '<span class="badge-role">Face</span>';
-  if (m === 'fingerprint')
-    return '<span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">FP</span>';
-  return `<span style="background:#f1f5f9;color:#64748b;padding:3px 8px;border-radius:20px;font-size:.72rem;">${m}</span>`;
+function metodeIcon(m) {
+  if (m === 'face')        return '<i class="bi bi-camera text-primary me-1"></i>Face';
+  if (m === 'fingerprint') return '<i class="bi bi-fingerprint text-success me-1"></i>FP';
+  return m;
 }
 
-async function loadDashboard() {
+async function loadDeviceInfo() {
+  const rid = getRuanganId();
+  if (!rid) {
+    document.getElementById('infoDevice').innerHTML =
+      '<div class="text-warning text-center">Pilih ruangan di sidebar</div>';
+    return;
+  }
   try {
-    // ✅ SEBELUM: const logRes = await fetch('/log-akses/?ruangan_id=1&limit=10');
-    // ✅ SESUDAH:
-    const rid = getRuanganId();
-    const url = rid
-      ? `/log-akses/?ruangan_id=${rid}&limit=10`
-      : `/log-akses/?limit=10`;
-    const logRes = await fetch(url);
-    const logs   = await logRes.json();
+    const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}`);
+    const data = await r.json();
 
-    const today     = new Date().toDateString();
-    const todayLogs = logs.filter(l => new Date(l.waktu_akses).toDateString() === today);
-    const berhasil  = todayLogs.filter(l => l.status === 'berhasil').length;
-    const ditolak   = todayLogs.filter(l => l.status === 'ditolak').length;
+    document.getElementById('statusDevice').textContent =
+      data.bridge_aktif ? '🟢 Online' : '🔴 Offline';
 
-    document.getElementById('statBerhasil').textContent = berhasil;
-    document.getElementById('statDitolak').textContent  = ditolak;
+    document.getElementById('infoDevice').innerHTML = `
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Device IP</span>
+        <code style="font-size:.8rem;">${data.device_ip || '—'}</code>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Serial Number</span>
+        <span class="fw-bold">${data.device_sn || '—'}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Waktu Device</span>
+        <span class="fw-bold">${data.device_time || '—'}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted">Bridge Terakhir</span>
+        <span style="font-size:.78rem;color:#64748b;">${data.last_bridge || '—'}</span>
+      </div>`;
 
-    const tbody = document.getElementById('logTbody');
-    tbody.innerHTML = logs.length === 0
-      ? `<tr><td colspan="4" class="text-center text-muted py-4">
-           <i class="bi bi-inbox d-block mb-1" style="font-size:1.4rem;"></i>
-           Belum ada log akses
-         </td></tr>`
-      : logs.map(l => `
-          <tr>
-            <td style="color:#64748b; font-size:.78rem; white-space:nowrap;">
-              ${fmtTime(l.waktu_akses)}
-            </td>
-            <td>
-              <span class="fw-bold" style="font-size:.83rem;">
-                ${l.nama_user || '<span class="text-muted">—</span>'}
-              </span>
-              ${l.nim_nip
-                ? `<div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip}</div>`
-                : ''}
-            </td>
-            <td>${metodeBadge(l.metode)}</td>
-            <td>
-              ${l.status === 'berhasil'
-                ? '<span class="badge-ok"><i class="bi bi-check"></i> OK</span>'
-                : '<span class="badge-no"><i class="bi bi-x"></i> Tolak</span>'}
-            </td>
-          </tr>`).join('');
+    const jadwals = data.jadwal_hari_ini || [];
+    document.getElementById('jadwalHariIni').innerHTML =
+      jadwals.length === 0
+        ? '<div class="text-muted text-center py-3" style="font-size:.83rem;">Tidak ada jadwal hari ini</div>'
+        : jadwals.map(j => `
+            <div class="d-flex align-items-start gap-2 p-2 mb-2 rounded-3"
+                 style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="min-width:48px;text-align:center;background:#eff6ff;
+                          border-radius:8px;padding:4px;">
+                <div style="font-size:.62rem;color:#64748b;">${j.kelas||''}</div>
+              </div>
+              <div>
+                <div class="fw-bold" style="font-size:.83rem;">${j.nama_kegiatan}</div>
+                <div style="font-size:.75rem;color:#64748b;">
+                  <i class="bi bi-clock me-1"></i>${j.jam_mulai}–${j.jam_selesai}
+                </div>
+              </div>
+            </div>`).join('');
+  } catch(e) {
+    document.getElementById('infoDevice').innerHTML =
+      '<div class="text-danger text-center">Bridge belum aktif</div>';
+  }
+}
 
-    // Metode chart
-    const faceCount   = todayLogs.filter(l => l.metode === 'face').length;
-    const fingerCount = todayLogs.filter(l => l.metode === 'fingerprint').length;
-    const total       = faceCount + fingerCount + ditolak || 1;
-    document.getElementById('countFace').textContent   = faceCount;
-    document.getElementById('countFinger').textContent = fingerCount;
-    document.getElementById('countTolak').textContent  = ditolak;
-    document.getElementById('barFace').style.width     = (faceCount/total*100)+'%';
-    document.getElementById('barFinger').style.width   = (fingerCount/total*100)+'%';
-    document.getElementById('barTolak').style.width    = (ditolak/total*100)+'%';
+function getTodayLocal() {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 10);
+}
 
-    const [uRes, iRes] = await Promise.all([
-      fetch('/users/'), fetch('/inventaris/')
-    ]);
-    const uData = await uRes.json();
-    const iData = await iRes.json();
-    document.getElementById('statUser').textContent = Array.isArray(uData) ? uData.length : '—';
-    document.getElementById('statAlat').textContent = Array.isArray(iData) ? iData.length : '—';
+async function loadLog() {
+  const rid = getRuanganId();
+  if (!rid) return;
+  try {
+    const today = getTodayLocal();
+    const r = await fetch(
+      `/log-akses/?ruangan_id=${rid}&tanggal_dari=${today}&tanggal_sampai=${today}&limit=15`
+    );
+    const data = await r.json();
 
+    document.getElementById('statBerhasil').textContent =
+      data.filter(l => l.status === 'berhasil').length;
+    document.getElementById('statDitolak').textContent =
+      data.filter(l => l.status === 'ditolak').length;
+
+    const tbody = document.getElementById('logBody');
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">
+        <i class="bi bi-inbox d-block mb-1" style="font-size:1.5rem;"></i>
+        Belum ada scan hari ini
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.slice(0, 15).map(l => `
+      <tr>
+        <td style="font-size:.78rem;white-space:nowrap;">${fmt(l.waktu_akses)}</td>
+        <td><div class="fw-bold" style="font-size:.83rem;">
+              ${l.nama_user || '<span class="text-muted">—</span>'}
+            </div></td>
+        <td style="font-size:.78rem;">${metodeIcon(l.metode)}</td>
+        <td>${l.status === 'berhasil'
+              ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>OK</span>'
+              : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Tolak</span>'}
+        </td>
+      </tr>`).join('');
   } catch(e) { console.error(e); }
 }
 
-loadDashboard();
-  setInterval(loadDashboard, 10000);  
-  // Di dalam loadDashboard():
-  updateInfoRuangan();
+async function loadTotalPengguna() {
+  try {
+    const r = await fetch('/users/');
+    const data = await r.json();
+    document.getElementById('statPengguna').textContent =
+      data.filter(u => u.aktif).length;
+  } catch(e) {}
+}
 
-  // Di listener:
-  window.addEventListener('ruanganChanged', () => {
-    loadDashboard();
-    updateInfoRuangan();
-});
+loadDeviceInfo();
+loadLog();
+loadTotalPengguna();
+setInterval(loadDeviceInfo, 30000);
+setInterval(loadLog, 30000);  // refresh tiap 30 detik — otomatis "bersih" saat lewat tengah malam WIB
+
+window.addEventListener('ruanganChanged', () => { loadDeviceInfo(); loadLog(); });
 </script>
 {% endblock %}

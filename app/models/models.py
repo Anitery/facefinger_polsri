@@ -55,6 +55,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     nama = Column(String(100), nullable=False)
     nim_nip = Column(String(20), unique=True, index=True)
+    kelas = Column(String(50), nullable=True)  # ← TAMBAH, khusus mahasiswa (contoh: "6CC")
     role = Column(String(20), default="mahasiswa")
     face_encoding = Column(Text, nullable=True)
     fingerprint_id = Column(Integer, nullable=True)

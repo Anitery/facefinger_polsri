@@ -15,11 +15,9 @@
 
 <div class="row g-3">
 
-  <!-- ── KALENDER ── -->
   <div class="col-12 col-xl-8">
     <div class="section-card p-3">
 
-      <!-- Navigasi bulan -->
       <div class="d-flex align-items-center justify-content-between mb-3">
         <button class="btn btn-sm btn-outline-secondary px-3" onclick="prevMonth()">
           <i class="bi bi-chevron-left"></i>
@@ -30,9 +28,7 @@
         </button>
       </div>
 
-      <!-- Grid kalender -->
       <div class="calendar-grid">
-        <!-- Header hari -->
         <div class="cal-header">
           <div class="cal-day-name">Min</div>
           <div class="cal-day-name">Sen</div>
@@ -42,11 +38,9 @@
           <div class="cal-day-name">Jum</div>
           <div class="cal-day-name">Sab</div>
         </div>
-        <!-- Sel-sel tanggal -->
         <div id="calBody" class="cal-body"></div>
       </div>
 
-      <!-- Legend -->
       <div class="d-flex gap-3 mt-3 flex-wrap" style="font-size:.75rem;">
         <span class="d-flex align-items-center gap-1">
           <span style="width:12px;height:12px;border-radius:3px;background:#1F3864;display:inline-block;"></span>
@@ -64,7 +58,6 @@
     </div>
   </div>
 
-  <!-- ── DAFTAR JADWAL ── -->
   <div class="col-12 col-xl-4">
     <div class="section-card h-100" style="min-height:300px;">
       <div class="px-3 py-3 border-bottom d-flex align-items-center justify-content-between">
@@ -88,7 +81,6 @@
 
 </div>
 
-<!-- Modal Tambah Jadwal -->
 <div class="modal fade" id="modalJadwal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -103,19 +95,13 @@
           <label class="form-label fw-bold" style="font-size:.85rem;">Nama Kegiatan</label>
           <input class="form-control" id="jNama">
         </div>
-        <!-- Tambah field Kelas setelah Nama Kegiatan -->
         <div class="mb-3">
-          <label class="form-label fw-bold" style="font-size:.85rem;">
-            Kelas
-          </label>
+          <label class="form-label fw-bold" style="font-size:.85rem;">Kelas</label>
           <input class="form-control" id="jKelas">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-bold" style="font-size:.85rem;">
-            Dosen Pengampu
-          </label>
+          <label class="form-label fw-bold" style="font-size:.85rem;">Dosen Pengampu</label>
 
-          <!-- Toggle: pilih dari daftar atau ketik manual -->
           <div class="d-flex gap-2 mb-2">
             <div class="form-check">
               <input class="form-check-input" type="radio" name="dosenMode"
@@ -180,7 +166,6 @@
   </div>
 </div>
 
-<!-- Modal Kelola Mahasiswa Jadwal -->
 <div class="modal fade" id="modalMahasiswa" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -202,7 +187,6 @@
           bisa akses.
         </div>
 
-        <!-- Daftar mahasiswa terdaftar -->
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             Mahasiswa Terdaftar
@@ -216,10 +200,26 @@
 
         <hr>
 
-        <!-- Tambah mahasiswa -->
+        <div class="mb-3 p-3 rounded-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            <i class="bi bi-people-fill me-1"></i>Tambah Cepat Berdasarkan Kelas
+          </label>
+          <div class="d-flex gap-2">
+            <select class="form-select" id="selectKelasJadwal">
+              <option value="">— Pilih kelas —</option>
+            </select>
+            <button class="btn btn-primary" onclick="tambahByKelas()" style="white-space:nowrap;">
+              <i class="bi bi-plus-lg me-1"></i>Tambah Semua
+            </button>
+          </div>
+          <div class="form-text">Menambahkan semua mahasiswa dari kelas terpilih sekaligus.</div>
+        </div>
+
+        <hr>
+
         <div class="mb-2">
           <label class="form-label fw-bold" style="font-size:.85rem;">
-            Tambah Mahasiswa
+            <i class="bi bi-person-plus me-1"></i>Atau Tambah Manual (per orang)
           </label>
           <select class="form-select" id="selectMhsJadwal">
             <option value="">— Pilih mahasiswa —</option>
@@ -239,7 +239,6 @@
   </div>
 </div>
 
-<!-- Modal Detail Jadwal Hari -->
 <div class="modal fade" id="modalDetail" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -469,8 +468,6 @@ function nextMonth() { curMonth++; if(curMonth>11){curMonth=0;curYear++;} filter
 
 async function loadJadwal() {
   try {
-    // ✅ SEBELUM: const res = await fetch(`/jadwal/?ruangan_id=1&bulan=${bulanStr()}`);
-    // ✅ SESUDAH:
     const rid = getRuanganId();
     const url = rid
       ? `/jadwal/?ruangan_id=${rid}&bulan=${bulanStr()}`
@@ -585,7 +582,6 @@ document.getElementById('listJadwal').innerHTML = data.map(j => `
         <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
         ${j.dosen ? `&nbsp;·&nbsp;<i class="bi bi-person me-1"></i>${j.dosen}` : ''}
       </div>
-      <!-- Info mahasiswa terdaftar -->
       <div style="font-size:.72rem;color:#64748b;margin-top:3px;">
         <i class="bi bi-people me-1"></i>
         ${j.mahasiswa_diizinkan?.length
@@ -636,7 +632,6 @@ async function tambahJadwal() {
   const selesaiEl = document.getElementById('jSelesai');
   const ketEl   = document.getElementById('jKet');
   
-  // Validasi element ada
   if (!namaEl || !tglEl || !mulaiEl || !selesaiEl) {
     console.error('Element form tidak ditemukan');
     return;
@@ -654,7 +649,7 @@ async function tambahJadwal() {
   const body = {
     ruangan_id:    rid,
     nama_kegiatan: namaEl.value.trim(),
-    kelas:         document.getElementById('jKelas')?.value.trim() || null, // ← TAMBAH
+    kelas:         document.getElementById('jKelas')?.value.trim() || null,
     dosen:         getNamaDosen(),
     tanggal:       tglEl.value,
     jam_mulai:     mulaiEl.value,
@@ -690,7 +685,6 @@ async function tambahJadwal() {
         document.getElementById('modalJadwal')).hide();
       alertEl.innerHTML = '';
 
-      // Reset form dengan aman
       if (namaEl) namaEl.value = '';
       if (ketEl)  ketEl.value  = '';
 
@@ -724,7 +718,6 @@ async function hapusJadwal(id) {
   await render();
 }
 
-// ── Listener perubahan ruangan ────────────────────────
 window.addEventListener('ruanganChanged', (e) => {
   filterDate = null;
   render();
@@ -741,14 +734,35 @@ async function loadMahasiswaList() {
   allMahasiswa = data.filter(u => u.role === 'mahasiswa' && u.aktif);
 }
 
+// FIX #1: Logika penampung dan pemanggilan list kelas
+let allKelas = [];
+
+async function loadKelasList() {
+  try {
+    const res  = await fetch('/jadwal/kelas-list');
+    allKelas = await res.json();
+  } catch(e) { 
+    allKelas = []; 
+  }
+}
+
+function isiDropdownKelas() {
+  document.getElementById('selectKelasJadwal').innerHTML =
+    '<option value="">— Pilih kelas —</option>' +
+    allKelas.map(k => `<option value="${k}">${k}</option>`).join('');
+}
+
 function openModalMahasiswa(jadwalId, namaJadwal, currentMhs) {
   document.getElementById('mhsJadwalId').value          = jadwalId;
   document.getElementById('mhsNamaJadwal').textContent  = namaJadwal;
   document.getElementById('alertMhsJadwal').innerHTML   = '';
 
   renderListMhsJadwal(jadwalId, currentMhs);
+  
+  // Isi dropdown kelas baru (Fix #1)
+  isiDropdownKelas();
 
-  // Isi dropdown — filter yang belum terdaftar
+  // Isi dropdown manual — filter yang belum terdaftar
   const terdaftarIds = currentMhs.map(m => m.id);
   const options = allMahasiswa
     .filter(m => !terdaftarIds.includes(m.id))
@@ -792,6 +806,44 @@ function renderListMhsJadwal(jadwalId, mhsList) {
     </div>`).join('');
 }
 
+// FIX #1: Aksi Tambah Massal Berdasarkan Kelas
+async function tambahByKelas() {
+  const jadwalId = document.getElementById('mhsJadwalId').value;
+  const kelas    = document.getElementById('selectKelasJadwal').value;
+  const alertEl  = document.getElementById('alertMhsJadwal');
+
+  if (!kelas) {
+    alertEl.innerHTML = '<div class="alert alert-warning py-2">Pilih kelas terlebih dahulu.</div>';
+    return;
+  }
+
+  const res  = await fetch(`/jadwal/${jadwalId}/mahasiswa/by-kelas/${kelas}`, { method: 'POST' });
+  const data = await res.json();
+
+  if (res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.pesan}</div>`;
+    
+    // Refresh tampilan modal
+    const jadwalRes  = await fetch(`/jadwal/?ruangan_id=${getRuanganId() || ''}`);
+    const jadwalData = await jadwalRes.json();
+    const jadwal     = jadwalData.find(j => j.id == jadwalId);
+    
+    if (jadwal) {
+      renderListMhsJadwal(jadwalId, jadwal.mahasiswa_diizinkan);
+      const terdaftarIds = jadwal.mahasiswa_diizinkan.map(m => m.id);
+      const options = allMahasiswa
+        .filter(m => !terdaftarIds.includes(m.id))
+        .map(m => `<option value="${m.id}">${m.nama} — ${m.nim_nip}</option>`).join('');
+      
+      document.getElementById('selectMhsJadwal').innerHTML =
+        `<option value="">— Pilih mahasiswa —</option>${options}`;
+    }
+    await render();
+  } else {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal menambahkan'}</div>`;
+  }
+}
+
 async function tambahMhsJadwal() {
   const jadwalId = document.getElementById('mhsJadwalId').value;
   const userId   = document.getElementById('selectMhsJadwal').value;
@@ -810,7 +862,6 @@ async function tambahMhsJadwal() {
     alertEl.innerHTML =
       '<div class="alert alert-success py-2">Mahasiswa berhasil ditambahkan!</div>';
 
-    // Refresh data jadwal dan update modal
     const jadwalRes = await fetch(
       `/jadwal/?ruangan_id=${getRuanganId() || ''}`
     );
@@ -818,7 +869,6 @@ async function tambahMhsJadwal() {
     const jadwal     = jadwalData.find(j => j.id == jadwalId);
     if (jadwal) {
       renderListMhsJadwal(jadwalId, jadwal.mahasiswa_diizinkan);
-      // Hapus dari dropdown
       const opt = document.querySelector(
         `#selectMhsJadwal option[value="${userId}"]`
       );
@@ -849,7 +899,6 @@ async function hapusMhsJadwal(jadwalId, userId, nama) {
     const jadwal     = jadwalData.find(j => j.id == jadwalId);
     if (jadwal) {
       renderListMhsJadwal(jadwalId, jadwal.mahasiswa_diizinkan);
-      // Kembalikan ke dropdown
       const mhs = allMahasiswa.find(m => m.id === userId);
       if (mhs) {
         const opt       = document.createElement('option');
@@ -862,10 +911,10 @@ async function hapusMhsJadwal(jadwalId, userId, nama) {
   }
 }
 
-// Panggil di init
+// Panggil di init awal
 loadMahasiswaList();
+loadKelasList(); // ← Memuat daftar kelas saat halaman di-load
 
-// Juga di DOMContentLoaded:
 document.addEventListener('DOMContentLoaded', () => {
   const aktif = getRuanganAktif?.() ||
     JSON.parse(localStorage.getItem('ruangan_aktif') || 'null');
@@ -874,9 +923,10 @@ document.addEventListener('DOMContentLoaded', () => {
       aktif.nama || 'Semua Ruangan';
   }
 });
+
 // ── Init ─────────────────────────────────────────────────
 document.getElementById('jTanggal').value = new Date().toISOString().slice(0,10);
-loadDosenList();   // ← tambahkan ini
+loadDosenList();
 render();
 </script>
 {% endblock %}

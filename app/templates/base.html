@@ -240,10 +240,8 @@
 <body>
 <div class="layout">
 
-<!-- ══ BACKDROP ══ -->
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-<!-- ══ SIDEBAR ══ -->
 <nav id="sidebar">
   <div class="brand">
     <div class="d-flex align-items-center gap-2 mb-1">
@@ -253,97 +251,41 @@
     <small>Ruang Multimedia Polsri</small>
   </div>
 
-  <div class="py-2 flex-grow-1">
-    <div class="nav-section">Menu Utama</div>
-    <a href="/dashboard"           class="nav-link {% if active=='home'      %}active{% endif %}">
+  <div class="py-2 flex-grow-1 sidebar-nav">
+    {% if user and user.role == 'admin' %}
+    <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
-    <a href="/dashboard/log-akses" class="nav-link {% if active=='log'       %}active{% endif %}">
-      <i class="bi bi-clock-history"></i> Log Akses
-    </a>
-    <a href="/dashboard/jadwal"    class="nav-link {% if active=='jadwal'    %}active{% endif %}">
+    {% endif %}
+
+    {% if user and user.role in ['admin', 'dosen'] %}
+    <a href="/dashboard/jadwal" class="nav-link {% if active=='jadwal' %}active{% endif %}">
       <i class="bi bi-calendar3"></i> Jadwal Ruangan
     </a>
-  <a href="/dashboard/device" class="nav-link {% if active=='device' %}active{% endif %}">
-    <i class="bi bi-router"></i> Status Device
-  </a>
     <a href="/dashboard/absensi" class="nav-link {% if active=='absensi' %}active{% endif %}">
       <i class="bi bi-clipboard-check"></i> Absensi
     </a>
-    <a href="/dashboard/kamera"    class="nav-link {% if active=='kamera'    %}active{% endif %}">
-      <i class="bi bi-camera-video"></i> Kamera Monitoring
-    </a>
-    <!-- ── Pilih Ruangan (muncul di semua ukuran layar di sidebar) ── -->
-    {% if ruangan_list %}
-    <div class="d-lg-none" style="padding: 12px 10px; border-top: 1px solid rgba(255,255,255,.1);">
-      <div style="color:rgba(255,255,255,.38); font-size:.63rem; font-weight:700;
-                  letter-spacing:.09em; text-transform:uppercase; margin-bottom:8px;
-                  padding: 0 6px;">
-        Ruangan Aktif
-      </div>
-      <div class="dropdown w-100">
-        <button class="w-100 d-flex align-items-center gap-2"
-                style="background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15);
-                      border-radius:8px; padding:8px 12px; color:#fff;
-                      font-size:.82rem; cursor:pointer; text-align:left;"
-                data-bs-toggle="dropdown">
-          <i class="bi bi-building" style="flex-shrink:0; font-size:.9rem;"></i>
-          <span id="namaRuanganSidebar" style="flex:1; overflow:hidden;
-                text-overflow:ellipsis; white-space:nowrap; font-weight:600;">
-            Semua Ruangan
-          </span>
-          <i class="bi bi-chevron-down" style="font-size:.6rem; flex-shrink:0;
-                                                opacity:.6;"></i>
-        </button>
-        <ul class="dropdown-menu w-100 shadow"
-            style="max-height:280px; overflow-y:auto; border-radius:10px;
-                  font-size:.83rem;">
-          <li>
-            <a class="dropdown-item py-2" href="#"
-              onclick="pilihRuangan(null, 'Semua Ruangan')">
-              <i class="bi bi-grid me-2 text-muted"></i>Semua Ruangan
-            </a>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
-          {% for r in ruangan_list %}
-          <li>
-            <a class="dropdown-item py-2 ruangan-item" href="#"
-              data-id="{{ r.id }}"
-              data-nama="{{ r.nama|e }}">
-              <i class="bi bi-door-open me-2 text-primary"></i>
-              {{ r.nama }}
-              <small class="text-muted ms-1">Lt.{{ r.lantai }}</small>
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-    </div>
     {% endif %}
-    <div class="nav-section">Manajemen</div>
 
-    {# Tombol Pengguna HANYA muncul untuk admin #}
-    {% if user and user.role == 'admin' %}
-    <a href="/dashboard/pengguna"     class="nav-link {% if active=='pengguna'  %}active{% endif %}">
-      <i class="bi bi-people"></i> Pengguna
+    {% if user and user.role in ['admin', 'teknisi'] %}
+    <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
+      <i class="bi bi-list-ul"></i> Log Akses
     </a>
-    <a href="/dashboard/ruangan"      class="nav-link {% if active=='ruangan'   %}active{% endif %}">
+    <a href="/dashboard/ruangan" class="nav-link {% if active=='ruangan' %}active{% endif %}">
       <i class="bi bi-building"></i> Ruangan
     </a>
-    <a href="/dashboard/enroll-wajah" class="nav-link {% if active=='enroll'    %}active{% endif %}">
-      <i class="bi bi-person-bounding-box"></i> Enroll Wajah
+    {% endif %}
+
+    {% if user and user.role in ['admin', 'dosen', 'teknisi'] %}
+    <a href="/dashboard/pengguna" class="nav-link {% if active=='pengguna' %}active{% endif %}">
+      <i class="bi bi-people"></i> Pengguna
     </a>
     {% endif %}
 
-    <!-- <a href="/dashboard/inventaris" class="nav-link {% if active=='inventaris' %}active{% endif %}">
-      <i class="bi bi-box-seam"></i> Inventaris Alat
-    </a> -->
-    <div class="nav-section">Akun</div>
-    <a href="/dashboard/profil"    class="nav-link {% if active=='profil'    %}active{% endif %}">
+    <div class="nav-section mt-3">Akun & Sistem</div>
+    <a href="/dashboard/profil" class="nav-link {% if active=='profil' %}active{% endif %}">
       <i class="bi bi-person-circle"></i> Profil Saya
     </a>
-
-    <div class="nav-section">Sistem</div>
     <a href="/docs" target="_blank" class="nav-link">
       <i class="bi bi-code-square"></i> API Docs
     </a>
@@ -354,13 +296,10 @@
   </div>
 </nav>
 
-<!-- ══ MAIN ══ -->
 <div id="main">
 
-  <!-- TOPBAR -->
   <div id="topbar">
 
-    <!-- Kiri: hamburger + judul -->
     <div class="topbar-left">
       <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
         <i class="bi bi-list"></i>
@@ -368,14 +307,13 @@
       <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
     </div>
 
-    <!-- Tengah: clock + status — HANYA desktop -->
     <div class="topbar-meta">
       <span id="clock" style="font-size:.8rem; color:#64748b;"></span>
       <span class="badge-ok" style="font-size:.72rem;">
         <i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>Online
       </span>
     </div>
-    <!-- Dropdown pilih ruangan — hanya tampil jika ada ruangan -->
+    
     {% if ruangan_list %}
     <div class="dropdown d-none d-md-block">
       <button class="btn btn-sm d-flex align-items-center gap-2"
@@ -413,11 +351,10 @@
       </ul>
     </div>
     {% endif %}
-    <!-- Kanan: bell + user -->
+
     <div class="topbar-right">
       {% if user %}
 
-      <!-- Bell -->
       <div class="dropdown">
         <button class="notif-btn" id="notifBtn" data-bs-toggle="dropdown"
                 aria-label="Notifikasi">
@@ -438,7 +375,6 @@
         </ul>
       </div>
 
-      <!-- User dropdown -->
       <div class="dropdown">
         <button class="d-flex align-items-center gap-2 p-0"
                 style="background:none; border:none; cursor:pointer;"
@@ -476,17 +412,11 @@
       {% endif %}
     </div>
   </div>
-  <!-- END TOPBAR -->
-
-  
   <div class="content-area">
     {% block content %}{% endblock %}
   </div>
 
-</div><!-- end #main -->
-</div><!-- end .layout -->
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 <script>
 // ── Sidebar mobile ───────────────────────────────────────
 const sidebar  = document.getElementById('sidebar');
