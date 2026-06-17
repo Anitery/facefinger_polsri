@@ -163,18 +163,12 @@ def dashboard_home(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    
-    # UBAH BAGIAN INI: Izinkan admin, dosen, dan teknisi masuk
-    if user["role"] not in ("admin", "dosen", "teknisi"):
-        return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
-        
+    # SEBELUM: if user["role"] != "admin": redirect
+    # SESUDAH: semua role boleh akses, tidak ada pengecekan tambahan
     return templates.TemplateResponse(
         request=request, name="pages/index.html",
-        context={
-            "active": "dashboard", 
-            "user": user,
-            "ruangan_list": get_ruangan_list(db)
-        }
+        context={"active": "dashboard", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
     )
 
 @app.get("/dashboard/jadwal")
@@ -208,8 +202,8 @@ def dashboard_log_akses(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "teknisi"):
-        return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
+    # SEBELUM: if user["role"] not in ("admin", "teknisi"): redirect
+    # SESUDAH: semua role boleh akses
     return templates.TemplateResponse(
         request=request, name="pages/log_akses.html",
         context={"active": "log_akses", "user": user,

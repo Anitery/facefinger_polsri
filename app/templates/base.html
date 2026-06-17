@@ -252,7 +252,7 @@
   </div>
 
   <div class="py-2 flex-grow-1 sidebar-nav">
-    {% if user and user.role == 'admin' %}
+    {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
     <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
@@ -267,7 +267,7 @@
     </a>
     {% endif %}
 
-    {% if user and user.role in ['admin', 'teknisi'] %}
+    {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
     <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
       <i class="bi bi-list-ul"></i> Log Akses
     </a>

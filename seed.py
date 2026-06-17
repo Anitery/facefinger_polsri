@@ -48,7 +48,7 @@ for r in ruangan_list:
 users_data = [
     {"nama": "Administrator",       "nim_nip": "ADMIN001",           "role": "admin",     "fingerprint_id": 1,  "password": "admin123"},
     {"nama": "Teknisi Lab",         "nim_nip": "TEKNISI001",         "role": "teknisi",   "fingerprint_id": 2,  "password": "teknisi123"},
-    {"nama": "Dr. Slamet Widodo",   "nim_nip": "197305162002121001", "role": "dosen",     "fingerprint_id": 3,  "password": "dosen123"},
+    {"nama": "Dosen",   "nim_nip": "DOSEN001", "role": "dosen",     "fingerprint_id": 3,  "password": "dosen123"},
     {"nama": "Fatah Alfi Syahri",   "nim_nip": "062330701514",       "role": "mahasiswa", "fingerprint_id": 4,  "password": None},
 ]
 
@@ -68,4 +68,4 @@ print("\n✅ Seed selesai!")
 print("\nAkun login:")
 print("  Admin   → ADMIN001           | admin123")
 print("  Teknisi → TEKNISI001         | teknisi123")
-print("  Dosen   → 197305162002121001 | dosen123")
+print("  Dosen   → DOSEN001 | dosen123")

@@ -42,15 +42,7 @@ def get_current_user(request: Request):
         return None
     return decode_session_token(token)
 
-
 # --- FUNGSI BARU UNTUK MENGATUR REDIRECT BERDASARKAN ROLE ---
 def redirect_default_page(role: str) -> str:
-    """Mengembalikan path URL default berdasarkan role user."""
-    if role == "admin":
-        return "/dashboard"  # Sesuaikan dengan route admin Anda
-    elif role == "teknisi":
-        return "/dashboard" # Sesuaikan dengan route teknisi Anda
-    elif role == "dosen":
-        return "/dashboard"   # Sesuaikan dengan route dosen Anda
-    
-    return "/dashboard" # Fallback default
+    """Semua role landing ke dashboard setelah login."""
+    return "/dashboard"

@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import datetime
-from datetime import datetime
 from enum import Enum as PyEnum
 
 # ── Ruangan ────────────────────────────────────────────────
@@ -38,6 +37,14 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     fingerprint_id: Optional[int] = None
     password: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    nama: Optional[str] = None
+    nim_nip: Optional[str] = None
+    role: Optional[str] = None
+    kelas: Optional[str] = None  # ← FIX: Tambahan agar bisa update kelas
+    aktif: Optional[bool] = None
+    fingerprint_id: Optional[int] = None
 
 class UserOut(UserBase):
     id: int

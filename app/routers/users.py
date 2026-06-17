@@ -5,7 +5,7 @@ from typing import List
 import json
 from app.database import get_db
 from app.models.models import User
-from app.schemas import UserCreate, UserOut
+from app.schemas import UserCreate, UserOut, UserUpdate
 import bcrypt
 
 def _hash_pw(password: str) -> str:
@@ -121,15 +121,19 @@ def create_user(
     return user
 
 
-@router.put("/{user_id}")
-def update_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db)):
+@router.put("/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: int, 
+    payload: UserUpdate, 
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    user.nama       = payload.nama
-    user.nim_nip    = payload.nim_nip
-    user.role       = payload.role
-    user.ruangan_id = getattr(payload, 'ruangan_id', None)
+        raise HTTPException(404, "Pengguna tidak ditemukan")
+        
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(user, field, value)
+        
     db.commit()
     db.refresh(user)
     return user
