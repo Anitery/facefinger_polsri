@@ -593,6 +593,7 @@ def bridge_heartbeat(
 @router.get("/status-public")
 def bridge_status_public(
     ruangan_id: int,
+    role: Optional[str] = None,   # ← TAMBAH
     db: Session = Depends(get_db)
 ):
     """Status bridge + info device untuk dashboard."""
@@ -627,6 +628,11 @@ def bridge_status_public(
             "%d/%m %H:%M:%S"
         )
 
+    # Menangani penyembunyian IP device jika role adalah dosen
+    device_ip_display = device_ip
+    if role == "dosen":
+        device_ip_display = "Terhubung" if bridge_aktif else "—"
+
     today = wib_today_str()
 
     jadwals = db.query(JadwalRuangan).options(
@@ -644,7 +650,7 @@ def bridge_status_public(
     return {
         "bridge_aktif": bridge_aktif,
         "last_bridge": last_bridge,
-        "device_ip": device_ip,
+        "device_ip": device_ip_display,
         "device_sn": device_sn,
         "device_time": device_time,
         "total_user_device": total_user,

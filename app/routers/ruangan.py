@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from pydantic import BaseModel
@@ -6,8 +6,10 @@ from app.database import get_db
 from app.models.models import Ruangan, User
 from app.schemas import RuanganCreate, RuanganOut
 
-router = APIRouter(prefix="/ruangan", tags=["Ruangan"])
+# Catatan: Sesuaikan path import ini dengan lokasi fungsi get_current_role di project Anda
+# from app.dependencies import get_current_role 
 
+router = APIRouter(prefix="/ruangan", tags=["Ruangan"])
 
 class RuanganUpdate(BaseModel):
     nama:   str
@@ -16,11 +18,12 @@ class RuanganUpdate(BaseModel):
 
 
 @router.get("/", response_model=list[RuanganOut])
-def get_all(db: Session = Depends(get_db)):
-    return db.query(Ruangan)\
-             .options(joinedload(Ruangan.penanggung_jawab))\
-             .filter(Ruangan.aktif == True)\
-             .order_by(Ruangan.id).all()
+def get_all(include_inactive: bool = False, db: Session = Depends(get_db)):
+    """Mendapatkan daftar ruangan. Admin bisa melihat data nonaktif dengan include_inactive=True"""
+    q = db.query(Ruangan).options(joinedload(Ruangan.penanggung_jawab))
+    if not include_inactive:
+        q = q.filter(Ruangan.aktif == True)
+    return q.order_by(Ruangan.id).all()
 
 
 @router.get("/{ruangan_id}", response_model=RuanganOut)
@@ -67,7 +70,7 @@ def toggle_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
     r.aktif = not r.aktif
     db.commit()
     return {"pesan": f"Ruangan {r.nama} "
-            f"{'diaktifkan' if r.aktif else 'dinonaktifkan'}"}
+                     f"{'diaktifkan' if r.aktif else 'dinonaktifkan'}"}
 
 
 @router.post("/{ruangan_id}/penanggung-jawab/{user_id}")
@@ -131,3 +134,21 @@ def hapus_pj(
     r.penanggung_jawab.remove(user)
     db.commit()
     return {"pesan": f"{user.nama} dihapus dari penanggung jawab {r.nama}"}
+
+
+@router.delete("/{ruangan_id}")
+def delete_ruangan(ruangan_id: int, request: Request, db: Session = Depends(get_db)):
+    """Hapus ruangan secara permanen (Hanya Admin)."""
+    # Pastikan fungsi get_current_role sudah di-import
+    role = get_current_role(request)
+    
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus ruangan")
+    
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
+    if not ruangan:
+        raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
+    
+    db.delete(ruangan)
+    db.commit()
+    return {"pesan": "Ruangan dihapus"}

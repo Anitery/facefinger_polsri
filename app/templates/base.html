@@ -251,10 +251,16 @@
     <small>Ruang Multimedia Polsri</small>
   </div>
 
-  <div class="py-2 flex-grow-1 sidebar-nav">
+<div class="py-2 flex-grow-1 sidebar-nav">
     {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
     <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
       <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+    {% endif %}
+
+    {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+    <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
+      <i class="bi bi-list-ul"></i> Log Akses
     </a>
     {% endif %}
 
@@ -267,10 +273,7 @@
     </a>
     {% endif %}
 
-    {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
-    <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
-      <i class="bi bi-list-ul"></i> Log Akses
-    </a>
+        {% if user and user.role in ['admin', 'teknisi'] %}
     <a href="/dashboard/ruangan" class="nav-link {% if active=='ruangan' %}active{% endif %}">
       <i class="bi bi-building"></i> Ruangan
     </a>
@@ -286,9 +289,12 @@
     <a href="/dashboard/profil" class="nav-link {% if active=='profil' %}active{% endif %}">
       <i class="bi bi-person-circle"></i> Profil Saya
     </a>
+    
+        {% if user and user.role == 'admin' %}
     <a href="/docs" target="_blank" class="nav-link">
       <i class="bi bi-code-square"></i> API Docs
     </a>
+    {% endif %}
   </div>
 
   <div class="sidebar-footer">

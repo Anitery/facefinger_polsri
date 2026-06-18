@@ -4,7 +4,6 @@
 
 {% block content %}
 
-<!-- Stat cards -->
 <div class="row g-3 mb-3">
   <div class="col-6 col-lg-3">
     <div class="stat-card">
@@ -46,7 +45,6 @@
 
 <div class="row g-3">
 
-  <!-- Info device + jadwal hari ini -->
   <div class="col-12 col-xl-5">
     <div class="section-card p-3 mb-3">
       <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
@@ -66,7 +64,6 @@
     </div>
   </div>
 
-  <!-- Log scan terbaru: HARI INI saja, max 15 -->
   <div class="col-12 col-xl-7">
     <div class="section-card">
       <div class="d-flex justify-content-between align-items-center px-3 py-3 border-bottom">
@@ -119,7 +116,9 @@ async function loadDeviceInfo() {
     return;
   }
   try {
-    const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}`);
+    // FIX: Mengambil data role dari backend context via Jinja2 template literal
+    const role = "{{ user.role }}";
+    const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}&role=${role}`);
     const data = await r.json();
 
     document.getElementById('statusDevice').textContent =
@@ -225,7 +224,7 @@ loadDeviceInfo();
 loadLog();
 loadTotalPengguna();
 setInterval(loadDeviceInfo, 30000);
-setInterval(loadLog, 30000);  // refresh tiap 30 detik — otomatis "bersih" saat lewat tengah malam WIB
+setInterval(loadLog, 30000);
 
 window.addEventListener('ruanganChanged', () => { loadDeviceInfo(); loadLog(); });
 </script>

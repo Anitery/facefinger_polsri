@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
@@ -12,6 +12,16 @@ from app.database import get_db
 from app.models.models import AccessLog, User
 
 router = APIRouter(prefix="/log-akses", tags=["Log Akses"])
+
+
+def get_current_role(request: Request) -> str:
+    """Helper untuk mengambil role dari token sesi."""
+    from app.services.auth_service import decode_session_token
+    token = request.cookies.get("session_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Sesi tidak valid")
+    user = decode_session_token(token)
+    return user["role"]
 
 
 class AccessLogDetail(BaseModel):
@@ -83,9 +93,14 @@ def get_logs(
 @router.delete("/bulk")
 def hapus_bulk(
     payload: BulkDeletePayload,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Hapus beberapa log sekaligus berdasarkan list ID."""
+    role = get_current_role(request)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus log akses")
+
     if not payload.ids:
         return {"pesan": "Tidak ada ID yang dikirim", "dihapus": 0}
 
@@ -98,10 +113,15 @@ def hapus_bulk(
 
 @router.delete("/clear")
 def hapus_semua(
+    request: Request,
     ruangan_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Hapus semua log. Jika ruangan_id diisi, hanya hapus log ruangan itu."""
+    role = get_current_role(request)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus seluruh log akses")
+
     q = db.query(AccessLog)
     if ruangan_id:
         q = q.filter(AccessLog.ruangan_id == ruangan_id)
@@ -115,8 +135,12 @@ def hapus_semua(
 
 
 @router.delete("/{log_id}")
-def hapus_satu(log_id: int, db: Session = Depends(get_db)):
+def hapus_satu(log_id: int, request: Request, db: Session = Depends(get_db)):
     """Hapus satu log berdasarkan ID."""
+    role = get_current_role(request)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus log akses")
+
     log = db.query(AccessLog).filter(AccessLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Log tidak ditemukan")

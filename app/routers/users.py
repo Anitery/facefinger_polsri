@@ -22,13 +22,30 @@ router = APIRouter(prefix="/users", tags=["Pengguna"])
 class FaceEncodingPayload(BaseModel):
     encoding: List[float]
 
+# --- Ranks & Permissions Constants ---
+ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "mahasiswa": 3}
+
 ROLE_ALLOWED_TO_CREATE = {
     "admin":   {"admin", "teknisi", "dosen", "mahasiswa"},
     "dosen":   {"mahasiswa"},
     "teknisi": {"dosen"},
 }
 
+ROLE_ALLOWED_TO_MODIFY = {
+    "admin":   {"admin", "teknisi", "dosen", "mahasiswa"},
+    "dosen":   {"mahasiswa"},
+    "teknisi": {"dosen"},
+}
 
+# --- Helper Functions ---
+def get_current_role(request: Request) -> str:
+    from app.services.auth_service import decode_session_token
+    token = request.cookies.get("session_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Sesi tidak valid")
+    return decode_session_token(token)["role"]
+
+# --- Face & Fingerprint Endpoints ---
 @router.post("/{user_id}/enroll-face")
 def enroll_face(
     user_id: int,
@@ -52,7 +69,6 @@ def enroll_face(
         "nama":    user.nama
     }
 
-
 @router.delete("/{user_id}/enroll-face")
 def hapus_face(user_id: int, db: Session = Depends(get_db)):
     """Hapus face encoding user."""
@@ -63,14 +79,43 @@ def hapus_face(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"pesan": f"Face encoding {user.nama} dihapus"}
 
+@router.put("/{user_id}/face-encoding")
+def update_face_encoding(user_id: int, encoding: list[float], db: Session = Depends(get_db)):
+    """Simpan/update encoding wajah pengguna (128 dimensi)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if len(encoding) != 128:
+        raise HTTPException(status_code=400, detail="Encoding harus 128 dimensi")
+    user.face_encoding = json.dumps(encoding)
+    db.commit()
+    return {"pesan": f"Face encoding user {user.nama} berhasil disimpan"}
 
-@router.get("/", response_model=list[UserOut])
-def get_all_users(aktif_only: bool = True, db: Session = Depends(get_db)):
-    query = db.query(User)
-    if aktif_only:
-        query = query.filter(User.aktif == True)
-    return query.all()
+@router.patch("/{user_id}/fingerprint")
+def update_fingerprint(user_id: int, fingerprint_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    user.fingerprint_id = fingerprint_id
+    db.commit()
+    return {"pesan": f"Fingerprint ID {fingerprint_id} disimpan untuk {user.nama}"}
 
+# --- Read Endpoints ---
+@router.get("/", response_model=List[UserOut])
+def get_users(include_inactive: bool = False, db: Session = Depends(get_db)):
+    q = db.query(User)
+    if not include_inactive:
+        q = q.filter(User.aktif == True)
+    users = q.all()
+
+    def sort_key(u):
+        role_rank = ROLE_ORDER.get(u.role, 99)
+        if u.role == "mahasiswa":
+            return (role_rank, u.kelas or "", u.nama or "", u.nim_nip or "")
+        return (role_rank, u.nama or "")
+
+    users.sort(key=sort_key)
+    return users
 
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(user_id: int, db: Session = Depends(get_db)):
@@ -79,29 +124,23 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
     return user
 
-
+# --- Write/Modify Endpoints ---
 @router.post("/", response_model=UserOut)
 def create_user(
     payload: UserCreate,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    from app.services.auth_service import decode_session_token
+    current_role = get_current_role(request)
+    allowed = ROLE_ALLOWED_TO_CREATE.get(current_role, set())
     
-    token = request.cookies.get("session_token")
-    session_user = decode_session_token(token) if token else None
-    
-    if not session_user:
-        raise HTTPException(status_code=401, detail="Sesi tidak valid")
-        
-    allowed = ROLE_ALLOWED_TO_CREATE.get(session_user["role"], set())
     if payload.role not in allowed:
         raise HTTPException(
             status_code=403,
-            detail=f"Role '{session_user['role']}' tidak boleh menambahkan pengguna dengan role '{payload.role}'"
+            detail=f"Role '{current_role}' tidak boleh menambahkan pengguna dengan role '{payload.role}'"
         )
 
-    # Cek apakah NIP/NIM sudah ada (dipertahankan dari kode asli)
+    # Cek apakah NIP/NIM sudah ada
     existing = db.query(User).filter(User.nim_nip == payload.nim_nip).first()
     if existing:
         raise HTTPException(status_code=400, detail="NIM/NIP sudah terdaftar")
@@ -120,58 +159,73 @@ def create_user(
     db.refresh(user)
     return user
 
-
 @router.put("/{user_id}", response_model=UserOut)
 def update_user(
     user_id: int, 
     payload: UserUpdate, 
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "Pengguna tidak ditemukan")
+    current_role = get_current_role(request)
+    target = db.query(User).filter(User.id == user_id).first()
+    
+    if not target:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan")
+        
+    allowed = ROLE_ALLOWED_TO_MODIFY.get(current_role, set())
+    if target.role not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{current_role}' tidak boleh mengubah data pengguna dengan role '{target.role}'"
+        )
         
     for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
+        setattr(target, field, value)
         
     db.commit()
-    db.refresh(user)
-    return user
-
-
-@router.put("/{user_id}/face-encoding")
-def update_face_encoding(user_id: int, encoding: list[float], db: Session = Depends(get_db)):
-    """Simpan/update encoding wajah pengguna (128 dimensi)."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    if len(encoding) != 128:
-        raise HTTPException(status_code=400, detail="Encoding harus 128 dimensi")
-    user.face_encoding = json.dumps(encoding)
-    db.commit()
-    return {"pesan": f"Face encoding user {user.nama} berhasil disimpan"}
-
-
-@router.patch("/{user_id}/fingerprint")
-def update_fingerprint(user_id: int, fingerprint_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    user.fingerprint_id = fingerprint_id
-    db.commit()
-    return {"pesan": f"Fingerprint ID {fingerprint_id} disimpan untuk {user.nama}"}
-
+    db.refresh(target)
+    return target
 
 @router.delete("/{user_id}")
-def deactivate_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    user.aktif = False
+def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+    current_role = get_current_role(request)
+    target = db.query(User).filter(User.id == user_id).first()
+    
+    if not target:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan")
+        
+    allowed = ROLE_ALLOWED_TO_MODIFY.get(current_role, set())
+    if target.role not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{current_role}' tidak boleh menghapus pengguna dengan role '{target.role}'"
+        )
+        
+    if current_role != "admin":
+        raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus permanen, gunakan nonaktifkan")
+        
+    db.delete(target)
     db.commit()
-    return {"pesan": f"User {user.nama} dinonaktifkan"}
+    return {"pesan": "Pengguna dihapus"}
 
+@router.patch("/{user_id}/toggle-aktif")
+def toggle_aktif(user_id: int, request: Request, db: Session = Depends(get_db)):
+    """Nonaktifkan/aktifkan — dipakai dosen & teknisi sebagai pengganti delete."""
+    current_role = get_current_role(request)
+    target = db.query(User).filter(User.id == user_id).first()
+    
+    if not target:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan")
+        
+    allowed = ROLE_ALLOWED_TO_MODIFY.get(current_role, set())
+    if target.role not in allowed:
+        raise HTTPException(status_code=403, detail=f"Tidak diizinkan mengubah status role '{target.role}'")
+        
+    target.aktif = not target.aktif
+    db.commit()
+    return {"pesan": "Status diperbarui", "aktif": target.aktif}
 
+# --- Password Endpoints ---
 @router.patch("/{user_id}/password")
 def update_password(
     user_id: int,
@@ -187,7 +241,6 @@ def update_password(
     user.password_hash = _hash_pw(password_baru)
     db.commit()
     return {"pesan": "Password berhasil diperbarui"}
-
 
 @router.post("/{user_id}/set-password")
 def set_password_admin(

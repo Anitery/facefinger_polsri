@@ -12,6 +12,22 @@
   </button>
 </div>
 
+<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+  <div class="input-group" style="max-width:320px;">
+    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" id="searchPengguna"
+           placeholder="Cari nama, NIM/NIP, atau kelas...">
+  </div>
+  {% if user.role == 'admin' %}
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" id="showInactive">
+    <label class="form-check-label" style="font-size:.83rem;" for="showInactive">
+      Tampilkan yang nonaktif
+    </label>
+  </div>
+  {% endif %}
+</div>
+
 <div class="tbl-wrap d-none d-md-block">
   <div style="overflow-x:auto;">
     <table class="table table-hover mb-0" style="min-width:680px;">
@@ -164,8 +180,18 @@ const roleBadge = {
 };
 
 let editMode = false;
+let allUsers = [];
+const myRole = "{{ user.role }}";
+const ROLE_MODIFY_PERMISSION = {
+  admin:   ["admin", "teknisi", "dosen", "mahasiswa"],
+  dosen:   ["mahasiswa"],
+  teknisi: ["dosen"],
+};
 
-// Tampilkan / sembunyikan input kelas jika role "mahasiswa"
+function bisaModifikasi(targetRole) {
+  return (ROLE_MODIFY_PERMISSION[myRole] || []).includes(targetRole);
+}
+
 function toggleKelasField() {
   const role = document.getElementById('inputRole').value;
   document.getElementById('kelasFieldWrap').style.display = 
@@ -179,7 +205,6 @@ function togglePw(inputId, iconId) {
   icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
 }
 
-// Buka modal mode Tambah
 function openModal() {
   editMode = false;
   document.getElementById('editUserId').value   = '';
@@ -188,7 +213,7 @@ function openModal() {
   
   const inputRole = document.getElementById('inputRole');
   if (inputRole.options.length > 0) {
-    inputRole.selectedIndex = 0; // Set ke option pertama default sesuai role login
+    inputRole.selectedIndex = 0; 
   }
   
   document.getElementById('inputKelas').value   = '';
@@ -204,7 +229,6 @@ function openModal() {
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 }
 
-// Buka modal mode Edit
 function openEdit(u) {
   editMode = true;
   document.getElementById('editUserId').value   = u.id;
@@ -229,7 +253,6 @@ async function simpanUser() {
   const fpId     = document.getElementById('inputFpId').value;
   const alertEl  = document.getElementById('alertModal');
 
-  // Menyusun body request sesuai pembaruan
   const body = {
     nama: document.getElementById('inputNama').value.trim(),
     nim_nip: document.getElementById('inputNimNip').value.trim(),
@@ -239,8 +262,7 @@ async function simpanUser() {
   };
 
   if (!body.nama || !body.nim_nip) {
-    alertEl.innerHTML =
-      '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Nama dan NIM/NIP wajib diisi.</div>';
     return;
   }
 
@@ -260,27 +282,21 @@ async function simpanUser() {
       });
     }
   } catch(e) {
-    alertEl.innerHTML =
-      '<div class="alert alert-danger py-2">Gagal terhubung ke server.</div>';
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Gagal terhubung ke server.</div>';
     return;
   }
 
-  // Parse response dengan aman
   let responseData;
   try {
     responseData = await res.json();
   } catch {
-    alertEl.innerHTML = `
-      <div class="alert alert-danger py-2">
-        Server error (${res.status}). Cek logs untuk detail.
-      </div>`;
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Server error (${res.status}). Cek logs untuk detail.</div>`;
     return;
   }
 
   if (res.ok) {
     const saved = responseData;
 
-    // Set fingerprint jika diisi melalui endpoint terpisah (opsional sesuai backend Anda)
     if (fpId) {
       try {
         await fetch(
@@ -296,20 +312,14 @@ async function simpanUser() {
       </div>`;
     loadUsers();
     setTimeout(() => {
-      bootstrap.Modal.getInstance(
-        document.getElementById('modalUser')).hide();
+      bootstrap.Modal.getInstance(document.getElementById('modalUser')).hide();
       alertEl.innerHTML = '';
     }, 1200);
-
   } else {
-    alertEl.innerHTML = `
-      <div class="alert alert-danger py-2">
-        ${responseData.detail || `Error ${res.status}`}
-      </div>`;
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${responseData.detail || `Error ${res.status}`}</div>`;
   }
 }
 
-// Reset password (admin)
 function openResetPw(id, nama) {
   document.getElementById('resetUserId').value  = id;
   document.getElementById('resetNama').textContent = nama;
@@ -338,28 +348,54 @@ async function doResetPassword() {
   }
 }
 
-async function toggleAktif(id, nama, aktif) {
-  const aksi = aktif ? 'nonaktifkan' : 'aktifkan';
-  if (!confirm(`${aksi.charAt(0).toUpperCase()+aksi.slice(1)} user "${nama}"?`)) return;
-  await fetch(`/users/${id}`, { method: aktif ? 'DELETE' : 'PATCH' });
-  loadUsers();
+async function toggleAktif(userId) {
+  await fetch(`/users/${userId}/toggle-aktif`, { method: 'PATCH' });
+  await loadUsers();
+}
+
+async function hapusUserPermanen(userId, nama) {
+  if (!confirm(`Hapus permanen ${nama}? Tindakan ini tidak dapat dibatalkan.`)) return;
+  const res = await fetch(`/users/${userId}`, { method: 'DELETE' });
+  if (res.ok) {
+    await loadUsers();
+  } else {
+    const err = await res.json();
+    alert(err.detail);
+  }
 }
 
 async function loadUsers() {
-  const res  = await fetch('/users/');
-  const data = await res.json();
+  const showInactive = document.getElementById('showInactive')?.checked || false;
+  const url = `/users/?include_inactive=${showInactive}`;
+  const res = await fetch(url);
+  allUsers = await res.json();
+  renderUsers();
+}
+
+function renderUsers() {
+  const keyword = (document.getElementById('searchPengguna')?.value || '').toLowerCase();
+  const filtered = allUsers.filter(u => {
+    const target = `${u.nama} ${u.nim_nip||''} ${u.kelas||''}`.toLowerCase();
+    return target.includes(keyword);
+  });
 
   const desktop = document.getElementById('userBodyDesktop');
   const mobile  = document.getElementById('userBodyMobile');
 
-  if (!data.length) {
-    desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada pengguna</td></tr>';
-    mobile.innerHTML  = '<div class="text-center text-muted py-4">Belum ada pengguna</div>';
+  if (!filtered.length) {
+    desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Data tidak ditemukan</td></tr>';
+    mobile.innerHTML  = '<div class="text-center text-muted py-4">Data tidak ditemukan</div>';
     return;
   }
 
-  desktop.innerHTML = data.map((u, i) => `
-    <tr>
+  desktop.innerHTML = filtered.map((u, i) => {
+    const editable = bisaModifikasi(u.role);
+    const statusBadge = u.aktif
+      ? '<span class="badge-ok">Aktif</span>'
+      : '<span class="badge-no">Nonaktif</span>';
+
+    return `
+    <tr style="${!u.aktif ? 'opacity:.55;' : ''}">
       <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
       <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
       <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
@@ -368,30 +404,43 @@ async function loadUsers() {
       <td>${u.fingerprint_id != null
             ? `<span class="badge-role">ID: ${u.fingerprint_id}</span>`
             : '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
-      <td>${u.aktif
-            ? '<span class="badge-ok">Aktif</span>'
-            : '<span class="badge-no">Nonaktif</span>'}</td>
+      <td>${statusBadge}</td>
       <td>
         <div class="d-flex gap-1 justify-content-center">
-          <button class="btn btn-outline-primary btn-sm" title="Edit"
-                  onclick='openEdit(${JSON.stringify(u)})'>
-            <i class="bi bi-pencil"></i>
-          </button>
-          <button class="btn btn-outline-warning btn-sm" title="Reset Password"
-                  onclick="openResetPw(${u.id},'${u.nama.replace("'","\\'")}')">
-            <i class="bi bi-key"></i>
-          </button>
-          <button class="btn ${u.aktif ? 'btn-outline-danger':'btn-outline-success'} btn-sm"
-                  title="${u.aktif ? 'Nonaktifkan':'Aktifkan'}"
-                  onclick="toggleAktif(${u.id},'${u.nama.replace("'","\\'")}',${u.aktif})">
-            <i class="bi ${u.aktif ? 'bi-person-dash':'bi-person-check'}"></i>
-          </button>
+          ${editable ? `
+            <button class="btn btn-outline-primary btn-sm" title="Edit"
+                    onclick='openEdit(${JSON.stringify(u)})'>
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-outline-warning btn-sm" title="Reset Password"
+                    onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
+              <i class="bi bi-key"></i>
+            </button>
+            ${myRole === 'admin' ? `
+              <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
+                      onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
+                <i class="bi bi-trash"></i>
+              </button>
+            ` : `
+              <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
+                      onclick="toggleAktif(${u.id})">
+                <i class="bi bi-power"></i>
+              </button>
+            `}
+          ` : `<span class="text-muted" style="font-size:.75rem;">Tidak ada akses</span>`}
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
-  mobile.innerHTML = data.map((u, i) => `
-    <div class="section-card p-3">
+  mobile.innerHTML = filtered.map((u, i) => {
+    const editable = bisaModifikasi(u.role);
+    const statusBadge = u.aktif
+      ? '<span class="badge-ok" style="font-size:.7rem;">Aktif</span>'
+      : '<span class="badge-no" style="font-size:.7rem;">Nonaktif</span>';
+
+    return `
+    <div class="section-card p-3" style="${!u.aktif ? 'opacity:.65;' : ''}">
       <div class="d-flex justify-content-between align-items-start mb-2">
         <div>
           <div class="fw-bold" style="font-size:.88rem;">
@@ -403,9 +452,7 @@ async function loadUsers() {
         </div>
         <div class="d-flex flex-column align-items-end gap-1">
           <span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span>
-          ${u.aktif
-            ? '<span class="badge-ok" style="font-size:.7rem;">Aktif</span>'
-            : '<span class="badge-no" style="font-size:.7rem;">Nonaktif</span>'}
+          ${statusBadge}
         </div>
       </div>
       <div style="font-size:.77rem;color:#64748b;" class="mb-2">
@@ -413,25 +460,36 @@ async function loadUsers() {
         ${u.fingerprint_id != null ? `ID: ${u.fingerprint_id}` : 'Belum'}
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary btn-sm flex-fill"
-                onclick='openEdit(${JSON.stringify(u)})'>
-          <i class="bi bi-pencil me-1"></i>Edit
-        </button>
-        <button class="btn btn-outline-warning btn-sm flex-fill"
-                onclick="openResetPw(${u.id},'${u.nama.replace("'","\\'")}')">
-          <i class="bi bi-key me-1"></i>Reset PW
-        </button>
-        <button class="btn ${u.aktif?'btn-outline-danger':'btn-outline-success'} btn-sm"
-                onclick="toggleAktif(${u.id},'${u.nama.replace("'","\\'")}',${u.aktif})">
-          <i class="bi ${u.aktif?'bi-person-dash':'bi-person-check'}"></i>
-        </button>
+        ${editable ? `
+          <button class="btn btn-outline-primary btn-sm flex-fill"
+                  onclick='openEdit(${JSON.stringify(u)})'>
+            <i class="bi bi-pencil me-1"></i>Edit
+          </button>
+          <button class="btn btn-outline-warning btn-sm flex-fill"
+                  onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
+            <i class="bi bi-key me-1"></i>Reset PW
+          </button>
+          ${myRole === 'admin' ? `
+            <button class="btn btn-outline-danger btn-sm"
+                    onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
+              <i class="bi bi-trash"></i>
+            </button>
+          ` : `
+            <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}"
+                    onclick="toggleAktif(${u.id})">
+              <i class="bi bi-power"></i>
+            </button>
+          `}
+        ` : `<span class="text-muted text-center flex-fill" style="font-size:.75rem;">Tidak ada akses modifikasi</span>`}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-// Inisialisasi awal saat load
 document.addEventListener('DOMContentLoaded', () => {
   toggleKelasField();
+  document.getElementById('searchPengguna')?.addEventListener('input', renderUsers);
+  document.getElementById('showInactive')?.addEventListener('change', loadUsers);
   loadUsers();
 });
 </script>

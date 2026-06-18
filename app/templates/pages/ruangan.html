@@ -12,12 +12,19 @@
   </button>
 </div>
 
-<!-- Grid ruangan -->
+{% if user.role == 'admin' %}
+<div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" id="showInactiveRuangan">
+  <label class="form-check-label" style="font-size:.83rem;" for="showInactiveRuangan">
+    Tampilkan ruangan nonaktif
+  </label>
+</div>
+{% endif %}
+
 <div class="row g-3" id="ruanganGrid">
   <div class="col-12 text-center text-muted py-4">Memuat...</div>
 </div>
 
-<!-- ══ Modal Tambah/Edit Ruangan ══ -->
 <div class="modal fade" id="modalRuangan" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -59,7 +66,6 @@
   </div>
 </div>
 
-<!-- ══ Modal Kelola Penanggung Jawab ══ -->
 <div class="modal fade" id="modalPJ" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -75,7 +81,6 @@
       <div class="modal-body p-4">
         <input type="hidden" id="pjRuanganId">
 
-        <!-- Daftar PJ saat ini -->
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             Penanggung Jawab Saat Ini
@@ -89,7 +94,6 @@
 
         <hr>
 
-        <!-- Tambah PJ baru -->
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             Tambah Penanggung Jawab
@@ -117,6 +121,7 @@
 
 {% block extra_js %}
 <script>
+const myRole        = "{{ user.role }}";
 let editRuanganMode = false;
 let allUsers        = [];
 const LANTAI_COLOR  = ['','#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444'];
@@ -138,7 +143,8 @@ async function loadAllUsers() {
 
 // ── Load dan render daftar ruangan ───────────────────────
 async function loadRuangan() {
-  const res  = await fetch('/ruangan/');
+  const showInactive = document.getElementById('showInactiveRuangan')?.checked || false;
+  const res  = await fetch(`/ruangan/?include_inactive=${showInactive}`);
   const data = await res.json();
   const grid = document.getElementById('ruanganGrid');
 
@@ -151,14 +157,13 @@ async function loadRuangan() {
   grid.innerHTML = data.map((r, i) => {
     const color = LANTAI_COLOR[r.lantai] || '#64748b';
     const pjList = r.penanggung_jawab || [];
+    const isInactive = !r.aktif;
 
     return `
       <div class="col-12 col-sm-6 col-xl-4">
-        <div class="section-card p-3 h-100 d-flex flex-column">
+        <div class="section-card p-3 h-100 d-flex flex-column ${isInactive ? 'opacity-50' : ''}">
 
-          <!-- Header dengan Nomor Urut -->
           <div class="d-flex align-items-start gap-2 mb-2">
-            <!-- NOMOR URUT -->
             <div style="width:28px;height:28px;border-radius:8px;
                         background:#3b82f6;color:#fff;display:flex;
                         align-items:center;justify-content:center;
@@ -166,14 +171,12 @@ async function loadRuangan() {
                         margin-right:4px;">
               ${i + 1}
             </div>
-            <!-- Icon Ruangan -->
             <div style="width:40px;height:40px;border-radius:10px;
                         background:${color}20;display:flex;
                         align-items:center;justify-content:center;
                         font-size:1.1rem;color:${color};flex-shrink:0;">
               <i class="bi bi-door-open"></i>
             </div>
-            <!-- Nama & Info -->
             <div class="flex-grow-1 min-w-0">
               <div class="fw-bold" style="font-size:.87rem;color:#1e293b;
                    line-height:1.3;">${r.nama}</div>
@@ -181,7 +184,6 @@ async function loadRuangan() {
                 ${r.lokasi||'—'} · Lantai ${r.lantai||'—'}
               </div>
             </div>
-            <!-- Status -->
             <span style="font-size:.67rem;font-weight:600;padding:2px 8px;
                          border-radius:20px;flex-shrink:0;
                          ${r.aktif
@@ -191,7 +193,6 @@ async function loadRuangan() {
             </span>
           </div>
 
-          <!-- Penanggung Jawab -->
           <div class="mb-3 flex-grow-1">
             <div style="font-size:.72rem;font-weight:700;color:#94a3b8;
                         text-transform:uppercase;letter-spacing:.05em;
@@ -219,7 +220,6 @@ async function loadRuangan() {
                   </div>`).join('')}
           </div>
 
-          <!-- Aksi -->
           <div class="d-flex gap-1">
             <button class="btn btn-outline-info btn-sm flex-fill"
                     onclick="openModalPJ(${r.id}, '${r.nama.replace(/'/g,"\\'")}',
@@ -232,19 +232,28 @@ async function loadRuangan() {
                     title="Edit">
               <i class="bi bi-pencil"></i>
             </button>
-            <button class="btn btn-sm
-                    ${r.aktif ? 'btn-outline-danger':'btn-outline-success'}"
-                    onclick="toggleRuangan(${r.id},
-                             '${r.nama.replace(/'/g,"\\'")}', ${r.aktif})"
-                    title="${r.aktif ? 'Nonaktifkan':'Aktifkan'}">
-              <i class="bi ${r.aktif ? 'bi-pause-circle':'bi-play-circle'}"></i>
-            </button>
+            
+            ${myRole === 'admin' ? `
+              <button class="btn btn-sm ${r.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}"
+                      onclick="toggleRuangan(${r.id}, '${r.nama.replace(/'/g,"\\'")}', ${r.aktif})"
+                      title="${r.aktif ? 'Nonaktifkan' : 'Aktifkan'}">
+                <i class="bi bi-power"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger"
+                      onclick="hapusRuanganPermanen(${r.id}, '${r.nama.replace(/'/g,"\\'")}')"
+                      title="Hapus Permanen">
+                <i class="bi bi-trash"></i>
+              </button>
+            ` : ''}
           </div>
 
         </div>
       </div>`;
   }).join('');
 }
+
+// ── Event Listener Checkbox Nonaktif ─────────────────────
+document.getElementById('showInactiveRuangan')?.addEventListener('change', loadRuangan);
 
 // ── Modal Tambah Ruangan ─────────────────────────────────
 function openModalRuangan() {
@@ -315,6 +324,19 @@ async function toggleRuangan(id, nama, aktif) {
     return;
   await fetch(`/ruangan/${id}/toggle`, { method:'PATCH' });
   loadRuangan();
+}
+
+// ── Fitur Admin: Hapus Ruangan Permanen ──────────────────
+async function hapusRuanganPermanen(id, nama) {
+  if (!confirm(`Hapus permanen ruangan ${nama}? Semua jadwal dan log terkait juga akan terhapus.`)) return;
+  const res = await fetch(`/ruangan/${id}`, { method: 'DELETE' });
+  
+  if (res.ok) {
+    await loadRuangan();
+  } else {
+    const err = await res.json();
+    alert(err.detail || "Gagal menghapus ruangan karena adanya relasi data.");
+  }
 }
 
 // ── Modal Kelola Penanggung Jawab ────────────────────────

@@ -393,6 +393,24 @@
   .cal-date  { font-size: .7rem; }
   .cal-event-dot { display: none; }
 }
+
+/* ── Perbaikan Modal Kelola Mahasiswa Tenggelam ── */
+#modalMahasiswa .modal-body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+#listMhsJadwal {
+  max-height: 220px;       /* batasi tinggi daftar mahasiswa terdaftar */
+  overflow-y: auto;
+  padding-right: 4px;
+}
+/* Sticky agar form tambah selalu terlihat tanpa scroll jauh */
+#modalMahasiswa .modal-footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 5;
+}
 </style>
 {% endblock %}
 

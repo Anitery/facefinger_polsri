@@ -4,11 +4,9 @@
 
 {% block content %}
 
-<!-- ── Toolbar filter ── -->
 <div class="section-card p-3 mb-3">
   <div class="row g-2 align-items-end">
 
-    <!-- Filter tanggal dari -->
     <div class="col-6 col-sm-3 col-lg-2">
       <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
         Dari Tanggal
@@ -16,7 +14,6 @@
       <input type="date" class="form-control form-control-sm" id="filterDari">
     </div>
 
-    <!-- Filter tanggal sampai -->
     <div class="col-6 col-sm-3 col-lg-2">
       <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
         Sampai Tanggal
@@ -24,7 +21,6 @@
       <input type="date" class="form-control form-control-sm" id="filterSampai">
     </div>
 
-    <!-- Filter status -->
     <div class="col-6 col-sm-3 col-lg-2">
       <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
         Status
@@ -36,7 +32,6 @@
       </select>
     </div>
 
-    <!-- Filter metode -->
     <div class="col-6 col-sm-3 col-lg-2">
       <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">
         Metode
@@ -48,7 +43,6 @@
       </select>
     </div>
 
-    <!-- Tombol aksi -->
     <div class="col-12 col-lg-4">
       <div class="d-flex gap-2 flex-wrap">
         <button class="btn btn-sm btn-primary" onclick="loadLog()">
@@ -62,6 +56,7 @@
           <span class="d-none d-sm-inline">Excel</span>
         </a>
         <div class="ms-auto d-flex gap-2">
+          {% if user.role == 'admin' %}
           <button class="btn btn-sm btn-outline-danger d-none"
                   id="btnHapusTerpilih" onclick="hapusTerpilih()">
             <i class="bi bi-trash me-1"></i>
@@ -71,6 +66,7 @@
             <i class="bi bi-trash3 me-1"></i>
             <span class="d-none d-sm-inline">Hapus Semua</span>
           </button>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -78,11 +74,10 @@
   </div>
 </div>
 
-<!-- ── Info bar ── -->
 <div class="d-flex align-items-center justify-content-between mb-2 px-1
             flex-wrap gap-2">
   <div class="d-flex align-items-center gap-3">
-    <!-- Checkbox pilih semua -->
+    {% if user.role == 'admin' %}
     <div class="form-check mb-0">
       <input class="form-check-input" type="checkbox" id="checkAll"
              onchange="toggleAll(this.checked)">
@@ -91,6 +86,7 @@
         Pilih Semua
       </label>
     </div>
+    {% endif %}
     <small class="text-muted" id="logInfo" style="font-size:.76rem;">—</small>
   </div>
   <small class="text-muted" style="font-size:.73rem;">
@@ -98,28 +94,31 @@
   </small>
 </div>
 
-<!-- ── Tabel ── -->
 <div class="tbl-wrap">
   <div style="overflow-x:auto;">
     <table class="table table-hover mb-0" style="min-width:560px;">
       <thead>
         <tr>
+          {% if user.role == 'admin' %}
           <th style="width:40px;">
             <input class="form-check-input" type="checkbox"
                    id="checkAllHeader" onchange="toggleAll(this.checked)">
           </th>
+          {% endif %}
           <th>No</th>
           <th>Waktu</th>
           <th>Nama</th>
           <th>Metode</th>
           <th>Status</th>
           <th>Keterangan</th>
+          {% if user.role == 'admin' %}
           <th style="width:60px; text-align:center;">Aksi</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody id="logBody">
         <tr>
-          <td colspan="8" class="text-center py-4 text-muted">Memuat...</td>
+          <td colspan="{% if user.role == 'admin' %}8{% else %}6{% endif %}" class="text-center py-4 text-muted">Memuat...</td>
         </tr>
       </tbody>
     </table>
@@ -138,6 +137,7 @@
 {% block extra_js %}
 <script>
 // ── State ────────────────────────────────────────────────
+const isAdmin    = "{{ user.role }}" === "admin";
 let allLogs      = [];
 let selectedIds  = new Set();
 let autoRefTimer = null;
@@ -182,15 +182,17 @@ async function loadLog() {
     // Reset pilihan saat reload
     selectedIds.clear();
     updateBulkUI();
-    document.getElementById('checkAll').checked       = false;
-    document.getElementById('checkAllHeader').checked = false;
+    if (isAdmin) {
+      document.getElementById('checkAll').checked       = false;
+      document.getElementById('checkAllHeader').checked = false;
+    }
 
     renderLog();
     updateExportLink();
 
   } catch(e) {
     document.getElementById('logBody').innerHTML =
-      '<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat data</td></tr>';
+      `<tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-4 text-danger">Gagal memuat data</td></tr>`;
   }
 }
 
@@ -206,7 +208,7 @@ function renderLog() {
 
   if (!allLogs.length) {
     tbody.innerHTML = `
-      <tr><td colspan="8" class="text-center py-5 text-muted">
+      <tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-5 text-muted">
         <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;"></i>
         Tidak ada log akses
       </td></tr>`;
@@ -218,22 +220,20 @@ function renderLog() {
     return `
       <tr id="row_${l.id}" class="${isChecked ? 'table-active' : ''}">
 
-        <!-- Checkbox -->
+        ${isAdmin ? `
         <td>
           <input class="form-check-input row-check" type="checkbox"
                  value="${l.id}" ${isChecked ? 'checked' : ''}
                  onchange="toggleRow(${l.id}, this.checked)">
         </td>
+        ` : ''}
 
-        <!-- No -->
         <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
 
-        <!-- Waktu -->
         <td style="white-space:nowrap; font-size:.78rem;">
           ${fmtDateTime(l.waktu_akses)}
         </td>
 
-        <!-- Nama -->
         <td>
           <div class="fw-bold" style="font-size:.83rem;">
             ${l.nama_user ||
@@ -244,7 +244,6 @@ function renderLog() {
             : ''}
         </td>
 
-        <!-- Metode -->
         <td>
           ${l.metode === 'face'
             ? `<span class="badge-role">
@@ -252,29 +251,27 @@ function renderLog() {
                </span>`
             : l.metode === 'fingerprint'
             ? `<span style="background:#dcfce7;color:#15803d;padding:3px 9px;
-                            border-radius:20px;font-size:.72rem;font-weight:600;">
+                             border-radius:20px;font-size:.72rem;font-weight:600;">
                  <i class="bi bi-fingerprint me-1"></i>FP
                </span>`
             : `<span style="background:#f1f5f9;color:#64748b;padding:3px 9px;
-                            border-radius:20px;font-size:.72rem;">
+                             border-radius:20px;font-size:.72rem;">
                  ${l.metode}
                </span>`}
         </td>
 
-        <!-- Status -->
         <td>
           ${l.status === 'berhasil'
             ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>Berhasil</span>'
             : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Ditolak</span>'}
         </td>
 
-        <!-- Keterangan -->
         <td style="font-size:.77rem;color:#64748b;max-width:200px;
                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           ${l.keterangan || '—'}
         </td>
 
-        <!-- Aksi hapus satu -->
+        ${isAdmin ? `
         <td style="text-align:center;">
           <button class="btn btn-outline-danger btn-sm"
                   style="padding:2px 8px;"
@@ -282,6 +279,7 @@ function renderLog() {
             <i class="bi bi-trash" style="font-size:.8rem;"></i>
           </button>
         </td>
+        ` : ''}
 
       </tr>`;
   }).join('');
@@ -312,13 +310,16 @@ function toggleAll(checked) {
   });
 
   // Sync kedua checkbox "pilih semua"
-  document.getElementById('checkAll').checked       = checked;
-  document.getElementById('checkAllHeader').checked = checked;
+  if (isAdmin) {
+    document.getElementById('checkAll').checked       = checked;
+    document.getElementById('checkAllHeader').checked = checked;
+  }
 
   updateBulkUI();
 }
 
 function syncCheckAll() {
+  if (!isAdmin) return;
   const allChecked = allLogs.length > 0 &&
                      selectedIds.size === allLogs.length;
   document.getElementById('checkAll').checked       = allChecked;
@@ -326,10 +327,13 @@ function syncCheckAll() {
 }
 
 function updateBulkUI() {
+  if (!isAdmin) return;
   const count   = selectedIds.size;
   const btnHapus = document.getElementById('btnHapusTerpilih');
-  document.getElementById('jumlahTerpilih').textContent = count;
-  btnHapus.classList.toggle('d-none', count === 0);
+  if (btnHapus) {
+    document.getElementById('jumlahTerpilih').textContent = count;
+    btnHapus.classList.toggle('d-none', count === 0);
+  }
 }
 
 // ── Hapus ────────────────────────────────────────────────
@@ -435,7 +439,6 @@ function startAutoRefresh() {
 }
 
 window.addEventListener('ruanganChanged', () => { loadLog(); updateExportLink(); });
-
 
 document.getElementById('filterDari').addEventListener('change', () => {
   loadLog(); updateExportLink();
