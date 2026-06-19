@@ -34,8 +34,7 @@ class MahasiswaInfo(BaseModel):
 class JadwalOut(JadwalCreate):
     id: int
     mahasiswa_diizinkan: List[MahasiswaInfo] = []
-    # Jika is_active ditambahkan ke response, uncomment baris di bawah:
-    # is_active: bool
+    is_active: bool  
     model_config = {"from_attributes": True}
 
 
