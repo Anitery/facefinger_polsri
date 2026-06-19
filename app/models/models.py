@@ -39,6 +39,8 @@ class Ruangan(Base):
     access_logs = relationship("AccessLog", back_populates="ruangan")
     rekaman_kamera = relationship("RekamanKamera", back_populates="ruangan")
     inventaris = relationship("InventarisAlat", back_populates="ruangan")
+    
+    # Hubungan dua arah dengan JadwalRuangan menggunakan back_populates
     jadwal = relationship("JadwalRuangan", back_populates="ruangan")
 
     # Relasi many-to-many penanggung jawab
@@ -55,7 +57,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     nama = Column(String(100), nullable=False)
     nim_nip = Column(String(20), unique=True, index=True)
-    kelas = Column(String(50), nullable=True)  # ← TAMBAH, khusus mahasiswa (contoh: "6CC")
+    kelas = Column(String(50), nullable=True)  # khusus mahasiswa (contoh: "6CC")
     role = Column(String(20), default="mahasiswa")
     face_encoding = Column(Text, nullable=True)
     fingerprint_id = Column(Integer, nullable=True)
@@ -123,22 +125,22 @@ class JadwalRuangan(Base):
     id             = Column(Integer, primary_key=True, index=True)
     ruangan_id     = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
     nama_kegiatan  = Column(String(150), nullable=False)
-    kelas          = Column(String(50), nullable=True)
+    kelas          = Column(String(50),  nullable=True)
     dosen          = Column(String(100), nullable=True)
     mata_kuliah    = Column(String(100), nullable=True)
-    tanggal        = Column(String(20), nullable=False)
-    jam_mulai      = Column(String(10), nullable=False)
-    jam_selesai    = Column(String(10), nullable=False)
-    keterangan     = Column(Text, nullable=True)
+    tanggal        = Column(String(20),  nullable=False)
+    jam_mulai      = Column(String(10),  nullable=False)
+    jam_selesai    = Column(String(10),  nullable=False)
+    keterangan     = Column(Text,        nullable=True)
+    is_active      = Column(Boolean, default=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
-    mahasiswa_diizinkan = relationship(
-        "User",
-        secondary="jadwal_mahasiswa",
-        backref="jadwal_diizinkan"
-    )
-
+    # PERBAIKAN: Diubah dari backref="jadwal" menjadi back_populates="jadwal"
     ruangan = relationship("Ruangan", back_populates="jadwal")
+    
+    mahasiswa_diizinkan = relationship(
+        "User", secondary="jadwal_mahasiswa", backref="jadwal_diizinkan"
+    )
 
 
 class Absensi(Base):
@@ -168,4 +170,4 @@ class BridgeHeartbeat(Base):
                          onupdate=func.now())
     device_time = Column(String(30), nullable=True)
     total_user  = Column(Integer, default=0)
-    extra_info  = Column(Text, nullable=True)  # JSON metadata tambahan dari STB
+    extra_info  = Column(Text, nullable=True)  

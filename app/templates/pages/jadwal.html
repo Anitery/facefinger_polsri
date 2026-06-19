@@ -11,9 +11,19 @@
     Jadwal penggunaan:
     <strong id="jadwalNamaRuangan">Semua Ruangan</strong>
   </p>
-  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalJadwal">
-    <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
-  </button>
+  <div class="d-flex gap-3 align-items-center">
+    {% if user.role == 'admin' %}
+    <div class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" id="showInactiveJadwal" onchange="render()">
+      <label class="form-check-label" style="font-size:.83rem;" for="showInactiveJadwal">
+        Tampilkan jadwal nonaktif
+      </label>
+    </div>
+    {% endif %}
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalJadwal">
+      <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
+    </button>
+  </div>
 </div>
 
 <div class="row g-3">
@@ -416,6 +426,10 @@
 
 {% block extra_js %}
 <script>
+// Roles Settings
+const myRole = "{{ user.role }}";
+const isAdmin = myRole === "admin";
+const isDosen = myRole === "dosen";
 
 // ── Load daftar dosen untuk dropdown ─────────────────────
 async function loadDosenList() {
@@ -489,9 +503,13 @@ function nextMonth() { curMonth++; if(curMonth>11){curMonth=0;curYear++;} filter
 async function loadJadwal() {
   try {
     const rid = getRuanganId();
-    const url = rid
+    const showInactive = document.getElementById('showInactiveJadwal')?.checked || false;
+    let url = rid
       ? `/jadwal/?ruangan_id=${rid}&bulan=${bulanStr()}`
       : `/jadwal/?bulan=${bulanStr()}`;
+      
+    if (showInactive) url += '&include_inactive=true';
+    
     const res = await fetch(url);
     allJadwal = await res.json();
   } catch(e) { allJadwal = []; }
@@ -583,44 +601,64 @@ function renderList() {
     return;
   }
 
-document.getElementById('listJadwal').innerHTML = data.map(j => `
-  <div class="jadwal-item">
-    <div class="jadwal-date-box">
-      <div class="month">${BULAN_SHORT[parseInt(j.tanggal.slice(5,7))-1]}</div>
-      <div class="day">${j.tanggal.slice(8,10)}</div>
-    </div>
-    <div class="jadwal-info">
-      <div class="title">${j.nama_kegiatan}
-        ${j.kelas
-          ? `<span style="background:#eff6ff;color:#1d4ed8;
-                          padding:1px 7px;border-radius:10px;
-                          font-size:.68rem;font-weight:600;
-                          margin-left:4px;">${j.kelas}</span>`
-          : ''}
+  document.getElementById('listJadwal').innerHTML = data.map(j => {
+    let rawStatus = j.is_active ?? j.is_aktif ?? j.aktif;
+
+    let isAktif = true; 
+
+    if (rawStatus !== undefined && rawStatus !== null) {
+      if (rawStatus === 0 || rawStatus === "0" || rawStatus === false || String(rawStatus).toLowerCase() === "false") {
+        isAktif = false;
+      } else {
+        isAktif = true; 
+      }
+    }
+
+    return `
+    <div class="jadwal-item" style="${!isAktif ? 'opacity:.5;' : ''}">
+      <div class="jadwal-date-box">
+        <div class="month">${BULAN_SHORT[parseInt(j.tanggal.slice(5,7))-1]}</div>
+        <div class="day">${j.tanggal.slice(8,10)}</div>
       </div>
-      <div class="meta">
-        <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
-        ${j.dosen ? `&nbsp;·&nbsp;<i class="bi bi-person me-1"></i>${j.dosen}` : ''}
+      <div class="jadwal-info">
+        <div class="title">${j.nama_kegiatan}
+          ${j.kelas ? `<span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:600;margin-left:4px;">${j.kelas}</span>` : ''}
+          
+          ${isAktif 
+            ? `<span style="background:#dcfce3;color:#166534;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:600;margin-left:4px;">Aktif</span>` 
+            : `<span style="background:#fee2e2;color:#b91c1c;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:600;margin-left:4px;">Nonaktif</span>`
+          }
+        </div>
+        <div class="meta">
+          <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
+          ${j.dosen ? `&nbsp;·&nbsp;<i class="bi bi-person me-1"></i>${j.dosen}` : ''}
+        </div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:3px;">
+          <i class="bi bi-people me-1"></i>
+          ${j.mahasiswa_diizinkan?.length
+            ? `${j.mahasiswa_diizinkan.length} mahasiswa terdaftar`
+            : '<span style="color:#f59e0b;">Belum ada mahasiswa — semua bisa akses</span>'}
+        </div>
       </div>
-      <div style="font-size:.72rem;color:#64748b;margin-top:3px;">
-        <i class="bi bi-people me-1"></i>
-        ${j.mahasiswa_diizinkan?.length
-          ? `${j.mahasiswa_diizinkan.length} mahasiswa terdaftar`
-          : '<span style="color:#f59e0b;">Belum ada mahasiswa — semua bisa akses</span>'}
+      <div class="d-flex flex-column gap-1" style="flex-shrink:0;">
+        <button class="btn btn-outline-primary btn-sm"
+                onclick="openModalMahasiswaById(${j.id})" title="Kelola mahasiswa">
+          <i class="bi bi-people"></i>
+        </button>
+        ${(isAdmin || isDosen) ? `
+          <button class="btn btn-outline-secondary btn-sm"
+                  onclick="toggleAktifJadwal(${j.id})"
+                  title="${isAktif ? 'Nonaktifkan' : 'Aktifkan'}">
+            <i class="bi bi-power"></i>
+          </button>` : ''}
+        ${isAdmin ? `
+          <button class="btn btn-sm" style="color:#ef4444;padding:2px 6px;"
+                  onclick="hapusJadwalPermanen(${j.id})" title="Hapus permanen">
+            <i class="bi bi-trash"></i>
+          </button>` : ''}
       </div>
     </div>
-    <div class="d-flex flex-column gap-1" style="flex-shrink:0;">
-      <button class="btn btn-outline-primary btn-sm"
-              onclick="openModalMahasiswaById(${j.id})"
-              title="Kelola mahasiswa">
-        <i class="bi bi-people"></i>
-      </button>
-      <button class="btn btn-sm" style="color:#ef4444;padding:2px 6px;"
-              onclick="hapusJadwal(${j.id})">
-        <i class="bi bi-trash"></i>
-      </button>
-    </div>
-  </div>`).join('');
+  `}).join('');
 }
 
 function selectDay(dateStr) {
@@ -730,10 +768,35 @@ async function tambahJadwal() {
   }
 }
 
-async function hapusJadwal(id) {
-  if (!confirm('Hapus jadwal ini?')) return;
-  await fetch(`/jadwal/${id}`, { method:'DELETE' });
-  await render();
+async function toggleAktifJadwal(id) {
+  try {
+    const res = await fetch(`/jadwal/${id}/toggle-aktif`, { method: 'PATCH' });
+    if (res.ok) {
+      await render();
+    } else {
+      const err = await res.json().catch(() => ({ detail: 'Gagal mengubah status.' }));
+      alert(err.detail);
+    }
+  } catch (e) {
+    alert('Terjadi kesalahan jaringan.');
+    console.error(e);
+  }
+}
+
+async function hapusJadwalPermanen(id) {
+  if (!confirm('Hapus jadwal ini secara PERMANEN beserta seluruh data absensi terkait? Tindakan ini tidak dapat dibatalkan.')) return;
+  try {
+    const res = await fetch(`/jadwal/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      await render();
+    } else {
+      const err = await res.json().catch(() => ({ detail: 'Gagal menghapus jadwal (error server).' }));
+      alert(err.detail);
+    }
+  } catch (e) {
+    alert('Terjadi kesalahan jaringan saat menghapus jadwal.');
+    console.error(e);
+  }
 }
 
 window.addEventListener('ruanganChanged', (e) => {

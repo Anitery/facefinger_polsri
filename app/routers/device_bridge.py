@@ -46,13 +46,13 @@ VERIFY_MAP = {
     "0":  "password",
     "1":  "fingerprint",
     "2":  "fingerprint",
-    "3":  "password",     
+    "3":  "password",    
     "4":  "face",
     "5":  "face",
     "6":  "face",
     "7":  "face",
     "9":  "face",
-    "15": "face",         
+    "15": "face",        
     "200": "other",
 }
 
@@ -306,14 +306,13 @@ def receive_logs(
                     duplikat += 1
                     continue
 
-                # ✅ FIX: Gunakan = (satu sama dengan), bukan ==
                 keterangan = f"PIN:{log_item.pin} tidak terdaftar | {metode} | SN:{payload.device_sn}"
                 # Truncate kalau terlalu panjang (max 200 chars di DB)
                 keterangan = keterangan[:200]
 
                 db.add(AccessLog(
                     user_id     = None,
-                    ruangan_id  = payload.ruangan_id,   # ✅ = BUKAN ==
+                    ruangan_id  = payload.ruangan_id,
                     waktu_akses = waktu,
                     metode      = metode,
                     status      = "ditolak",
@@ -345,18 +344,17 @@ def receive_logs(
 
             status_akses = "berhasil" if boleh else "ditolak"
 
-            # ✅ FIX: = BUKAN == untuk semua field
             keterangan = (
                 f"{alasan} | {metode} | SN:{payload.device_sn}"
             )[:190]
 
             db.add(AccessLog(
-                user_id     = user.id,                  # ✅ =
-                ruangan_id  = payload.ruangan_id,       # ✅ =
-                waktu_akses = waktu,                    # ✅ =
-                metode      = metode,                   # ✅ =
-                status      = status_akses,             # ✅ =
-                keterangan  = keterangan                # ✅ =
+                user_id     = user.id,
+                ruangan_id  = payload.ruangan_id,
+                waktu_akses = waktu,
+                metode      = metode,
+                status      = status_akses,
+                keterangan  = keterangan
             ))
             db.commit()
 
@@ -368,21 +366,27 @@ def receive_logs(
                     f"jadwal={jadwal_aktif.id}"
                 )
 
-                catat_absensi_device(
-                    db=db,
-                    jadwal_id=jadwal_aktif.id,
-                    user_id=user.id,
-                    jam_mulai=jadwal_aktif.jam_mulai,
-                    waktu_scan=waktu
+                # PERBAIKAN: Hanya mahasiswa yang dicatat ke tabel absensi
+                if user.role == "mahasiswa":
+                    catat_absensi_device(
+                        db         = db,
+                        jadwal_id  = jadwal_aktif.id,
+                        user_id    = user.id,
+                        jam_mulai  = jadwal_aktif.jam_mulai,
+                        waktu_scan = waktu
+                    )
                     
-                )
-                log.info(
-                    f"waktu={waktu} "
-                    f"tz={waktu.tzinfo}"
-                )
-                log.info(
-                    f"ABSENSI BERHASIL: user={user.id}"
-                )
+                    log.info(
+                        f"waktu={waktu} "
+                        f"tz={waktu.tzinfo}"
+                    )
+                    log.info(
+                        f"ABSENSI BERHASIL: user={user.id}"
+                    )
+                else:
+                    log.info(
+                        f"ABSENSI DIABAIKAN: user={user.id} bukan mahasiswa (role: {user.role})"
+                    )
 
             if boleh:
                 berhasil += 1

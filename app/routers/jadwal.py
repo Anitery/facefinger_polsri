@@ -1,53 +1,64 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
-from datetime import datetime, date
+from datetime import datetime
 from pydantic import BaseModel
+
 from app.database import get_db
-from app.models.models import JadwalRuangan, User
+from app.models.models import JadwalRuangan, User, Absensi, jadwal_mahasiswa
+from app.services.auth_service import get_current_user_session
+
+# PASTIKAN SESUAIKAN IMPORT INI DENGAN MODUL AUTENTIKASI ANDA:
+# from app.dependencies import get_current_user_session 
 
 router = APIRouter(prefix="/jadwal", tags=["Jadwal Ruangan"])
 
-
 class JadwalCreate(BaseModel):
-    ruangan_id:    int
+    ruangan_id: int
     nama_kegiatan: str
-    kelas:         Optional[str] = None
-    dosen:         Optional[str] = None
-    mata_kuliah:   Optional[str] = None
-    tanggal:       str
-    jam_mulai:     str
-    jam_selesai:   str
-    keterangan:    Optional[str] = None
-
+    kelas: Optional[str] = None
+    dosen: Optional[str] = None
+    mata_kuliah: Optional[str] = None
+    tanggal: str
+    jam_mulai: str
+    jam_selesai: str
+    keterangan: Optional[str] = None
 
 class MahasiswaInfo(BaseModel):
-    id:      int
-    nama:    str
+    id: int
+    nama: str
     nim_nip: str
-    role:    str
+    role: str
     model_config = {"from_attributes": True}
-
 
 class JadwalOut(JadwalCreate):
     id: int
     mahasiswa_diizinkan: List[MahasiswaInfo] = []
+    # Jika is_active ditambahkan ke response, uncomment baris di bawah:
+    # is_active: bool
     model_config = {"from_attributes": True}
 
 
 @router.get("/", response_model=List[JadwalOut])
 def get_jadwal(
     ruangan_id: Optional[int] = Query(None),
-    bulan:      Optional[str] = Query(None),
+    bulan: Optional[str] = Query(None),
+    include_inactive: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     q = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     )
+    
+    if not include_inactive:
+        q = q.filter(JadwalRuangan.is_active == True)
+        
     if ruangan_id:
         q = q.filter(JadwalRuangan.ruangan_id == ruangan_id)
+        
     if bulan:
         q = q.filter(JadwalRuangan.tanggal.startswith(bulan))
+        
     return q.order_by(JadwalRuangan.tanggal, JadwalRuangan.jam_mulai).all()
 
 
@@ -76,6 +87,7 @@ def get_jadwal_aktif(ruangan_id: int, db: Session = Depends(get_db)):
         JadwalRuangan.tanggal    == today,
         JadwalRuangan.jam_mulai  <= now_time,
         JadwalRuangan.jam_selesai > now_time,
+        JadwalRuangan.is_active  == True # Menambahkan filter aktif agar jadwal yang di-nonaktifkan tidak lolos
     ).first()
 
     if not jadwal:
@@ -104,22 +116,47 @@ def buat_jadwal(payload: JadwalCreate, db: Session = Depends(get_db)):
     return jadwal
 
 
-@router.delete("/{jadwal_id}")
-def hapus_jadwal(jadwal_id: int, db: Session = Depends(get_db)):
-    jadwal = db.query(JadwalRuangan).filter(
-        JadwalRuangan.id == jadwal_id
-    ).first()
+@router.patch("/{jadwal_id}/toggle-aktif")
+def toggle_aktif_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
+    """Aktifkan atau nonaktifkan jadwal (Admin / Dosen pengampu)."""
+    current = get_current_user_session(request)
+    if current["role"] not in ("admin", "dosen"):
+        raise HTTPException(403, "Tidak diizinkan")
+        
+    jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()
     if not jadwal:
-        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan")
+        raise HTTPException(404, "Jadwal tidak ditemukan")
+        
+    if current["role"] == "dosen" and jadwal.dosen != current["nama"]:
+        raise HTTPException(403, "Anda bukan dosen pengampu jadwal ini")
+        
+    jadwal.is_active = not jadwal.is_active
+    db.commit()
+    return {"pesan": "Status jadwal diperbarui", "is_active": jadwal.is_active}
+
+
+@router.delete("/{jadwal_id}")
+def hapus_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
+    """Hapus jadwal beserta dependensinya secara permanen (Hanya Admin)."""
+    current = get_current_user_session(request)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Hanya admin yang dapat menghapus jadwal secara permanen")
+        
+    jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()
+    if not jadwal:
+        raise HTTPException(404, "Jadwal tidak ditemukan")
+        
+    # Hapus dependensi dulu agar tidak terbentur foreign key constraint
+    db.query(Absensi).filter(Absensi.jadwal_id == jadwal_id).delete()
+    db.execute(jadwal_mahasiswa.delete().where(jadwal_mahasiswa.c.jadwal_id == jadwal_id))
+    
     db.delete(jadwal)
     db.commit()
-    return {"pesan": "Jadwal dihapus"}
+    return {"pesan": "Jadwal dan seluruh data terkait (absensi & peserta) dihapus permanen"}
 
 
 @router.post("/{jadwal_id}/mahasiswa/{user_id}")
-def tambah_mahasiswa(
-    jadwal_id: int, user_id: int, db: Session = Depends(get_db)
-):
+def tambah_mahasiswa(jadwal_id: int, user_id: int, db: Session = Depends(get_db)):
     """Tambahkan mahasiswa ke daftar yang boleh akses jadwal ini."""
     jadwal = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
@@ -143,9 +180,7 @@ def tambah_mahasiswa(
 
 
 @router.delete("/{jadwal_id}/mahasiswa/{user_id}")
-def hapus_mahasiswa(
-    jadwal_id: int, user_id: int, db: Session = Depends(get_db)
-):
+def hapus_mahasiswa(jadwal_id: int, user_id: int, db: Session = Depends(get_db)):
     """Hapus mahasiswa dari daftar akses jadwal."""
     jadwal = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
@@ -166,10 +201,10 @@ def hapus_mahasiswa(
     db.commit()
     return {"pesan": f"{user.nama} dihapus dari jadwal"}
 
+
 @router.post("/{jadwal_id}/mahasiswa/by-kelas/{kelas}")
-def tambah_mahasiswa_by_kelas(
-    jadwal_id: int, kelas: str, db: Session = Depends(get_db)
-):
+def tambah_mahasiswa_by_kelas(jadwal_id: int, kelas: str, db: Session = Depends(get_db)):
+    """Tambahkan mahasiswa sekaligus berdasarkan kelas."""
     jadwal = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     ).filter(JadwalRuangan.id == jadwal_id).first()

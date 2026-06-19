@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
@@ -6,6 +6,7 @@ from datetime import datetime
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+
 from app.database import get_db
 from app.models.models import Absensi, JadwalRuangan, User
 from app.services.absensi_service import (
@@ -21,27 +22,57 @@ STATUS_COLOR = {
     "izin":        "eff6ff",
 }
 
+# --- Helper Function ---
+def get_current_user_session(request: Request):
+    from app.services.auth_service import decode_session_token
+    token = request.cookies.get("session_token")
+    if not token:
+        raise HTTPException(401, "Sesi tidak valid")
+    
+    user = decode_session_token(token)
+    if not user:
+        raise HTTPException(401, "Sesi tidak valid")
+    
+    return user
+
 
 @router.get("/jadwal/{jadwal_id}")
-def get_absensi_jadwal(jadwal_id: int, db: Session = Depends(get_db)):
+def get_absensi_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
     """Ambil rekap absensi untuk satu jadwal."""
+    current = get_current_user_session(request)
+    jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()
+    
+    if not jadwal:
+        raise HTTPException(404, "Jadwal tidak ditemukan")
+        
+    if current["role"] == "dosen" and jadwal.dosen != current["nama"]:
+        raise HTTPException(403, "Anda bukan dosen pengampu jadwal ini")
+        
     return get_rekap_jadwal(db, jadwal_id)
 
 
 @router.get("/rekap")
 def get_rekap_ruangan(
+    request: Request,
     ruangan_id:  Optional[int] = Query(None),
     bulan:       Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Rekap semua absensi per jadwal dalam satu ruangan/bulan.
+    Dosen hanya bisa melihat rekap jadwal yang diampunya.
     """
+    current = get_current_user_session(request)
     q = db.query(JadwalRuangan)
+    
     if ruangan_id:
         q = q.filter(JadwalRuangan.ruangan_id == ruangan_id)
     if bulan:
         q = q.filter(JadwalRuangan.tanggal.startswith(bulan))
+        
+    # Dosen hanya melihat jadwal yang ia ampu sendiri
+    if current["role"] == "dosen":
+        q = q.filter(JadwalRuangan.dosen == current["nama"])
 
     jadwal_list = q.order_by(
         JadwalRuangan.tanggal, JadwalRuangan.jam_mulai
@@ -157,12 +188,40 @@ def update_status_absensi(
     return {"pesan": "Status absensi diperbarui"}
 
 
+@router.delete("/{absensi_id}")
+def hapus_absensi(absensi_id: int, request: Request, db: Session = Depends(get_db)):
+    current = get_current_user_session(request)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Hanya admin yang dapat menghapus data absensi")
+    ab = db.query(Absensi).filter(Absensi.id == absensi_id).first()
+    if not ab:
+        raise HTTPException(404, "Data absensi tidak ditemukan")
+    db.delete(ab)
+    db.commit()
+    return {"pesan": "Data absensi dihapus"}
+
+
+@router.delete("/jadwal/{jadwal_id}")
+def hapus_absensi_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
+    current = get_current_user_session(request)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Hanya admin yang dapat menghapus data absensi")
+    deleted = db.query(Absensi).filter(Absensi.jadwal_id == jadwal_id).delete()
+    db.commit()
+    return {"pesan": f"{deleted} data absensi pada jadwal ini dihapus", "deleted": deleted}
+
+
 @router.get("/export/excel/{jadwal_id}")
-def export_absensi_excel(jadwal_id: int, db: Session = Depends(get_db)):
+def export_absensi_excel(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
     """Export absensi satu jadwal ke Excel."""
+    current = get_current_user_session(request)
     rekap = get_rekap_jadwal(db, jadwal_id)
+    
     if not rekap:
         raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan")
+        
+    if current["role"] == "dosen" and rekap.get("dosen") != current["nama"]:
+        raise HTTPException(403, "Anda bukan dosen pengampu jadwal ini")
 
     wb = Workbook()
     ws = wb.active

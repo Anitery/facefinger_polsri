@@ -4,7 +4,6 @@
 
 {% block content %}
 
-<!-- ── Filter bar ── -->
 <div class="section-card p-3 mb-3">
   <div class="row g-2 align-items-end">
     <div class="col-6 col-sm-4 col-lg-3">
@@ -22,7 +21,6 @@
   </div>
 </div>
 
-<!-- ── Stat cards ── -->
 <div class="row g-3 mb-3" id="absensiStats" style="display:none;">
   <div class="col-6 col-lg-3">
     <div class="stat-card">
@@ -70,7 +68,6 @@
   </div>
 </div>
 
-<!-- ── Tabel jadwal + ringkasan absensi ── -->
 <div class="tbl-wrap d-none d-md-block mb-3" id="tabelRekap">
   <div style="overflow-x:auto;">
     <table class="table table-hover mb-0" style="min-width:640px;">
@@ -98,10 +95,8 @@
   </div>
 </div>
 
-<!-- Mobile cards -->
 <div id="rekapMobile" class="d-md-none d-flex flex-column gap-2 mb-3"></div>
 
-<!-- ── Modal Detail Absensi ── -->
 <div class="modal fade" id="modalAbsensi" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content" style="border-radius:14px;overflow:hidden;">
@@ -114,7 +109,6 @@
       </div>
       <div class="modal-body p-0">
 
-        <!-- Info jadwal -->
         <div class="px-4 py-3 border-bottom"
              style="background:#f8fafc; font-size:.82rem;">
           <div class="row g-2">
@@ -137,7 +131,6 @@
           </div>
         </div>
 
-        <!-- Ringkasan -->
         <div class="px-4 py-2 border-bottom d-flex gap-4 flex-wrap"
              style="font-size:.82rem;">
           <span>
@@ -152,7 +145,7 @@
             Terlambat: <strong id="detailTerlambat">0</strong>
           </span>
           <span>
-            <span class="badge-no me-1">✗</span>
+            <span class="badge-no :me-1">✗</span>
             Absen: <strong id="detailAbsen">0</strong>
           </span>
           <span>
@@ -164,7 +157,6 @@
           </span>
         </div>
 
-        <!-- Tabel detail -->
         <div style="overflow-x:auto; max-height:380px; overflow-y:auto;">
           <table class="table table-hover mb-0" style="min-width:480px;">
             <thead style="position:sticky;top:0;">
@@ -174,7 +166,7 @@
                 <th>NIM/NIP</th>
                 <th>Status</th>
                 <th>Jam Masuk</th>
-                <th>Ubah</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody id="detailBody">
@@ -206,7 +198,6 @@
   </div>
 </div>
 
-<!-- Modal ubah status -->
 <div class="modal fade" id="modalUbahStatus" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content" style="border-radius:14px;overflow:hidden;">
@@ -321,6 +312,8 @@ function renderRekap(data) {
     return;
   }
 
+  const isAdmin = "{{ user.role }}" === "admin";
+
   tbody.innerHTML = data.map((j, i) => `
     <tr>
       <td class="text-muted" style="font-size:.75rem;">${i+1}</td>
@@ -360,6 +353,12 @@ function renderRekap(data) {
                 title="Lihat detail">
           <i class="bi bi-eye"></i>
         </button>
+        ${isAdmin ? `
+          <button class="btn btn-outline-danger btn-sm"
+                  onclick="hapusAbsensiJadwal(${j.jadwal_id})"
+                  title="Hapus seluruh absensi jadwal ini">
+            <i class="bi bi-trash"></i>
+          </button>` : ''}
       </td>
     </tr>`).join('');
 
@@ -380,10 +379,17 @@ function renderRekap(data) {
             ${j.tanggal} · ${j.jam_mulai}–${j.jam_selesai}
           </div>
         </div>
-        <button class="btn btn-outline-primary btn-sm"
-                onclick="lihatDetail(${j.jadwal_id})">
-          <i class="bi bi-eye"></i>
-        </button>
+        <div class="d-flex gap-1">
+          <button class="btn btn-outline-primary btn-sm"
+                  onclick="lihatDetail(${j.jadwal_id})">
+            <i class="bi bi-eye"></i>
+          </button>
+          ${isAdmin ? `
+            <button class="btn btn-outline-danger btn-sm"
+                    onclick="hapusAbsensiJadwal(${j.jadwal_id})">
+              <i class="bi bi-trash"></i>
+            </button>` : ''}
+        </div>
       </div>
       <div class="d-flex gap-2" style="font-size:.77rem;">
         <span class="badge-ok">✓ ${j.hadir}</span>
@@ -437,8 +443,7 @@ async function lihatDetail(jadwalId) {
           <td style="font-size:.78rem;">${d.waktu_masuk}</td>
           <td>
             <button class="btn btn-outline-secondary btn-sm"
-                    onclick="bukaUbahStatus(${d.user_id},'${d.nama}',
-                             ${jadwalId})">
+                    onclick="bukaUbahStatus(${d.user_id},'${d.nama.replace(/'/g,"\\'")}', ${jadwalId})">
               <i class="bi bi-pencil"></i>
             </button>
           </td>
@@ -471,6 +476,25 @@ async function tutupAbsensiManual() {
   alert(data.pesan);
   lihatDetail(currentJadwalId);
   loadRekap();
+}
+
+// ── Hapus seluruh absensi jadwal ─────────────────────────
+async function hapusAbsensiJadwal(jadwalId) {
+  if (!confirm('Hapus SELURUH data absensi pada jadwal ini? Tindakan ini tidak dapat dibatalkan.')) return;
+  try {
+    const res = await fetch(`/absensi/jadwal/${jadwalId}`, { method: 'DELETE' });
+    if (res.ok) {
+      const data = await res.json();
+      alert(data.pesan);
+      loadRekap();
+    } else {
+      const err = await res.json().catch(() => ({ detail: 'Gagal menghapus absensi.' }));
+      alert(err.detail);
+    }
+  } catch (e) {
+    alert('Terjadi kesalahan jaringan.');
+    console.error(e);
+  }
 }
 
 // ── Ubah status absensi ──────────────────────────────────
