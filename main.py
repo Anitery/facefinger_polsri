@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
+from typing import Optional # Ditambahkan untuk kebutuhan route cetak laporan
 import time
 
 # Import database dan model
@@ -163,8 +164,6 @@ def dashboard_home(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    # SEBELUM: if user["role"] != "admin": redirect
-    # SESUDAH: semua role boleh akses, tidak ada pengecekan tambahan
     return templates.TemplateResponse(
         request=request, name="pages/index.html",
         context={"active": "dashboard", "user": user,
@@ -202,8 +201,6 @@ def dashboard_log_akses(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    # SEBELUM: if user["role"] not in ("admin", "teknisi"): redirect
-    # SESUDAH: semua role boleh akses
     return templates.TemplateResponse(
         request=request, name="pages/log_akses.html",
         context={"active": "log_akses", "user": user,
@@ -282,6 +279,112 @@ def dashboard_enroll(request: Request, db: Session = Depends(get_db)):
                  "ruangan_list": get_ruangan_list(db)}
     )
 
+# ── Absensi & Laporan Routes ───────────────────────────────────────────────────
+
+@app.get("/absensi/cetak-laporan")
+def cetak_laporan_bulanan(
+    request: Request,
+    ruangan_id: int,
+    bulan: str,
+    kelas: Optional[str] = None,
+    jadwal_ids: Optional[str] = None,   # ← "12,15,18" dipisah koma
+    db: Session = Depends(get_db)
+):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user["role"] not in ("admin", "dosen"):
+        return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
+
+    from sqlalchemy.orm import joinedload
+    # Pastikan 'User' di-import di sini untuk keperluan query dosen_nim_nip
+    from app.models.models import JadwalRuangan, Absensi, Ruangan, User
+
+    q = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(
+        JadwalRuangan.ruangan_id == ruangan_id,
+        JadwalRuangan.tanggal.startswith(bulan),
+    )
+    if kelas:
+        q = q.filter(JadwalRuangan.kelas == kelas)
+    if user["role"] == "dosen":
+        q = q.filter(JadwalRuangan.dosen == user["nama"])
+
+    # filter berdasarkan checkbox jadwal terpilih
+    if jadwal_ids:
+        try:
+            ids = [int(x) for x in jadwal_ids.split(",") if x.strip()]
+            q = q.filter(JadwalRuangan.id.in_(ids))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Format jadwal_ids tidak valid")
+
+    jadwal_list = q.order_by(JadwalRuangan.tanggal).all()
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
+    mahasiswa_set = {}
+    
+    for j in jadwal_list:
+        if j.mahasiswa_diizinkan:
+            for m in j.mahasiswa_diizinkan:
+                mahasiswa_set[m.id] = m
+        else:
+            q_mhs = db.query(User).filter(User.role == "mahasiswa", User.aktif == True)
+            if j.kelas:
+                q_mhs = q_mhs.filter(User.kelas == j.kelas)
+            for m in q_mhs.all():
+                mahasiswa_set[m.id] = m
+
+    mahasiswa_list = sorted(mahasiswa_set.values(), key=lambda m: m.nama)
+    jadwal_ids_list = [j.id for j in jadwal_list]
+    absensi_rows = db.query(Absensi).filter(Absensi.jadwal_id.in_(jadwal_ids_list)).all()
+    absensi_map = {(a.jadwal_id, a.user_id): a.status for a in absensi_rows}
+
+    STATUS_LABEL_PENDEK = {"hadir": "H", "terlambat": "T", "tidak_hadir": "A", "izin": "I"}
+    BULAN_NAMA = {
+        "01": "Januari", "02": "Februari", "03": "Maret", "04": "April",
+        "05": "Mei", "06": "Juni", "07": "Juli", "08": "Agustus",
+        "09": "September", "10": "Oktober", "11": "November", "12": "Desember"
+    }
+
+    thn, bln = bulan.split("-")
+    rows = []
+
+    for i, m in enumerate(mahasiswa_list, 1):
+        cells = []
+        cnt = {"hadir": 0, "terlambat": 0, "tidak_hadir": 0, "izin": 0}
+        for j in jadwal_list:
+            st = absensi_map.get((j.id, m.id))
+            cells.append(STATUS_LABEL_PENDEK.get(st, "-"))
+            if st in cnt:
+                cnt[st] += 1
+        rows.append({
+            "no": i, "nim": m.nim_nip or "-", "nama": m.nama,
+            "cells": cells, "cnt": cnt
+        })
+
+    # ── LOGIKA BARU: Ambil NIP Dosen ──
+    dosen_nama_jadwal = jadwal_list[0].dosen if jadwal_list else None
+    dosen_user = None
+    if dosen_nama_jadwal:
+        dosen_user = db.query(User).filter(
+            User.nama == dosen_nama_jadwal,
+            User.role == "dosen"
+        ).first()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="pages/cetak_laporan.html",
+        context={
+            "ruangan":       ruangan,
+            "bulan_label":   f"{BULAN_NAMA.get(bln, bln)} {thn}",
+            "kelas":         kelas,
+            "tanggal_list":  [j.tanggal[8:10] + "/" + j.tanggal[5:7] for j in jadwal_list],
+            "rows":          rows,
+            "dosen_nama":    dosen_nama_jadwal or "-",
+            "dosen_nim_nip": dosen_user.nim_nip if dosen_user else None,   # ← DITAMBAHKAN
+            "is_empty":      not mahasiswa_list,
+        }
+    )
 
 # ── Root & Health ────────────────────────────────────────────────────────
 

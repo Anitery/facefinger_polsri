@@ -25,7 +25,7 @@ load_dotenv()
 DEVICE_IP         = os.getenv("DEVICE_IP",         "192.168.0.177")
 DEVICE_COMKEY     = os.getenv("DEVICE_COMKEY",     "0")
 DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "9"))
-SERVER_URL        = os.getenv("SERVER_URL",        "https://facefingerpolsri-production.up.railway.app/")
+SERVER_URL        = os.getenv("SERVER_URL",        "http://localhost:8000/")
 BRIDGE_API_KEY    = os.getenv("BRIDGE_API_KEY",    "bridge-key-polsri-2026")
 PULL_INTERVAL     = int(os.getenv("PULL_INTERVAL", "30"))
 SYNC_INTERVAL     = int(os.getenv("SYNC_INTERVAL", "10"))
@@ -98,18 +98,12 @@ GROUP_TERKONTROL = 1   # ← default device, fail-safe tertutup (mahasiswa)
 GROUP_BEBAS      = 2   # ← eksplisit via bridge (admin/teknisi/dosen)
 
 def get_access_config(user: dict, jadwals: list) -> tuple[int, int]:
-    """
-    Tentukan Group dan ID Zona Waktu secara bulletproof.
-    Returns: (group, tz_personal)
-    """
     role  = user.get("role", "mahasiswa")
-    # 1. Paksa fp_id menjadi string
     fp_id = str(user.get("fingerprint_id", "")).strip()
 
     if role in ("admin", "teknisi", "dosen"):
         return GROUP_BEBAS, ZONE_OPEN_ID
 
-    # Helper: Ubah format "HH:MM" atau "HH:MM:SS" menjadi integer total menit
     def time_to_minutes(t_str):
         try:
             parts = str(t_str).split(":")
@@ -117,23 +111,25 @@ def get_access_config(user: dict, jadwals: list) -> tuple[int, int]:
         except (ValueError, TypeError, IndexError):
             return 0
 
-    # Waktu sekarang dalam bentuk total menit (cth: "01:49" -> 109 menit)
     now_minutes = time_to_minutes(datetime.now().strftime("%H:%M"))
 
     for j in jadwals:
-        # 2. Paksa semua array id yang diizinkan menjadi string list
         allowed_fps = [str(x).strip() for x in (j.get("fp_ids_diizinkan") or [])]
-        
+        start_min   = time_to_minutes(j.get("jam_mulai", "00:00"))
+        end_min     = time_to_minutes(j.get("jam_selesai", "00:00"))
+
+        if not (start_min <= now_minutes <= end_min):
+            continue  # bukan jadwal yang sedang aktif, skip
+
+        # Jadwal terbuka (tanpa daftar mahasiswa spesifik) → semua boleh
+        if not allowed_fps:
+            return GROUP_TERKONTROL, ZONE_OPEN_ID
+
+        # Jadwal tertutup → cek keanggotaan
         if fp_id in allowed_fps:
-            start_min = time_to_minutes(j.get("jam_mulai", "00:00"))
-            end_min   = time_to_minutes(j.get("jam_selesai", "00:00"))
-            
-            # 3. Bandingkan secara matematis integer
-            if start_min <= now_minutes <= end_min:
-                return GROUP_TERKONTROL, ZONE_OPEN_ID  # TZ personal override
+            return GROUP_TERKONTROL, ZONE_OPEN_ID
 
     return GROUP_TERKONTROL, ZONE_BLOCKED_ID
-
 
 def sync_users(client: X606SOAPClient):
     """Sync semua user dari Railway ke device dengan timezone dan group yang benar."""

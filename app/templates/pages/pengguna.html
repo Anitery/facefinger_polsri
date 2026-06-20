@@ -353,11 +353,22 @@ async function toggleAktif(userId) {
 
 async function hapusUserPermanen(userId, nama) {
   if (!confirm(`Hapus permanen ${nama}? Tindakan ini tidak dapat dibatalkan.`)) return;
-  const res = await fetch(`/users/${userId}`, { method: 'DELETE' });
+
+  let res = await fetch(`/users/${userId}`, { method: 'DELETE' });
+
+  if (res.status === 400) {
+    const err = await res.json();
+    const lanjutPaksa = confirm(
+      `${err.detail}\n\nApakah Anda ingin menghapus PAKSA beserta seluruh riwayat log akses dan absensinya?`
+    );
+    if (!lanjutPaksa) return;
+    res = await fetch(`/users/${userId}?force=true`, { method: 'DELETE' });
+  }
+
   if (res.ok) {
     await loadUsers();
   } else {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({ detail: 'Gagal menghapus pengguna.' }));
     alert(err.detail);
   }
 }

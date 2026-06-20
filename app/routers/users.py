@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
@@ -187,26 +187,39 @@ def update_user(
     return target
 
 @router.delete("/{user_id}")
-def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int,
+    request: Request,
+    force: bool = Query(False, description="Hapus juga seluruh riwayat log akses terkait"),
+    db: Session = Depends(get_db)
+):
     current_role = get_current_role(request)
     target = db.query(User).filter(User.id == user_id).first()
-    
     if not target:
-        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan")
-        
+        raise HTTPException(404, "Pengguna tidak ditemukan")
+
     allowed = ROLE_ALLOWED_TO_MODIFY.get(current_role, set())
     if target.role not in allowed:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Role '{current_role}' tidak boleh menghapus pengguna dengan role '{target.role}'"
-        )
-        
+        raise HTTPException(403, f"Role '{current_role}' tidak boleh menghapus pengguna dengan role '{target.role}'")
     if current_role != "admin":
-        raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus permanen, gunakan nonaktifkan")
-        
+        raise HTTPException(403, "Hanya admin yang dapat menghapus permanen, gunakan nonaktifkan")
+
+    has_logs = db.query(AccessLog).filter(AccessLog.user_id == user_id).first()
+    if has_logs and not force:
+        raise HTTPException(
+            400,
+            "Pengguna ini memiliki riwayat log akses. "
+            "Centang opsi 'hapus beserta riwayat' untuk menghapus paksa, "
+            "atau nonaktifkan saja untuk menjaga data historis."
+        )
+
+    if force:
+        db.query(AccessLog).filter(AccessLog.user_id == user_id).delete()
+        db.query(Absensi).filter(Absensi.user_id == user_id).delete()
+
     db.delete(target)
     db.commit()
-    return {"pesan": "Pengguna dihapus"}
+    return {"pesan": "Pengguna dihapus" + (" beserta seluruh riwayatnya" if force else "")}
 
 @router.patch("/{user_id}/toggle-aktif")
 def toggle_aktif(user_id: int, request: Request, db: Session = Depends(get_db)):

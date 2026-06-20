@@ -18,6 +18,12 @@
         <i class="bi bi-search me-1"></i>Tampilkan
       </button>
     </div>
+    <div class="col-6 col-sm-4 col-lg-3">
+      <label class="form-label mb-1" style="font-size:.76rem;color:#64748b;">&nbsp;</label>
+      <button class="btn btn-sm btn-outline-dark w-100" onclick="cetakLaporanBulanan()">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Cetak Laporan
+      </button>
+    </div>
   </div>
 </div>
 
@@ -73,6 +79,9 @@
     <table class="table table-hover mb-0" style="min-width:640px;">
       <thead>
         <tr>
+          <th style="width: 30px; text-align: center;">
+            <input type="checkbox" class="form-check-input" id="checkAllJadwal" onchange="toggleAllJadwal(this)">
+          </th>
           <th>No</th>
           <th>Tanggal</th>
           <th>Kegiatan / Kelas</th>
@@ -86,7 +95,7 @@
       </thead>
       <tbody id="rekapBody">
         <tr>
-          <td colspan="9" class="text-center py-4 text-muted">
+          <td colspan="10" class="text-center py-4 text-muted">
             Pilih bulan dan klik Tampilkan
           </td>
         </tr>
@@ -257,13 +266,49 @@ function getBulan() {
   return document.getElementById('filterBulan').value;
 }
 
+// ── Checkbox Toggle ──────────────────────────────────────
+function toggleAllJadwal(master) {
+  document.querySelectorAll('.jadwal-check').forEach(cb => cb.checked = master.checked);
+}
+
+function getSelectedJadwalIds() {
+  return Array.from(document.querySelectorAll('.jadwal-check:checked'))
+    .map(cb => cb.value);
+}
+
+// ── Export & Cetak ───────────────────────────────────────
+function cetakLaporanBulanan() {
+  const rid = getRuanganId();
+  const bulan = getBulan();
+  
+  if (!rid) { 
+    alert('Pilih ruangan dulu di sidebar.'); 
+    return; 
+  }
+
+  const selected = getSelectedJadwalIds();
+  let url = `/absensi/cetak-laporan?ruangan_id=${rid}&bulan=${bulan}`;
+
+  // Jika ada jadwal yang dipilih, tambahkan parameter jadwal_ids
+  if (selected.length > 0) {
+    url += `&jadwal_ids=${selected.join(',')}`;
+  }
+
+  window.open(url, '_blank');
+}
+
 // ── Load rekap ───────────────────────────────────────────
 async function loadRekap() {
   const rid   = getRuanganId();
   const bulan = getBulan();
   let url     = '/absensi/rekap?';
+  
   if (rid)   url += `ruangan_id=${rid}&`;
   if (bulan) url += `bulan=${bulan}`;
+
+  // Reset CheckAll jika reload
+  const checkAllBox = document.getElementById('checkAllJadwal');
+  if (checkAllBox) checkAllBox.checked = false;
 
   try {
     const res  = await fetch(url);
@@ -302,7 +347,7 @@ function renderRekap(data) {
 
   if (!data.length) {
     tbody.innerHTML = `
-      <tr><td colspan="9" class="text-center py-4 text-muted">
+      <tr><td colspan="10" class="text-center py-4 text-muted">
         Tidak ada jadwal pada periode ini
       </td></tr>`;
     mobile.innerHTML = `
@@ -316,6 +361,9 @@ function renderRekap(data) {
 
   tbody.innerHTML = data.map((j, i) => `
     <tr>
+      <td style="text-align:center;">
+        <input type="checkbox" class="form-check-input jadwal-check" value="${j.jadwal_id}">
+      </td>
       <td class="text-muted" style="font-size:.75rem;">${i+1}</td>
       <td style="font-size:.8rem;white-space:nowrap;">${j.tanggal}</td>
       <td>
@@ -365,18 +413,21 @@ function renderRekap(data) {
   mobile.innerHTML = data.map((j, i) => `
     <div class="section-card p-3">
       <div class="d-flex justify-content-between align-items-start mb-2">
-        <div>
-          <div class="fw-bold" style="font-size:.87rem;">
-            ${j.nama_kegiatan}
-            ${j.kelas
-              ? `<span style="background:#eff6ff;color:#1d4ed8;
-                              padding:1px 6px;border-radius:10px;
-                              font-size:.67rem;font-weight:600;
-                              margin-left:4px;">${j.kelas}</span>`
-              : ''}
-          </div>
-          <div style="font-size:.74rem;color:#64748b;">
-            ${j.tanggal} · ${j.jam_mulai}–${j.jam_selesai}
+        <div class="d-flex gap-2">
+          <input type="checkbox" class="form-check-input jadwal-check mt-1" value="${j.jadwal_id}">
+          <div>
+            <div class="fw-bold" style="font-size:.87rem;">
+              ${j.nama_kegiatan}
+              ${j.kelas
+                ? `<span style="background:#eff6ff;color:#1d4ed8;
+                                padding:1px 6px;border-radius:10px;
+                                font-size:.67rem;font-weight:600;
+                                margin-left:4px;">${j.kelas}</span>`
+                : ''}
+            </div>
+            <div style="font-size:.74rem;color:#64748b;">
+              ${j.tanggal} · ${j.jam_mulai}–${j.jam_selesai}
+            </div>
           </div>
         </div>
         <div class="d-flex gap-1">
@@ -391,7 +442,7 @@ function renderRekap(data) {
             </button>` : ''}
         </div>
       </div>
-      <div class="d-flex gap-2" style="font-size:.77rem;">
+      <div class="d-flex gap-2 ms-4" style="font-size:.77rem;">
         <span class="badge-ok">✓ ${j.hadir}</span>
         <span style="background:#fef9c3;color:#a16207;padding:3px 8px;
                      border-radius:20px;font-size:.73rem;font-weight:600;">
@@ -502,7 +553,6 @@ let ubahUserId   = null;
 let ubahJadwalId = null;
 
 async function bukaUbahStatus(userId, nama, jadwalId) {
-  // Ambil absensi_id dari data
   const res  = await fetch(`/absensi/jadwal/${jadwalId}`);
   const data = await res.json();
   const ab   = data.detail?.find(d => d.user_id === userId);
@@ -550,7 +600,6 @@ window.addEventListener('ruanganChanged', () => {
 });
 
 // ── Init ─────────────────────────────────────────────────
-// Set default bulan ke bulan ini
 const now = new Date();
 document.getElementById('filterBulan').value =
   `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;

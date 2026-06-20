@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Laporan Bulanan Absensi</title>
+
+<style id="page-size-style">
+  @page { size: A4 portrait; margin: 15mm; }
+</style>
+
+<style>
+  html, body { height: 100%; margin: 0; background: #fff; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color:#111; }
+  
+  /* Container Utama */
+  .print-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 250mm; /* Tinggi standar halaman A4 */
+    box-sizing: border-box;
+    padding: 20px;
+  }
+  
+  .page-break { page-break-after: always; }
+  
+  /* Ukuran Judul */
+  .title { text-align:center; font-weight:bold; font-size:22px; margin-bottom:6px; letter-spacing: 0.5px; }
+  .subtitle { text-align:center; font-size:14px; margin-bottom:20px; color: #444; }
+  
+  /* Info Ruangan & Bulan */
+  .info { margin-bottom:12px; font-size:12px; padding-bottom: 4px; }
+  .info span { font-weight:bold; color: #000; }
+  
+  /* OPTIMALISASI TABEL UNTUK 20 KOLOM DATA */
+  table { 
+    width:100%; 
+    border-collapse: collapse; 
+    margin-top:5px; 
+    font-size: 9px; /* Diperkecil dari 11px agar muat 20 kolom */
+    table-layout: auto; 
+  }
+  th, td { 
+    border:1px solid #333; 
+    padding: 4px 2px; /* Padding dirapatkan agar hemat ruang horizontal */
+    text-align:center; 
+    white-space: nowrap; /* Mencegah teks tanggal/NIM terpotong ke bawah */
+  }
+  th { background:#ffffff; color:#000000; font-weight: bold; }
+  tr:nth-child(even) td { background:#f9fbfd; }
+  
+  /* Pengaturan Lebar Kolom Utama */
+  th:nth-child(1), td:nth-child(1) { width: 3%; } /* No */
+  th:nth-child(2), td:nth-child(2) { width: 10%; } /* NIM */
+  td.nama { 
+    text-align:left; 
+    padding-left: 4px; 
+    white-space: normal; /* Nama mahasiswa boleh turun ke bawah jika terlalu panjang */
+    font-size: 9.5px;
+  }  
+  .col-rekap { width: 25px; font-weight: bold; }
+  
+  .ket { margin-top:12px; font-size:10px; color: #555; }
+  
+  /* AREA TANDA TANGAN (TTD) DIPERKECIL */
+  .ttd-wrap { 
+    margin-top: auto; 
+    padding-top: 20px;
+    width: 100%; 
+    display: flex; 
+    justify-content: space-between; 
+    page-break-inside: avoid; 
+  }
+  /* Lebar diperkecil ke 38% agar tidak terlalu besar dan melebar */
+  .ttd { width: 38%; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+  .ttd .space-ttd { height: 50px; } /* Tinggi ruang kosong tanda tangan diperkecil dari 75px ke 50px */
+  .ttd .line { border-top: 1px solid #333; padding-top: 4px; font-weight: bold; }
+  .ttd .nip-nim { font-size: 10px; color: #333; margin-top: 2px; }
+  
+  /* Menu Navigasi */
+  .no-print { 
+    margin: 20px; background: #f4f6f9; padding: 12px; border-radius: 8px; 
+    border: 1px solid #e1e4e8; display: flex; align-items: center; gap: 12px;
+  }
+  .no-print label { font-size: 12px; font-weight: bold; color: #333; }
+  .no-print select { padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; cursor: pointer; }
+  .no-print button, .no-print a {
+    padding:8px 16px; border-radius:6px; border:1px solid #1F3864;
+    background:#1F3864; color:#fff; cursor:pointer; font-size:13px;
+    text-decoration:none; display:inline-block; font-weight: bold;
+  }
+  .no-print a { background:#fff; color:#1F3864; }
+  
+  @media print { 
+    .no-print { display:none; } 
+    .print-wrapper { padding: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <a href="/dashboard/absensi">← Kembali</a>
+  
+  <label for="paperSize">Ukuran Kertas:</label>
+  <select id="paperSize" onchange="updatePaperSize(this.value)">
+    <option value="A4">A4 (Portrait)</option>
+    <option value="legal">Legal (Portrait)</option>
+  </select>
+
+  <button onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+</div>
+
+{% if is_empty %}
+  <div class="print-wrapper">
+    <div class="title">LAPORAN BULANAN ABSENSI</div>
+    <div class="subtitle">Politeknik Negeri Sriwijaya — Jurusan Teknik Komputer</div>
+    <p style="text-align:center; margin-top:30px;">Belum ada mahasiswa terdaftar pada jadwal di periode ini.</p>
+  </div>
+{% else %}
+
+  {% for chunk in rows | batch(30) %}
+  <div class="print-wrapper {% if not loop.last %}page-break{% endif %}">
+
+    <div class="title">LAPORAN BULANAN ABSENSI</div>
+    <div class="subtitle">Politeknik Negeri Sriwijaya — Jurusan Teknik Komputer</div>
+
+    <div class="info">
+      <span>Ruangan:</span> {{ ruangan.nama if ruangan else '-' }} &nbsp;|&nbsp;
+      <span>Bulan:</span> {{ bulan_label }}
+      {% if kelas %} &nbsp;|&nbsp; <span>Kelas:</span> {{ kelas }}{% endif %}
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>NIM</th>
+          <th>Nama</th>
+          {% for tgl in tanggal_list %}
+            <th>{{ tgl }}</th>
+          {% endfor %}
+          <th class="col-rekap">H</th>
+          <th class="col-rekap">T</th>
+          <th class="col-rekap">A</th>
+          <th class="col-rekap">I</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in chunk %}
+        <tr>
+          <td>{{ r.no }}</td>
+          <td>{{ r.nim }}</td>
+          <td class="nama">{{ r.nama }}</td>
+          {% for c in r.cells %}
+            <td>{{ c }}</td>
+          {% endfor %}
+          <td style="background: #eef9ee;">{{ r.cnt.hadir }}</td>
+          <td style="background: #fff9e6;">{{ r.cnt.terlambat }}</td>
+          <td style="background: #fdeded;">{{ r.cnt.tidak_hadir }}</td>
+          <td style="background: #f0f4f8;">{{ r.cnt.izin }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="ket">Keterangan: H = Hadir, T = Terlambat, A = Tidak Hadir/Alfa, I = Izin</div>
+
+    <div class="ttd-wrap">
+      <div class="ttd">
+        <div>Dosen Pengampu</div>
+        <div class="space-ttd"></div>
+        <div class="line">( {{ dosen_nama }} )</div>
+        <div class="nip-nim">NIP/NIM. {{ dosen_nim_nip if dosen_nim_nip else '............................' }}</div>
+      </div>
+      <div class="ttd">
+        <div>Admin Sistem</div>
+        <div class="space-ttd"></div>
+        <div class="line">( .............................. )</div>
+        <div class="nip-nim">&nbsp;</div>
+      </div>
+    </div>
+
+  </div>
+  {% endfor %}
+
+{% endif %}
+
+<script>
+function updatePaperSize(size) {
+  const sizeStyle = document.getElementById('page-size-style');
+  const wrappers = document.querySelectorAll('.print-wrapper');
+  
+  if (size === 'legal') {
+    sizeStyle.innerHTML = '@page { size: legal portrait; margin: 15mm; }';
+    wrappers.forEach(w => w.style.minHeight = '315mm');
+  } else {
+    sizeStyle.innerHTML = '@page { size: A4 portrait; margin: 15mm; }';
+    wrappers.forEach(w => w.style.minHeight = '250mm');
+  }
+}
+</script>
+
+</body>
+</html>
