@@ -22,32 +22,37 @@ STATUS_COLOR = {
     "izin":        "eff6ff",
 }
 
+
 # --- Helper Function ---
 def get_current_user_session(request: Request):
     from app.services.auth_service import decode_session_token
     token = request.cookies.get("session_token")
     if not token:
         raise HTTPException(401, "Sesi tidak valid")
-    
+
     user = decode_session_token(token)
     if not user:
         raise HTTPException(401, "Sesi tidak valid")
-    
+
     return user
 
+
+# ══════════════════════════════════════════════════════════
+# GET — Rekap & Detail
+# ══════════════════════════════════════════════════════════
 
 @router.get("/jadwal/{jadwal_id}")
 def get_absensi_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
     """Ambil rekap absensi untuk satu jadwal."""
     current = get_current_user_session(request)
     jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()
-    
+
     if not jadwal:
         raise HTTPException(404, "Jadwal tidak ditemukan")
-        
+
     if current["role"] == "dosen" and jadwal.dosen != current["nama"]:
         raise HTTPException(403, "Anda bukan dosen pengampu jadwal ini")
-        
+
     return get_rekap_jadwal(db, jadwal_id)
 
 
@@ -64,12 +69,12 @@ def get_rekap_ruangan(
     """
     current = get_current_user_session(request)
     q = db.query(JadwalRuangan)
-    
+
     if ruangan_id:
         q = q.filter(JadwalRuangan.ruangan_id == ruangan_id)
     if bulan:
         q = q.filter(JadwalRuangan.tanggal.startswith(bulan))
-        
+
     # Dosen hanya melihat jadwal yang ia ampu sendiri
     if current["role"] == "dosen":
         q = q.filter(JadwalRuangan.dosen == current["nama"])
@@ -101,3 +106,236 @@ def get_rekap_ruangan(
             ),
         })
     return result
+
+
+@router.get("/mahasiswa/{user_id}")
+def get_absensi_mahasiswa(
+    user_id:    int,
+    ruangan_id: Optional[int] = Query(None),
+    bulan:      Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Rekap absensi per mahasiswa."""
+    q = db.query(Absensi).options(
+        joinedload(Absensi.jadwal)
+    ).filter(Absensi.user_id == user_id)
+
+    if bulan:
+        q = q.join(JadwalRuangan).filter(
+            JadwalRuangan.tanggal.startswith(bulan)
+        )
+    if ruangan_id:
+        q = q.join(JadwalRuangan).filter(
+            JadwalRuangan.ruangan_id == ruangan_id
+        )
+
+    absensi_list = q.all()
+    user = db.query(User).filter(User.id == user_id).first()
+
+    return {
+        "user_id":     user_id,
+        "nama":        user.nama    if user else "—",
+        "nim_nip":     user.nim_nip if user else "—",
+        "total":       len(absensi_list),
+        "hadir":       sum(1 for a in absensi_list if a.status == "hadir"),
+        "terlambat":   sum(1 for a in absensi_list if a.status == "terlambat"),
+        "tidak_hadir": sum(1 for a in absensi_list if a.status == "tidak_hadir"),
+        "izin":        sum(1 for a in absensi_list if a.status == "izin"),
+        "detail": [
+            {
+                "jadwal_id":     a.jadwal_id,
+                "nama_kegiatan": a.jadwal.nama_kegiatan if a.jadwal else "—",
+                "kelas":         a.jadwal.kelas         if a.jadwal else "—",
+                "tanggal":       a.jadwal.tanggal       if a.jadwal else "—",
+                "status":        a.status,
+                "waktu_masuk":   a.waktu_masuk.strftime("%H:%M")
+                                 if a.waktu_masuk else "—",
+            }
+            for a in sorted(
+                absensi_list,
+                key=lambda x: x.jadwal.tanggal if x.jadwal else ""
+            )
+        ]
+    }
+
+
+# ══════════════════════════════════════════════════════════
+# POST / PATCH — Tutup & Ubah Status
+# ══════════════════════════════════════════════════════════
+
+@router.post("/tutup/{jadwal_id}")
+def tutup_absensi(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
+    """Tutup absensi manual — isi tidak hadir untuk yang belum scan."""
+    current = get_current_user_session(request)
+
+    jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()
+    if not jadwal:
+        raise HTTPException(404, f"Jadwal dengan id={jadwal_id} tidak ditemukan")
+
+    if current["role"] == "dosen" and jadwal.dosen != current["nama"]:
+        raise HTTPException(403, "Anda bukan dosen pengampu jadwal ini")
+
+    count = tutup_absensi_jadwal(db, jadwal_id)
+    return {
+        "pesan":        f"Absensi ditutup. {count} orang ditandai tidak hadir.",
+        "tidak_hadir":  count
+    }
+
+
+@router.patch("/{absensi_id}/status")
+def update_status_absensi(
+    absensi_id: int,
+    status:     str,
+    keterangan: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Update status absensi manual (misal ubah ke izin)."""
+    valid = {"hadir", "terlambat", "tidak_hadir", "izin"}
+    if status not in valid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Status tidak valid. Pilihan: {', '.join(valid)}"
+        )
+    ab = db.query(Absensi).filter(Absensi.id == absensi_id).first()
+    if not ab:
+        raise HTTPException(status_code=404, detail="Data absensi tidak ditemukan")
+
+    ab.status     = status
+    ab.keterangan = keterangan
+    db.commit()
+    return {"pesan": "Status absensi diperbarui"}
+
+
+# ══════════════════════════════════════════════════════════
+# DELETE — Hapus Absensi
+# ══════════════════════════════════════════════════════════
+
+@router.delete("/jadwal/{jadwal_id}")
+def hapus_absensi_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
+    """Hapus seluruh data absensi pada satu jadwal sekaligus."""
+    current = get_current_user_session(request)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Hanya admin yang dapat menghapus data absensi")
+
+    deleted = db.query(Absensi).filter(Absensi.jadwal_id == jadwal_id).delete()
+    db.commit()
+    return {
+        "pesan":   f"{deleted} data absensi pada jadwal ini dihapus",
+        "deleted": deleted
+    }
+
+
+@router.delete("/{absensi_id}")
+def hapus_absensi(absensi_id: int, request: Request, db: Session = Depends(get_db)):
+    """Hapus satu data absensi individual."""
+    current = get_current_user_session(request)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Hanya admin yang dapat menghapus data absensi")
+
+    ab = db.query(Absensi).filter(Absensi.id == absensi_id).first()
+    if not ab:
+        raise HTTPException(404, "Data absensi tidak ditemukan")
+
+    db.delete(ab)
+    db.commit()
+    return {"pesan": "Data absensi dihapus"}
+
+
+# ══════════════════════════════════════════════════════════
+# GET — Export Excel
+# ══════════════════════════════════════════════════════════
+
+@router.get("/export/excel/{jadwal_id}")
+def export_absensi_excel(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
+    """Export absensi satu jadwal ke Excel."""
+    current = get_current_user_session(request)
+    rekap = get_rekap_jadwal(db, jadwal_id)
+
+    if not rekap:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan")
+
+    if current["role"] == "dosen" and rekap.get("dosen") != current["nama"]:
+        raise HTTPException(403, "Anda bukan dosen pengampu jadwal ini")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Absensi"
+
+    # Judul
+    ws.merge_cells("A1:F1")
+    ws["A1"] = (
+        f"ABSENSI — {rekap['nama_kegiatan']} "
+        f"({rekap.get('kelas','')}) | "
+        f"{rekap['tanggal']} {rekap['jam_mulai']}–{rekap['jam_selesai']}"
+    )
+    ws["A1"].font      = Font(bold=True, size=12, color="1F3864")
+    ws["A1"].alignment = Alignment(horizontal="center")
+    ws.row_dimensions[1].height = 20
+
+    # Info dosen
+    ws["A2"] = f"Dosen: {rekap.get('dosen','—')}"
+    ws["A2"].font = Font(italic=True, size=10, color="64748b")
+    ws.merge_cells("A2:F2")
+
+    # Ringkasan
+    ws["A3"] = (
+        f"Hadir: {rekap['hadir']} | "
+        f"Terlambat: {rekap['terlambat']} | "
+        f"Tidak Hadir: {rekap['tidak_hadir']} | "
+        f"Izin: {rekap['izin']}"
+    )
+    ws["A3"].font = Font(size=10)
+    ws.merge_cells("A3:F3")
+    ws.row_dimensions[3].height = 16
+
+    # Header tabel
+    headers    = ["No", "Nama", "NIM/NIP", "Role", "Status", "Jam Masuk"]
+    col_widths = [5, 28, 18, 12, 14, 12]
+    hdr_fill   = PatternFill("solid", fgColor="1F3864")
+    hdr_font   = Font(bold=True, color="FFFFFF", size=10)
+
+    for col, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.fill      = hdr_fill
+        cell.font      = hdr_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[4].height = 18
+
+    # Data
+    STATUS_LABEL = {
+        "hadir":       "Hadir ✓",
+        "terlambat":   "Terlambat ⚠",
+        "tidak_hadir": "Tidak Hadir ✗",
+        "izin":        "Izin 📋",
+    }
+
+    for i, d in enumerate(rekap["detail"], 1):
+        row = [
+            i, d["nama"], d["nim_nip"], d["role"],
+            STATUS_LABEL.get(d["status"], d["status"]),
+            d["waktu_masuk"]
+        ]
+        fill_color = STATUS_COLOR.get(d["status"], "FFFFFF")
+        for col, val in enumerate(row, 1):
+            cell            = ws.cell(row=i+4, column=col, value=val)
+            cell.alignment  = Alignment(vertical="center")
+            cell.fill       = PatternFill("solid", fgColor=fill_color)
+
+    # Save
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    fname = (
+        f"absensi_{rekap['nama_kegiatan'].replace(' ','_')}_"
+        f"{rekap['tanggal']}.xlsx"
+    )
+    return StreamingResponse(
+        buf,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument"
+            ".spreadsheetml.sheet"
+        ),
+        headers={"Content-Disposition": f"attachment; filename={fname}"}
+    )

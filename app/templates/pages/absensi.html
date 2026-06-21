@@ -501,7 +501,7 @@ async function lihatDetail(jadwalId) {
         </tr>`).join('');
   }
 
-  new bootstrap.Modal(document.getElementById('modalAbsensi')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAbsensi')).show();
 }
 
 function getStatusBg(status) {
@@ -509,7 +509,7 @@ function getStatusBg(status) {
     hadir:       '#f0fdf4',
     terlambat:   '#fefce8',
     tidak_hadir: '#fef2f2',
-    izin:        '#eff6ff',
+    izin:        '#eff6ff', 
   };
   return map[status] || '#fff';
 }
@@ -578,7 +578,7 @@ async function bukaUbahStatus(userId, nama, jadwalId) {
   document.getElementById('ubahJadwalId').value   = jadwalId;
   document.getElementById('ubahKet').value        = '';
 
-  new bootstrap.Modal(document.getElementById('modalUbahStatus')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUbahStatus')).show();
 }
 
 async function setStatus(status) {
@@ -595,8 +595,7 @@ async function setStatus(status) {
 
   const res = await fetch(url, { method:'PATCH' });
   if (res.ok) {
-    bootstrap.Modal.getInstance(
-      document.getElementById('modalUbahStatus')).hide();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUbahStatus')).hide();
     lihatDetail(ubahJadwalId);
     loadRekap();
   }
