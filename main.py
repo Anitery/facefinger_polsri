@@ -287,7 +287,7 @@ def cetak_laporan_bulanan(
     ruangan_id: int,
     bulan: str,
     kelas: Optional[str] = None,
-    jadwal_ids: Optional[str] = None,   # ← "12,15,18" dipisah koma
+    jadwal_ids: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     user = get_session(request)
@@ -297,7 +297,7 @@ def cetak_laporan_bulanan(
         return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
 
     from sqlalchemy.orm import joinedload
-    # Pastikan 'User' di-import di sini untuk keperluan query dosen_nim_nip
+    from collections import defaultdict
     from app.models.models import JadwalRuangan, Absensi, Ruangan, User
 
     q = db.query(JadwalRuangan).options(
@@ -311,7 +311,6 @@ def cetak_laporan_bulanan(
     if user["role"] == "dosen":
         q = q.filter(JadwalRuangan.dosen == user["nama"])
 
-    # filter berdasarkan checkbox jadwal terpilih
     if jadwal_ids:
         try:
             ids = [int(x) for x in jadwal_ids.split(",") if x.strip()]
@@ -320,24 +319,10 @@ def cetak_laporan_bulanan(
             raise HTTPException(status_code=400, detail="Format jadwal_ids tidak valid")
 
     jadwal_list = q.order_by(JadwalRuangan.tanggal).all()
-    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
-    mahasiswa_set = {}
-    
-    for j in jadwal_list:
-        if j.mahasiswa_diizinkan:
-            for m in j.mahasiswa_diizinkan:
-                mahasiswa_set[m.id] = m
-        else:
-            q_mhs = db.query(User).filter(User.role == "mahasiswa", User.aktif == True)
-            if j.kelas:
-                q_mhs = q_mhs.filter(User.kelas == j.kelas)
-            for m in q_mhs.all():
-                mahasiswa_set[m.id] = m
+    if not jadwal_list:
+        raise HTTPException(404, "Tidak ada data jadwal pada periode ini")
 
-    mahasiswa_list = sorted(mahasiswa_set.values(), key=lambda m: m.nama)
-    jadwal_ids_list = [j.id for j in jadwal_list]
-    absensi_rows = db.query(Absensi).filter(Absensi.jadwal_id.in_(jadwal_ids_list)).all()
-    absensi_map = {(a.jadwal_id, a.user_id): a.status for a in absensi_rows}
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
 
     STATUS_LABEL_PENDEK = {"hadir": "H", "terlambat": "T", "tidak_hadir": "A", "izin": "I"}
     BULAN_NAMA = {
@@ -345,44 +330,89 @@ def cetak_laporan_bulanan(
         "05": "Mei", "06": "Juni", "07": "Juli", "08": "Agustus",
         "09": "September", "10": "Oktober", "11": "November", "12": "Desember"
     }
-
     thn, bln = bulan.split("-")
-    rows = []
 
-    for i, m in enumerate(mahasiswa_list, 1):
-        cells = []
-        cnt = {"hadir": 0, "terlambat": 0, "tidak_hadir": 0, "izin": 0}
-        for j in jadwal_list:
-            st = absensi_map.get((j.id, m.id))
-            cells.append(STATUS_LABEL_PENDEK.get(st, "-"))
-            if st in cnt:
-                cnt[st] += 1
-        rows.append({
-            "no": i, "nim": m.nim_nip or "-", "nama": m.nama,
-            "cells": cells, "cnt": cnt
-        })
+    # ── Kelompokkan jadwal per (dosen, kelas) — supaya tiap kelas
+    # ── tampil sebagai blok laporan terpisah, bukan tergabung ──
+    groups_map = defaultdict(list)
+    for j in jadwal_list:
+        key = (j.dosen or "-", j.kelas or "-")
+        groups_map[key].append(j)
 
-    # ── LOGIKA BARU: Ambil NIP Dosen ──
-    dosen_nama_jadwal = jadwal_list[0].dosen if jadwal_list else None
-    dosen_user = None
-    if dosen_nama_jadwal:
-        dosen_user = db.query(User).filter(
-            User.nama == dosen_nama_jadwal,
-            User.role == "dosen"
-        ).first()
+    ordered_keys = sorted(groups_map.keys(), key=lambda k: (k[0], k[1]))
+
+    print_pages = []
+    for key in ordered_keys:
+        dosen_nama_grp, kelas_grp = key
+        jadwals_grp = groups_map[key]
+
+        tanggal_list_grp = [j.tanggal[8:10] + "/" + j.tanggal[5:7] for j in jadwals_grp]
+
+        mhs_set = {}
+        for j in jadwals_grp:
+            if j.mahasiswa_diizinkan:
+                for m in j.mahasiswa_diizinkan:
+                    mhs_set[m.id] = m
+            else:
+                q_mhs = db.query(User).filter(User.role == "mahasiswa", User.aktif == True)
+                if j.kelas:
+                    q_mhs = q_mhs.filter(User.kelas == j.kelas)
+                for m in q_mhs.all():
+                    mhs_set[m.id] = m
+        mhs_list_grp = sorted(mhs_set.values(), key=lambda m: m.nama)
+
+        if not mhs_list_grp:
+            continue  # lewati kelompok tanpa mahasiswa
+
+        jadwal_ids_grp = [j.id for j in jadwals_grp]
+        absensi_rows_grp = db.query(Absensi).filter(Absensi.jadwal_id.in_(jadwal_ids_grp)).all()
+        absensi_map_grp = {(a.jadwal_id, a.user_id): a.status for a in absensi_rows_grp}
+
+        rows_grp = []
+        for i, m in enumerate(mhs_list_grp, 1):
+            cells, cnt = [], {"hadir": 0, "terlambat": 0, "tidak_hadir": 0, "izin": 0}
+            for j in jadwals_grp:
+                st = absensi_map_grp.get((j.id, m.id))
+                cells.append(STATUS_LABEL_PENDEK.get(st, "-"))
+                if st in cnt:
+                    cnt[st] += 1
+            rows_grp.append({"no": i, "nim": m.nim_nip or "-", "nama": m.nama, "cells": cells, "cnt": cnt})
+
+        dosen_user_grp = None
+        if dosen_nama_grp != "-":
+            dosen_user_grp = db.query(User).filter(
+                User.nama == dosen_nama_grp, User.role == "dosen"
+            ).first()
+
+        chunks = [rows_grp[i:i + 30] for i in range(0, len(rows_grp), 30)] or [[]]
+
+        for ci, chunk in enumerate(chunks):
+            print_pages.append({
+                "kelas":                  kelas_grp,
+                "dosen_nama":             dosen_nama_grp,
+                "dosen_nim_nip":          dosen_user_grp.nim_nip if dosen_user_grp else None,
+                "tanggal_list":           tanggal_list_grp,
+                "rows":                   chunk,
+                "is_last_chunk_of_group": (ci == len(chunks) - 1),
+            })
+
+    for idx, p in enumerate(print_pages):
+        p["is_last_page"] = (idx == len(print_pages) - 1)
+
+    if not print_pages:
+        raise HTTPException(
+            400,
+            "Belum ada mahasiswa terdaftar pada jadwal-jadwal di periode ini — "
+            "laporan tidak dapat dibuat"
+        )
 
     return templates.TemplateResponse(
         request=request,
         name="pages/cetak_laporan.html",
         context={
-            "ruangan":       ruangan,
-            "bulan_label":   f"{BULAN_NAMA.get(bln, bln)} {thn}",
-            "kelas":         kelas,
-            "tanggal_list":  [j.tanggal[8:10] + "/" + j.tanggal[5:7] for j in jadwal_list],
-            "rows":          rows,
-            "dosen_nama":    dosen_nama_jadwal or "-",
-            "dosen_nim_nip": dosen_user.nim_nip if dosen_user else None,   # ← DITAMBAHKAN
-            "is_empty":      not mahasiswa_list,
+            "ruangan":     ruangan,
+            "bulan_label": f"{BULAN_NAMA.get(bln, bln)} {thn}",
+            "print_pages": print_pages,
         }
     )
 

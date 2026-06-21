@@ -520,13 +520,21 @@ async function tutupAbsensiManual() {
   if (!confirm('Tutup absensi dan isi "Tidak Hadir" untuk yang belum scan?'))
     return;
 
-  const res  = await fetch(
-    `/absensi/tutup/${currentJadwalId}`, { method:'POST' }
-  );
-  const data = await res.json();
-  alert(data.pesan);
-  lihatDetail(currentJadwalId);
-  loadRekap();
+  try {
+    const res  = await fetch(`/absensi/tutup/${currentJadwalId}`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      alert(data.pesan || 'Absensi berhasil ditutup.');
+      lihatDetail(currentJadwalId);
+      loadRekap();
+    } else {
+      alert(data.detail || `Gagal menutup absensi (status ${res.status}).`);
+    }
+  } catch (e) {
+    alert('Terjadi kesalahan jaringan.');
+    console.error(e);
+  }
 }
 
 // ── Hapus seluruh absensi jadwal ─────────────────────────

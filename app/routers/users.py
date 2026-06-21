@@ -190,7 +190,7 @@ def update_user(
 def delete_user(
     user_id: int,
     request: Request,
-    force: bool = Query(False, description="Hapus juga seluruh riwayat log akses terkait"),
+    force: bool = Query(False, description="Hapus juga seluruh data & relasi terkait"),
     db: Session = Depends(get_db)
 ):
     current_role = get_current_role(request)
@@ -204,21 +204,36 @@ def delete_user(
     if current_role != "admin":
         raise HTTPException(403, "Hanya admin yang dapat menghapus permanen, gunakan nonaktifkan")
 
-    has_logs = db.query(AccessLog).filter(AccessLog.user_id == user_id).first()
-    if has_logs and not force:
+    from app.models.models import AccessLog, Absensi, jadwal_mahasiswa, penanggung_jawab
+
+    has_relasi = (
+        db.query(AccessLog).filter(AccessLog.user_id == user_id).first() is not None
+        or db.query(Absensi).filter(Absensi.user_id == user_id).first() is not None
+        or db.execute(jadwal_mahasiswa.select().where(jadwal_mahasiswa.c.user_id == user_id)).first() is not None
+        or db.execute(penanggung_jawab.select().where(penanggung_jawab.c.user_id == user_id)).first() is not None
+    )
+
+    if has_relasi and not force:
         raise HTTPException(
             400,
-            "Pengguna ini memiliki riwayat log akses. "
-            "Centang opsi 'hapus beserta riwayat' untuk menghapus paksa, "
-            "atau nonaktifkan saja untuk menjaga data historis."
+            "Pengguna ini memiliki riwayat/relasi data (log akses, absensi, jadwal, "
+            "atau penanggung jawab ruangan). Centang opsi 'hapus beserta riwayat' "
+            "untuk menghapus paksa, atau nonaktifkan saja untuk menjaga data historis."
         )
 
     if force:
         db.query(AccessLog).filter(AccessLog.user_id == user_id).delete()
         db.query(Absensi).filter(Absensi.user_id == user_id).delete()
+        db.execute(jadwal_mahasiswa.delete().where(jadwal_mahasiswa.c.user_id == user_id))
+        db.execute(penanggung_jawab.delete().where(penanggung_jawab.c.user_id == user_id))
 
-    db.delete(target)
-    db.commit()
+    try:
+        db.delete(target)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Gagal menghapus pengguna: {str(e)}")
+
     return {"pesan": "Pengguna dihapus" + (" beserta seluruh riwayatnya" if force else "")}
 
 @router.patch("/{user_id}/toggle-aktif")

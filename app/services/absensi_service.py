@@ -73,9 +73,8 @@ def catat_absensi_masuk(
 
 def tutup_absensi_jadwal(db: Session, jadwal_id: int) -> int:
     """
-    Isi 'tidak hadir' untuk semua mahasiswa/dosen yang terdaftar
-    tapi belum scan. Dipanggil oleh scheduler saat jadwal selesai.
-    Returns: jumlah yang diisi tidak hadir
+    Isi 'tidak hadir' untuk mahasiswa terdaftar yang belum scan.
+    Dosen TIDAK disertakan (kebijakan: absensi hanya untuk mahasiswa).
     """
     jadwal = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
@@ -84,34 +83,24 @@ def tutup_absensi_jadwal(db: Session, jadwal_id: int) -> int:
     if not jadwal:
         return 0
 
-    # Ambil semua yang sudah absen
     sudah_absen_ids = {
         a.user_id for a in db.query(Absensi).filter(
             Absensi.jadwal_id == jadwal_id
         ).all()
     }
 
-    # Mahasiswa yang terdaftar di jadwal ini
     user_ids_wajib = {m.id for m in jadwal.mahasiswa_diizinkan}
 
-    # Jika tidak ada mahasiswa terdaftar — ambil semua mahasiswa aktif
     if not user_ids_wajib:
-        semua_mhs = db.query(User).filter(
-            User.role  == "mahasiswa",
-            User.aktif == True
-        ).all()
-        user_ids_wajib = {m.id for m in semua_mhs}
+        q_mhs = db.query(User).filter(
+            User.role == "mahasiswa", User.aktif == True
+        )
+        if jadwal.kelas:
+            q_mhs = q_mhs.filter(User.kelas == jadwal.kelas)
+        user_ids_wajib = {m.id for m in q_mhs.all()}
 
-    # Tambah dosen jika ada
-    if jadwal.dosen:
-        dosen = db.query(User).filter(
-            User.nama  == jadwal.dosen,
-            User.aktif == True
-        ).first()
-        if dosen:
-            user_ids_wajib.add(dosen.id)
+    # Dosen TIDAK ditambahkan ke user_ids_wajib (dihapus dari versi lama)
 
-    # Isi tidak hadir untuk yang belum scan
     tidak_hadir = user_ids_wajib - sudah_absen_ids
     count = 0
     for uid in tidak_hadir:

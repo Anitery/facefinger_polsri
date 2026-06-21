@@ -357,9 +357,9 @@ async function hapusUserPermanen(userId, nama) {
   let res = await fetch(`/users/${userId}`, { method: 'DELETE' });
 
   if (res.status === 400) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({ detail: 'Pengguna memiliki data terkait.' }));
     const lanjutPaksa = confirm(
-      `${err.detail}\n\nApakah Anda ingin menghapus PAKSA beserta seluruh riwayat log akses dan absensinya?`
+      `${err.detail}\n\nApakah Anda ingin menghapus PAKSA beserta seluruh riwayat & relasinya?`
     );
     if (!lanjutPaksa) return;
     res = await fetch(`/users/${userId}?force=true`, { method: 'DELETE' });
@@ -368,7 +368,7 @@ async function hapusUserPermanen(userId, nama) {
   if (res.ok) {
     await loadUsers();
   } else {
-    const err = await res.json().catch(() => ({ detail: 'Gagal menghapus pengguna.' }));
+    const err = await res.json().catch(() => ({ detail: `Gagal menghapus pengguna (status ${res.status}).` }));
     alert(err.detail);
   }
 }

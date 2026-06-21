@@ -110,33 +110,33 @@
   <button onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
 </div>
 
-{% if is_empty %}
+{% if not print_pages %}
   <div class="print-wrapper">
     <div class="title">LAPORAN BULANAN ABSENSI</div>
     <div class="subtitle">Politeknik Negeri Sriwijaya — Jurusan Teknik Komputer</div>
-    <p style="text-align:center; margin-top:30px;">Belum ada mahasiswa terdaftar pada jadwal di periode ini.</p>
+    <p style="text-align:center; margin-top:30px;">Belum ada data untuk dicetak.</p>
   </div>
 {% else %}
-
-  {% for chunk in rows | batch(30) %}
-  <div class="print-wrapper {% if not loop.last %}page-break{% endif %}">
-
+  {% for p in print_pages %}
+  <div class="print-wrapper {% if not p.is_last_page %}page-break{% endif %}">
+    
     <div class="title">LAPORAN BULANAN ABSENSI</div>
     <div class="subtitle">Politeknik Negeri Sriwijaya — Jurusan Teknik Komputer</div>
-
+    
     <div class="info">
       <span>Ruangan:</span> {{ ruangan.nama if ruangan else '-' }} &nbsp;|&nbsp;
-      <span>Bulan:</span> {{ bulan_label }}
-      {% if kelas %} &nbsp;|&nbsp; <span>Kelas:</span> {{ kelas }}{% endif %}
+      <span>Bulan:</span> {{ bulan_label }} &nbsp;|&nbsp;
+      <span>Kelas:</span> {{ p.kelas }} &nbsp;|&nbsp;
+      <span>Dosen:</span> {{ p.dosen_nama }}
     </div>
-
+    
     <table>
       <thead>
         <tr>
           <th>No</th>
           <th>NIM</th>
           <th>Nama</th>
-          {% for tgl in tanggal_list %}
+          {% for tgl in p.tanggal_list %}
             <th>{{ tgl }}</th>
           {% endfor %}
           <th class="col-rekap">H</th>
@@ -146,7 +146,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for r in chunk %}
+        {% for r in p.rows %}
         <tr>
           <td>{{ r.no }}</td>
           <td>{{ r.nim }}</td>
@@ -162,14 +162,16 @@
         {% endfor %}
       </tbody>
     </table>
+    
     <div class="ket">Keterangan: H = Hadir, T = Terlambat, A = Tidak Hadir/Alfa, I = Izin</div>
-
+    
+    {% if p.is_last_chunk_of_group %}
     <div class="ttd-wrap">
       <div class="ttd">
         <div>Dosen Pengampu</div>
         <div class="space-ttd"></div>
-        <div class="line">( {{ dosen_nama }} )</div>
-        <div class="nip-nim">NIP/NIM. {{ dosen_nim_nip if dosen_nim_nip else '............................' }}</div>
+        <div class="line">( {{ p.dosen_nama }} )</div>
+        <div class="nip-nim">NIP/NIM. {{ p.dosen_nim_nip if p.dosen_nim_nip else '............................' }}</div>
       </div>
       <div class="ttd">
         <div>Admin Sistem</div>
@@ -178,10 +180,14 @@
         <div class="nip-nim">&nbsp;</div>
       </div>
     </div>
-
+    {% else %}
+    <p style="text-align:right; font-style:italic; font-size:9px; margin-top:8px;">
+      (bersambung ke halaman berikutnya)
+    </p>
+    {% endif %}
+    
   </div>
   {% endfor %}
-
 {% endif %}
 
 <script>
