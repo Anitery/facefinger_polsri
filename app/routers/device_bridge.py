@@ -213,7 +213,6 @@ def get_jadwal_hari_ini(
             "jam_mulai":       j.jam_mulai,
             "jam_selesai":     j.jam_selesai,
             "dosen":           j.dosen,
-            # fingerprint_id mahasiswa yang boleh akses di jadwal ini
             "fp_ids_diizinkan": [
                 m.fingerprint_id
                 for m in j.mahasiswa_diizinkan
@@ -706,3 +705,44 @@ def debug_recent_logs(
         }
         for l in logs
     ]
+
+@router.get("/status-semua-ruangan")
+def status_semua_ruangan(db: Session = Depends(get_db)):
+    """Ambil status bridge semua ruangan sekaligus — untuk dashboard 12 lab."""
+    from datetime import datetime, timedelta
+    from app.models.models import BridgeHeartbeat, Ruangan
+
+    ruangans = db.query(Ruangan).filter(Ruangan.aktif == True).all()
+    hasil = []
+
+    for r in ruangans:
+        hb = db.query(BridgeHeartbeat).filter(
+            BridgeHeartbeat.ruangan_id == r.id
+        ).order_by(BridgeHeartbeat.last_seen.desc()).first()
+
+        bridge_aktif = False
+        last_bridge  = None
+        device_ip    = None
+        device_sn    = None
+        device_time  = None
+
+        if hb:
+            last_bridge  = hb.last_seen.isoformat() if hb.last_seen else None
+            device_ip    = hb.device_ip
+            device_sn    = hb.device_sn
+            device_time  = hb.device_time
+            # Online kalau heartbeat terakhir < 2 menit yang lalu
+            if hb.last_seen:
+                bridge_aktif = (datetime.utcnow() - hb.last_seen) < timedelta(minutes=2)
+
+        hasil.append({
+            "ruangan_id":   r.id,
+            "nama_ruangan": r.nama,
+            "bridge_aktif": bridge_aktif,
+            "last_bridge":  last_bridge,
+            "device_ip":    device_ip,
+            "device_sn":    device_sn,
+            "device_time":  device_time,
+        })
+
+    return hasil

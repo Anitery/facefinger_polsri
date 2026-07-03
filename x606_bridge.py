@@ -134,7 +134,7 @@ def get_access_config(user: dict, jadwals: list) -> tuple[int, int]:
 def sync_users(client: X606SOAPClient):
     """Sync semua user dari Railway ke device dengan timezone dan group yang benar."""
     log.info("── Sync user ke device...")
-
+    
     users   = railway_get("/device-bridge/users")
     jadwals = railway_get(
         "/device-bridge/jadwal-hari-ini",

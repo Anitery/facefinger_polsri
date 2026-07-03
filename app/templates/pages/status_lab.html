@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Status Perangkat Lab{% endblock %}
+{% block page_title %}Status Perangkat Lab{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div style="font-size:.83rem;color:#64748b;">
+    <span class="fw-bold text-success" id="countOnline">—</span> online &nbsp;·&nbsp;
+    <span class="fw-bold text-danger"  id="countOffline">—</span> offline &nbsp;·&nbsp;
+    Terakhir diperbarui: <span id="lastUpdate">—</span>
+  </div>
+  <button class="btn btn-sm btn-outline-primary" onclick="loadStatus()">
+    <i class="bi bi-arrow-clockwise me-1"></i>Perbarui
+  </button>
+</div>
+
+<div id="gridLab" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+  <!-- diisi oleh JS -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60)   return diff + " dtk lalu";
+  if (diff < 3600) return Math.floor(diff/60) + " mnt lalu";
+  if (diff < 86400)return Math.floor(diff/3600) + " jam lalu";
+  return Math.floor(diff/86400) + " hr lalu";
+}
+
+async function loadStatus() {
+  try {
+    const res  = await fetch('/device-bridge/status-semua-ruangan');
+    const data = await res.json();
+
+    let online = 0, offline = 0;
+    const grid = document.getElementById('gridLab');
+
+    grid.innerHTML = data.map(d => {
+      const aktif = d.bridge_aktif;
+      aktif ? online++ : offline++;
+
+      const dotClass    = aktif ? 'text-success' : 'text-danger';
+      const borderColor = aktif ? '#86efac'       : '#fca5a5';
+      const statusLabel = aktif ? '🟢 Terhubung'  : '🔴 Terputus';
+
+      return `
+        <div class="section-card p-3" style="border-left:3px solid ${borderColor};">
+          <div class="fw-bold mb-2" style="font-size:.85rem;color:#1e293b;">
+            ${d.nama_ruangan}
+          </div>
+          <div class="mb-2">
+            <span class="badge-${aktif ? 'ok' : 'no'}" style="font-size:.72rem;">
+              ${statusLabel}
+            </span>
+          </div>
+          <div class="d-flex flex-column gap-1" style="font-size:.75rem;color:#64748b;">
+            <div class="d-flex justify-content-between">
+              <span>IP address</span>
+              <code style="font-size:.72rem;">${d.device_ip || '—'}</code>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span>Serial number</span>
+              <code style="font-size:.72rem;">${d.device_sn || '—'}</code>
+            </div>
+            ${d.device_time ? `
+            <div class="d-flex justify-content-between">
+              <span>Waktu device</span>
+              <span>${d.device_time}</span>
+            </div>` : ''}
+            <div class="d-flex justify-content-between">
+              <span>Bridge terakhir</span>
+              <span class="${aktif ? '' : 'text-danger'}">${timeAgo(d.last_bridge)}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('countOnline').textContent  = online;
+    document.getElementById('countOffline').textContent = offline;
+    document.getElementById('lastUpdate').textContent =
+      new Date().toLocaleString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+loadStatus();
+setInterval(loadStatus, 30000);  // auto-refresh tiap 30 detik
+</script>
+{% endblock %}

@@ -416,6 +416,17 @@ def cetak_laporan_bulanan(
         }
     )
 
+@app.get("/dashboard/status-lab")
+def dashboard_status_lab(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/status_lab.html",
+        context={"active": "status_lab", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
 # ── Root & Health ────────────────────────────────────────────────────────
 
 @app.get("/")
