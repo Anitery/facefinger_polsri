@@ -14,10 +14,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 import os
-import traceback
 import logging
+import traceback
 
 log = logging.getLogger(__name__)
 
@@ -27,31 +27,37 @@ from app.models.models import (
     AccessLog,
     JadwalRuangan,
     Absensi,
-    BridgeHeartbeat
+    BridgeHeartbeat,
+    Ruangan
 )
 
 router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 
 BRIDGE_API_KEY = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2026")
 
+# Definisikan Timezone WIB (UTC+7)
 WIB = timezone(timedelta(hours=7))
 
-def wib_today_str() -> str:
-    """Tanggal hari ini dalam WIB, bukan UTC server Railway."""
-    return (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
+def wib_now() -> datetime:
+    """Mengembalikan datetime saat ini dalam timezone WIB."""
+    return datetime.now(timezone.utc).astimezone(WIB)
 
-# Mapping kode Verified dari device ke metode
+def wib_today_str() -> str:
+    """Tanggal hari ini dalam format STRING (YYYY-MM-DD) berbasis WIB."""
+    return wib_now().strftime("%Y-%m-%d")
+
+# Mapping kode Verified dari device ke metode database
 VERIFY_MAP = {
-    "0":  "password",
-    "1":  "fingerprint",
-    "2":  "fingerprint",
-    "3":  "password",    
-    "4":  "face",
-    "5":  "face",
-    "6":  "face",
-    "7":  "face",
-    "9":  "face",
-    "15": "face",        
+    "0":   "password",
+    "1":   "fingerprint",
+    "2":   "fingerprint",
+    "3":   "password",    
+    "4":   "face",
+    "5":   "face",
+    "6":   "face",
+    "7":   "face",
+    "9":   "face",
+    "15":  "face",        
     "200": "other",
 }
 
@@ -64,7 +70,7 @@ def verify_key(x_api_key: str = Header(...)):
     return x_api_key
 
 
-# ── Helper: validasi jadwal KBM ─────────────────────────
+# ── Helper: Validasi Jadwal KBM ─────────────────────────
 def cek_akses_device(
     ruangan_id: int, user_id: int,
     role: str, waktu: datetime, db: Session
@@ -107,7 +113,7 @@ def cek_akses_device(
 
 
 def catat_absensi_device(
-    db, jadwal_id, user_id, jam_mulai, waktu_scan
+    db: Session, jadwal_id: int, user_id: int, jam_mulai: str, waktu_scan: datetime
 ):
     existing = db.query(Absensi).filter(
         Absensi.jadwal_id == jadwal_id,
@@ -119,6 +125,7 @@ def catat_absensi_device(
         f"{today} {jam_mulai}",
         "%Y-%m-%d %H:%M"
     ).replace(tzinfo=WIB)
+    
     selisih = (waktu_scan - jam_dt).total_seconds() / 60
     status  = "hadir" if selisih <= 15 else "terlambat"
 
@@ -149,7 +156,7 @@ def bridge_status(key=Depends(verify_key)):
     return {
         "status": "online",
         "server": "SmartDoorLock Railway",
-        "time":   datetime.now().isoformat()
+        "time":   wib_now().isoformat()
     }
 
 
@@ -164,7 +171,6 @@ def get_users_for_device(
     """
     Return semua user aktif dengan fingerprint_id.
     Bridge akan set user ini ke device via SOAP SetUserInfo.
-    fingerprint_id = PIN yang dipakai di device.
     """
     users = db.query(User).filter(
         User.aktif          == True,
@@ -194,7 +200,6 @@ def get_jadwal_hari_ini(
 ):
     """
     Return jadwal hari ini + fingerprint_id mahasiswa per jadwal.
-    Bridge gunakan ini untuk set timezone akses di device.
     """
     today   = wib_today_str()
     jadwals = db.query(JadwalRuangan).options(
@@ -227,7 +232,7 @@ def get_jadwal_hari_ini(
 # ══════════════════════════════════════════════════════════
 class LogItem(BaseModel):
     pin:        str
-    datetime:   str   # "YYYY-MM-DD HH:MM:SS+07:00"
+    datetime:   str   # "YYYY-MM-DD HH:MM:SS+07:00" atau naive string
     verified:   int   # 0=password, 1=fingerprint, 15=face
     status:     int   # 0=masuk, 1=keluar
     workcode:   str = "0"
@@ -253,18 +258,13 @@ def receive_logs(
     log.info(f"TOTAL LOGS: {len(payload.logs)}")
 
     for log_item in payload.logs:
-        log.info(
-            f"PIN={log_item.pin} "
-            f"verified={log_item.verified} "
-            f"datetime={log_item.datetime}"
-        )
+        log.info(f"PIN={log_item.pin} verified={log_item.verified} datetime={log_item.datetime}")
         try:
             # ── Parse waktu ──────────────────────────────
             dt_str = log_item.datetime
-            
             try:
                 if "+07:00" in dt_str:
-                    waktu = datetime.fromisoformat(dt_str)
+                    waktu = datetime.fromisoformat(dt_str).astimezone(WIB)
                 else:
                     waktu = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
                     waktu = waktu.replace(tzinfo=WIB)
@@ -274,10 +274,7 @@ def receive_logs(
                 continue
 
             # ── Tentukan metode verifikasi ───────────────
-            metode = VERIFY_MAP.get(str(log_item.verified))
-            if not metode:
-                log.warning(f"Verified tidak dikenal: {log_item.verified} (PIN:{log_item.pin})")
-                metode = "other"
+            metode = VERIFY_MAP.get(str(log_item.verified), "other")
 
             # ── Cari user berdasarkan fingerprint_id ────
             try:
@@ -304,9 +301,7 @@ def receive_logs(
                     duplikat += 1
                     continue
 
-                keterangan = f"PIN:{log_item.pin} tidak terdaftar | {metode} | SN:{payload.device_sn}"
-                # Truncate kalau terlalu panjang (max 200 chars di DB)
-                keterangan = keterangan[:200]
+                keterangan = f"PIN:{log_item.pin} tidak terdaftar | {metode} | SN:{payload.device_sn}"[:200]
 
                 db.add(AccessLog(
                     user_id     = None,
@@ -320,7 +315,7 @@ def receive_logs(
                 ditolak += 1
                 continue
 
-            # ── Cek duplikat untuk user ini ──────────────
+            # ── Cek duplikat untuk user terdaftar ──────────
             dup = db.query(AccessLog).filter(
                 AccessLog.user_id == user.id,
                 AccessLog.ruangan_id == payload.ruangan_id,
@@ -341,10 +336,7 @@ def receive_logs(
             )
 
             status_akses = "berhasil" if boleh else "ditolak"
-
-            keterangan = (
-                f"{alasan} | {metode} | SN:{payload.device_sn}"
-            )[:190]
+            keterangan = f"{alasan} | {metode} | SN:{payload.device_sn}"[:200]
 
             db.add(AccessLog(
                 user_id     = user.id,
@@ -358,13 +350,6 @@ def receive_logs(
 
             # ── Catat absensi jika berhasil + ada jadwal ─
             if boleh and jadwal_aktif:
-                log.info(
-                    f"ABSENSI START "
-                    f"user={user.id} "
-                    f"jadwal={jadwal_aktif.id}"
-                )
-
-                # PERBAIKAN: Hanya mahasiswa yang dicatat ke tabel absensi
                 if user.role == "mahasiswa":
                     catat_absensi_device(
                         db         = db,
@@ -373,41 +358,20 @@ def receive_logs(
                         jam_mulai  = jadwal_aktif.jam_mulai,
                         waktu_scan = waktu
                     )
-                    
-                    log.info(
-                        f"waktu={waktu} "
-                        f"tz={waktu.tzinfo}"
-                    )
-                    log.info(
-                        f"ABSENSI BERHASIL: user={user.id}"
-                    )
+                    log.info(f"ABSENSI BERHASIL: user={user.id} | jadwal={jadwal_aktif.id}")
                 else:
-                    log.info(
-                        f"ABSENSI DIABAIKAN: user={user.id} bukan mahasiswa (role: {user.role})"
-                    )
+                    log.info(f"ABSENSI DIABAIKAN: user={user.id} bukan mahasiswa (role: {user.role})")
 
             if boleh:
                 berhasil += 1
-                log.info(
-                    f"✓ PIN:{log_item.pin} ({user.nama}) — {alasan}"
-                )
+                log.info(f"✓ PIN:{log_item.pin} ({user.nama}) — {alasan}")
             else:
                 ditolak += 1
-                log.info(
-                    f"✗ PIN:{log_item.pin} ({user.nama}) — {alasan}"
-                )
+                log.info(f"✗ PIN:{log_item.pin} ({user.nama}) — {alasan}")
 
         except Exception as e:
-            import traceback
-
-            log.error(
-                f"[BRIDGE ERROR] PIN:{log_item.pin}"
-            )
-
-            log.error(str(e))
-
+            log.error(f"[BRIDGE ERROR] PIN:{log_item.pin} -> {str(e)}")
             log.error(traceback.format_exc())
-
             error += 1
             db.rollback()
 
@@ -420,27 +384,22 @@ def receive_logs(
         "total":    len(payload.logs)
     }
 
+
 # ══════════════════════════════════════════════════════════
 # ENDPOINT 5 — Sync manual (trigger dari dashboard)
 # ══════════════════════════════════════════════════════════
 @router.post("/request-sync")
-def request_sync(
-    ruangan_id: int,
-    key=Depends(verify_key)
-):
+def request_sync(ruangan_id: int, key=Depends(verify_key)):
     """
     Tandai bahwa sync diperlukan.
     Bridge akan melakukan sync saat polling berikutnya.
     """
-    # Untuk saat ini cukup return OK
-    # Bisa diperluas dengan Redis/queue di masa depan
     return {
         "status":     "sync_requested",
         "ruangan_id": ruangan_id,
         "message":    "Bridge akan sync dalam interval berikutnya"
     }
 
-# Tambahkan di bawah endpoint yang sudah ada
 
 class DeviceUserItem(BaseModel):
     pin:  str
@@ -461,36 +420,36 @@ def sync_enrollment(
     db: Session = Depends(get_db)
 ):
     """
-    Bridge kirim daftar user yang ada di device.
-    Server verifikasi dan update fingerprint_id jika perlu.
+    Bridge kirim daftar user yang ada di device untuk reverse-sync ke DB Cloud.
     """
     updated = 0
     for du in payload.device_users:
-        # PIN di device = fingerprint_id di database kita
         try:
             fp_id = int(du.pin)
         except ValueError:
             continue
 
-        # Cari user berdasarkan nama (fallback jika fp_id belum diset)
         user = db.query(User).filter(
             User.fingerprint_id == fp_id,
             User.aktif          == True
         ).first()
 
         if not user:
-            # Coba cari by nama yang mirip
+            if not du.name or not du.name.strip():
+                continue
+            
+            # Ambil potongan nama depan untuk meraba nama di DB
+            nama_depan = du.name.split()[0]
             user = db.query(User).filter(
-                User.nama.ilike(f"%{du.name.split()[0]}%"),
+                User.nama.ilike(f"%{nama_depan}%"),
                 User.aktif == True
             ).first()
+            
             if user and not user.fingerprint_id:
                 user.fingerprint_id = fp_id
                 db.commit()
                 updated += 1
-                log.info(
-                    f"Auto-mapped: {user.nama} → FP:{fp_id}"
-                )
+                log.info(f"Auto-mapped: {user.nama} → FP:{fp_id}")
 
     return {
         "status":  "ok",
@@ -505,13 +464,13 @@ def get_device_info(
     key=Depends(verify_key),
     db: Session = Depends(get_db)
 ):
-    """Info lengkap untuk bridge: users + jadwal hari ini."""
-    users   = db.query(User).filter(
+    """Info lengkap untuk paket inisialisasi awal bridge local."""
+    users = db.query(User).filter(
         User.aktif          == True,
         User.fingerprint_id != None
     ).all()
 
-    today   = date.today().strftime("%Y-%m-%d")
+    today = wib_today_str()
     jadwals = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     ).filter(
@@ -545,9 +504,10 @@ def get_device_info(
             }
             for j in jadwals
         ],
-        "server_time": datetime.now().isoformat(),
+        "server_time": wib_now().isoformat(),
         "today":       today,
     }
+
 
 @router.post("/status")
 def bridge_heartbeat(
@@ -561,10 +521,9 @@ def bridge_heartbeat(
     db: Session = Depends(get_db)
 ):
     """
-    Bridge ping endpoint — simpan status ke database.
-    Dipanggil bridge setiap loop.
+    Bridge ping endpoint — menyimpan detak heartbeat berkala ke DB.
     """
-
+    now_utc = datetime.now(timezone.utc)
     hb = db.query(BridgeHeartbeat).filter(
         BridgeHeartbeat.device_sn == device_sn
     ).first()
@@ -574,7 +533,7 @@ def bridge_heartbeat(
         hb.device_time = device_time
         hb.total_user  = total_user
         hb.ruangan_id  = ruangan_id
-        hb.last_seen = datetime.now(timezone.utc)
+        hb.last_seen   = now_utc
     else:
         hb = BridgeHeartbeat(
             device_sn   = device_sn,
@@ -582,24 +541,24 @@ def bridge_heartbeat(
             device_time = device_time,
             total_user  = total_user,
             ruangan_id  = ruangan_id,
+            last_seen   = now_utc
         )
         db.add(hb)
 
     db.commit()
-
     return {
         "status": "ok",
-        "time": datetime.now().isoformat()
+        "time": wib_now().isoformat()
     }
+
 
 @router.get("/status-public")
 def bridge_status_public(
     ruangan_id: int,
-    role: Optional[str] = None,   # ← TAMBAH
+    role: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Status bridge + info device untuk dashboard."""
-
+    """Status bridge + info device ringkas untuk dashboard sipil."""
     hb = db.query(BridgeHeartbeat).filter(
         BridgeHeartbeat.ruangan_id == ruangan_id
     ).order_by(
@@ -613,30 +572,23 @@ def bridge_status_public(
     last_bridge  = "—"
     total_user   = 0
 
-    if hb:
-        diff = (
-            datetime.now()
-            - hb.last_seen.replace(tzinfo=None)
-        ).seconds
-
+    if hb and hb.last_seen:
+        last_seen_utc = hb.last_seen if hb.last_seen.tzinfo else hb.last_seen.replace(tzinfo=timezone.utc)
+        diff = (datetime.now(timezone.utc) - last_seen_utc).total_seconds()
         bridge_aktif = diff < 300
 
         device_ip   = hb.device_ip or "—"
         device_sn   = hb.device_sn or "—"
         device_time = hb.device_time or "—"
         total_user  = hb.total_user or 0
+        last_bridge = last_seen_utc.astimezone(WIB).strftime("%d/%m %H:%M:%S")
 
-        last_bridge = hb.last_seen.strftime(
-            "%d/%m %H:%M:%S"
-        )
-
-    # Menangani penyembunyian IP device jika role adalah dosen
+    # Sensor IP jika diakses oleh aktor luar / dosen
     device_ip_display = device_ip
     if role == "dosen":
         device_ip_display = "Terhubung" if bridge_aktif else "—"
 
     today = wib_today_str()
-
     jadwals = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     ).filter(
@@ -646,7 +598,7 @@ def bridge_status_public(
 
     log_hari_ini = db.query(AccessLog).filter(
         AccessLog.ruangan_id == ruangan_id,
-        func.date(AccessLog.waktu_akses) == today
+        func.date(AccessLog.waktu_akses) == func.date(datetime.now(timezone.utc).astimezone(WIB))
     ).count()
 
     return {
@@ -675,14 +627,14 @@ def bridge_status_public(
         ],
     }
 
+
 @router.get("/debug-logs")
 def debug_recent_logs(
     limit: int = 10,
     key=Depends(verify_key),
     db: Session = Depends(get_db)
 ):
-    """Lihat log terbaru dengan detail lengkap untuk debug."""
-    from sqlalchemy.orm import joinedload
+    """Melihat riwayat log akses masuk terbaru untuk kebutuhan debugging."""
     logs = db.query(AccessLog).options(
         joinedload(AccessLog.user)
     ).order_by(
@@ -694,7 +646,7 @@ def debug_recent_logs(
             "id":          l.id,
             "waktu":       l.waktu_akses.isoformat() if l.waktu_akses else None,
             "user_id":     l.user_id,
-            "nama":        l.user.nama    if l.user else "TIDAK DIKENAL",
+            "nama":        l.user.nama if l.user else "TIDAK DIKENAL",
             "nim_nip":     l.user.nim_nip if l.user else "—",
             "fp_id":       l.user.fingerprint_id if l.user else "—",
             "metode":      l.metode,
@@ -705,11 +657,10 @@ def debug_recent_logs(
         for l in logs
     ]
 
+
 @router.get("/status-semua-ruangan")
 def status_semua_ruangan(db: Session = Depends(get_db)):
-    from app.models.models import BridgeHeartbeat, Ruangan
-
-    # Ambil SEMUA ruangan aktif, urutkan berdasarkan id
+    """Memantau detak online/offline semua ruangan sekaligus (Bulk Query)."""
     ruangans = db.query(Ruangan).filter(
         Ruangan.aktif == True
     ).order_by(Ruangan.id).all()
@@ -717,11 +668,9 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
     if not ruangans:
         return []
 
-    # Ambil semua heartbeat sekaligus — lebih efisien dari N query
     ruangan_ids = [r.id for r in ruangans]
 
-    # Subquery: ambil heartbeat terbaru per ruangan
-    from sqlalchemy import func
+    # Subquery: optimasi performa mengambil heartbeat id terakhir dari tiap ruangan
     latest_hb_ids = db.query(
         func.max(BridgeHeartbeat.id)
     ).filter(
@@ -733,10 +682,8 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
     ).all()
 
     hb_map = {hb.ruangan_id: hb for hb in heartbeats}
-
     hasil = []
     batas_online = datetime.now(timezone.utc) - timedelta(minutes=2)
-
 
     for r in ruangans:
         hb = hb_map.get(r.id)
@@ -747,13 +694,15 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
         device_sn    = None
         device_time  = None
 
+        # Perbaikan aman dari crash NoneType jika ruangan belum pernah menyimpan heartbeat
         if hb:
-            last_bridge = hb.last_seen.isoformat() if hb.last_seen else None
             device_ip   = hb.device_ip
             device_sn   = hb.device_sn
             device_time = hb.device_time
-        if hb.last_seen:
-            bridge_aktif = hb.last_seen > batas_online
+            if hb.last_seen:
+                last_seen_utc = hb.last_seen if hb.last_seen.tzinfo else hb.last_seen.replace(tzinfo=timezone.utc)
+                last_bridge  = last_seen_utc.astimezone(WIB).isoformat()
+                bridge_aktif = last_seen_utc > batas_online
 
         hasil.append({
             "ruangan_id":   r.id,
