@@ -708,17 +708,39 @@ def debug_recent_logs(
 
 @router.get("/status-semua-ruangan")
 def status_semua_ruangan(db: Session = Depends(get_db)):
-    """Ambil status bridge semua ruangan sekaligus — untuk dashboard 12 lab."""
     from datetime import datetime, timedelta
     from app.models.models import BridgeHeartbeat, Ruangan
 
-    ruangans = db.query(Ruangan).filter(Ruangan.aktif == True).all()
+    # Ambil SEMUA ruangan aktif, urutkan berdasarkan id
+    ruangans = db.query(Ruangan).filter(
+        Ruangan.aktif == True
+    ).order_by(Ruangan.id).all()
+
+    if not ruangans:
+        return []
+
+    # Ambil semua heartbeat sekaligus — lebih efisien dari N query
+    ruangan_ids = [r.id for r in ruangans]
+
+    # Subquery: ambil heartbeat terbaru per ruangan
+    from sqlalchemy import func
+    latest_hb_ids = db.query(
+        func.max(BridgeHeartbeat.id)
+    ).filter(
+        BridgeHeartbeat.ruangan_id.in_(ruangan_ids)
+    ).group_by(BridgeHeartbeat.ruangan_id).subquery()
+
+    heartbeats = db.query(BridgeHeartbeat).filter(
+        BridgeHeartbeat.id.in_(latest_hb_ids)
+    ).all()
+
+    hb_map = {hb.ruangan_id: hb for hb in heartbeats}
+
     hasil = []
+    batas_online = datetime.utcnow() - timedelta(minutes=2)
 
     for r in ruangans:
-        hb = db.query(BridgeHeartbeat).filter(
-            BridgeHeartbeat.ruangan_id == r.id
-        ).order_by(BridgeHeartbeat.last_seen.desc()).first()
+        hb = hb_map.get(r.id)
 
         bridge_aktif = False
         last_bridge  = None
@@ -727,17 +749,17 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
         device_time  = None
 
         if hb:
-            last_bridge  = hb.last_seen.isoformat() if hb.last_seen else None
-            device_ip    = hb.device_ip
-            device_sn    = hb.device_sn
-            device_time  = hb.device_time
-            # Online kalau heartbeat terakhir < 2 menit yang lalu
+            last_bridge = hb.last_seen.isoformat() if hb.last_seen else None
+            device_ip   = hb.device_ip
+            device_sn   = hb.device_sn
+            device_time = hb.device_time
             if hb.last_seen:
-                bridge_aktif = (datetime.utcnow() - hb.last_seen) < timedelta(minutes=2)
+                bridge_aktif = hb.last_seen > batas_online
 
         hasil.append({
             "ruangan_id":   r.id,
             "nama_ruangan": r.nama,
+            "lokasi":       r.lokasi or "—",
             "bridge_aktif": bridge_aktif,
             "last_bridge":  last_bridge,
             "device_ip":    device_ip,

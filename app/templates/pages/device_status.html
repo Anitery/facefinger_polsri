@@ -130,151 +130,109 @@
 
 {% block extra_js %}
 <script>
-function getRuanganId() {
-  const s = localStorage.getItem('ruangan_aktif');
-  return s ? JSON.parse(s).id : null;
-}
-function fmt(iso) {
-  return new Date(iso).toLocaleString('id-ID', {
-    day:'2-digit', month:'short',
-    hour:'2-digit', minute:'2-digit', second:'2-digit'
-  });
-}
-function metodeIcon(m) {
-  if (m === 'face')        return '<i class="bi bi-camera text-primary me-1"></i>Face';
-  if (m === 'fingerprint') return '<i class="bi bi-fingerprint text-success me-1"></i>FP';
-  return m;
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60)    return diff + " dtk lalu";
+  if (diff < 3600)  return Math.floor(diff/60) + " mnt lalu";
+  if (diff < 86400) return Math.floor(diff/3600) + " jam lalu";
+  return Math.floor(diff/86400) + " hr lalu";
 }
 
-async function loadDeviceInfo() {
-  const rid = getRuanganId();
-  if (!rid) {
-    document.getElementById('infoDevice').innerHTML =
-      '<div class="text-warning text-center">Pilih ruangan di sidebar</div>';
-    return;
-  }
+async function loadStatus() {
+  const grid = document.getElementById('gridLab');
 
   try {
-    const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}`);
-    const data = await r.json();
+    const res = await fetch('/device-bridge/status-semua-ruangan');
 
-    document.getElementById('statusDevice').textContent =
-      data.bridge_aktif ? '🟢 Online' : '🔴 Offline';
-    document.getElementById('totalUserDevice').textContent =
-      data.total_user_device ?? '—';
-    document.getElementById('totalJadwalHariIni').textContent =
-      data.jadwal_hari_ini?.length ?? 0;
-    document.getElementById('totalLogHariIni').textContent =
-      data.log_hari_ini ?? 0;
-    document.getElementById('infoDevice').innerHTML = `
-      <div class="d-flex justify-content-between">
-        <span class="text-muted">Device IP</span>
-        <code style="font-size:.8rem;">${data.device_ip || '—'}</code>
-      </div>
-      <div class="d-flex justify-content-between">
-        <span class="text-muted">Serial Number</span>
-        <span class="fw-bold">${data.device_sn || '—'}</span>
-      </div>
-      <div class="d-flex justify-content-between">
-        <span class="text-muted">Waktu Device</span>
-        <span class="fw-bold">${data.device_time || '—'}</span>
-      </div>
-      <div class="d-flex justify-content-between">
-        <span class="text-muted">Bridge Terakhir</span>
-        <span style="font-size:.78rem;color:#64748b;">
-          ${data.last_bridge || '—'}
-        </span>
-      </div>`;
-
-    const jadwals = data.jadwal_hari_ini || [];
-    document.getElementById('jadwalHariIni').innerHTML =
-      jadwals.length === 0
-        ? '<div class="text-muted text-center py-3" style="font-size:.83rem;">Tidak ada jadwal hari ini</div>'
-        : jadwals.map(j => `
-            <div class="d-flex align-items-start gap-2 p-2 mb-2 rounded-3"
-                 style="background:#f8fafc;border:1px solid #e2e8f0;">
-              <div style="min-width:48px;text-align:center;background:#eff6ff;
-                          border-radius:8px;padding:4px;">
-                <div style="font-size:.62rem;color:#64748b;">${j.kelas}</div>
-                <div style="font-size:.85rem;font-weight:700;color:#1d4ed8;">
-                  Lab
-                </div>
-              </div>
-              <div>
-                <div class="fw-bold" style="font-size:.83rem;">
-                  ${j.nama_kegiatan}
-                </div>
-                <div style="font-size:.75rem;color:#64748b;">
-                  <i class="bi bi-clock me-1"></i>${j.jam_mulai}–${j.jam_selesai}
-                  &nbsp;·&nbsp;
-                  <i class="bi bi-people me-1"></i>${j.fp_ids_diizinkan?.length || 0} mahasiswa
-                </div>
-              </div>
-            </div>`).join('');
-  } catch(e) {
-    document.getElementById('infoDevice').innerHTML =
-      '<div class="text-danger text-center">Bridge belum aktif</div>';
-  }
-}
-
-async function loadLog() {
-  const rid = getRuanganId();
-  if (!rid) return;
-
-  try {
-    const today = new Date().toISOString().slice(0,10);
-    const r = await fetch(
-      `/log-akses/?ruangan_id=${rid}&tanggal_dari=${today}&tanggal_sampai=${today}&limit=20`
-    );
-    const data = await r.json();
-
-    document.getElementById('totalLogHariIni').textContent = data.length;
-
-    const tbody = document.getElementById('logBody');
-    if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">
-        <i class="bi bi-inbox d-block mb-1" style="font-size:1.5rem;"></i>
-        Belum ada scan hari ini
-      </td></tr>`;
+    if (!res.ok) {
+      grid.innerHTML = `
+        <div class="text-danger p-3" style="grid-column:1/-1;">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          Gagal memuat data — server merespons ${res.status}
+        </div>`;
       return;
     }
 
-    tbody.innerHTML = data.map(l => `
-      <tr>
-        <td style="font-size:.78rem;white-space:nowrap;">
-          ${fmt(l.waktu_akses)}
-        </td>
-        <td>
-          <div class="fw-bold" style="font-size:.83rem;">
-            ${l.nama_user || '<span class="text-muted">—</span>'}
+    const data = await res.json();
+
+    // Kalau kosong — mungkin belum ada ruangan aktif
+    if (!data.length) {
+      grid.innerHTML = `
+        <div class="text-muted p-4 text-center" style="grid-column:1/-1;">
+          <i class="bi bi-building d-block mb-2" style="font-size:2rem;"></i>
+          Tidak ada ruangan aktif di database.<br>
+          <small>Tambah ruangan dulu di <a href="/dashboard/ruangan">Manajemen Ruangan</a>.</small>
+        </div>`;
+      return;
+    }
+
+    let online = 0, offline = 0;
+
+    grid.innerHTML = data.map(d => {
+      const aktif       = d.bridge_aktif;
+      aktif ? online++ : offline++;
+
+      const borderColor = aktif ? '#86efac' : '#fca5a5';
+      const statusLabel = aktif ? '🟢 Terhubung' : '🔴 Terputus';
+      const statusClass = aktif ? 'badge-ok' : 'badge-no';
+
+      return `
+        <div class="section-card p-3" style="border-left:3px solid ${borderColor};">
+          <div class="fw-bold mb-2" style="font-size:.85rem;color:#1e293b;
+               line-height:1.3;min-height:2.4em;">
+            ${d.nama_ruangan}
           </div>
-          <div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip || ''}</div>
-        </td>
-        <td style="font-size:.78rem;">${metodeIcon(l.metode)}</td>
-        <td>
-          ${l.status === 'berhasil'
-            ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>OK</span>'
-            : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Tolak</span>'}
-        </td>
-        <td style="font-size:.74rem;color:#64748b;max-width:180px;
-                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          ${l.keterangan || '—'}
-        </td>
-      </tr>`).join('');
+          ${d.lokasi !== '—' ? `
+          <div style="font-size:.72rem;color:#94a3b8;margin-bottom:6px;">
+            <i class="bi bi-geo-alt me-1"></i>${d.lokasi}
+          </div>` : ''}
+          <div class="mb-2">
+            <span class="${statusClass}" style="font-size:.72rem;">
+              ${statusLabel}
+            </span>
+          </div>
+          <div class="d-flex flex-column gap-1" style="font-size:.75rem;color:#64748b;">
+            <div class="d-flex justify-content-between">
+              <span>IP address</span>
+              <code style="font-size:.72rem;">${d.device_ip || '<span class="text-muted">—</span>'}</code>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span>Serial number</span>
+              <code style="font-size:.72rem;">${d.device_sn || '<span class="text-muted">—</span>'}</code>
+            </div>
+            ${d.device_time ? `
+            <div class="d-flex justify-content-between">
+              <span>Waktu device</span>
+              <span style="font-size:.72rem;">${d.device_time}</span>
+            </div>` : ''}
+            <div class="d-flex justify-content-between border-top pt-1 mt-1"
+                 style="border-color:#f1f5f9!important;">
+              <span>Bridge terakhir</span>
+              <span class="${aktif ? '' : 'text-danger'}">${timeAgo(d.last_bridge)}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('countOnline').textContent  = online;
+    document.getElementById('countOffline').textContent = offline;
+    document.getElementById('lastUpdate').textContent =
+      new Date().toLocaleString('id-ID', {
+        hour:'2-digit', minute:'2-digit', second:'2-digit'
+      });
+
   } catch(e) {
-    console.error(e);
+    console.error('[status-lab]', e);
+    grid.innerHTML = `
+      <div class="text-danger p-3" style="grid-column:1/-1;">
+        <i class="bi bi-wifi-off me-2"></i>
+        Koneksi ke server gagal. Periksa jaringan atau coba perbarui.
+      </div>`;
   }
 }
 
-// Init
-loadDeviceInfo();
-loadLog();
-setInterval(loadDeviceInfo, 30000);
-setInterval(loadLog, 15000);
-
-window.addEventListener('ruanganChanged', () => {
-  loadDeviceInfo();
-  loadLog();
-});
+loadStatus();
+setInterval(loadStatus, 30000);
 </script>
 {% endblock %}

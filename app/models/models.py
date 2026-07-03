@@ -160,14 +160,11 @@ class Absensi(Base):
 
 class BridgeHeartbeat(Base):
     __tablename__ = "bridge_heartbeat"
-
-    id          = Column(Integer, primary_key=True)
-    device_sn   = Column(String(50), nullable=False)
-    device_ip   = Column(String(50), nullable=True)
-    ruangan_id  = Column(Integer, nullable=True)
-    last_seen   = Column(DateTime(timezone=True),
-                         server_default=func.now(),
-                         onupdate=func.now())
-    device_time = Column(String(30), nullable=True)
-    total_user  = Column(Integer, default=0)
-    extra_info  = Column(Text, nullable=True)  
+    id         = Column(Integer, primary_key=True)
+    ruangan_id = Column(Integer, ForeignKey("ruangan.id"))
+    device_sn  = Column(String(50),  nullable=True)  
+    device_ip  = Column(String(50),  nullable=True)
+    device_time= Column(String(30),  nullable=True)  
+    last_seen  = Column(DateTime,    nullable=True)
+    total_user = Column(Integer,     nullable=True)
+    extra_info = Column(Text,        nullable=True)
