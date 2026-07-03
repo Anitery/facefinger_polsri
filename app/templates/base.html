@@ -264,19 +264,19 @@
     </a>
     {% endif %}
 
+    {% if user and user.role in ['admin', 'teknisi'] %}
+    <a href="/dashboard/status-lab"
+      class="nav-link {% if active=='status_lab' %}active{% endif %}">
+      <i class="bi bi-clipboard-check"></i> Status Perangkat1
+    </a>
+    {% endif %}
+
     {% if user and user.role in ['admin', 'dosen'] %}
     <a href="/dashboard/jadwal" class="nav-link {% if active=='jadwal' %}active{% endif %}">
       <i class="bi bi-calendar3"></i> Jadwal Ruangan
     </a>
     <a href="/dashboard/absensi" class="nav-link {% if active=='absensi' %}active{% endif %}">
       <i class="bi bi-clipboard-check"></i> Absensi
-    </a>
-    {% endif %}
-
-    {% if user and user.role in ['admin', 'teknisi'] %}
-    <a href="/dashboard/status-lab"
-      class="nav-link {% if active=='status_lab' %}active{% endif %}">
-      <i class="bi bi-clipboard-check"></i> Status Perangkat
     </a>
     {% endif %}
 
