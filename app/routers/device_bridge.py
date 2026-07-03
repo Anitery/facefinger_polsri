@@ -14,8 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime, date
-from datetime import timezone, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import traceback
 import logging
@@ -575,7 +574,7 @@ def bridge_heartbeat(
         hb.device_time = device_time
         hb.total_user  = total_user
         hb.ruangan_id  = ruangan_id
-        hb.last_seen   = datetime.now()
+        hb.last_seen = datetime.now(timezone.utc)
     else:
         hb = BridgeHeartbeat(
             device_sn   = device_sn,
@@ -708,7 +707,6 @@ def debug_recent_logs(
 
 @router.get("/status-semua-ruangan")
 def status_semua_ruangan(db: Session = Depends(get_db)):
-    from datetime import datetime, timedelta
     from app.models.models import BridgeHeartbeat, Ruangan
 
     # Ambil SEMUA ruangan aktif, urutkan berdasarkan id
@@ -737,7 +735,8 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
     hb_map = {hb.ruangan_id: hb for hb in heartbeats}
 
     hasil = []
-    batas_online = datetime.utcnow() - timedelta(minutes=2)
+    batas_online = datetime.now(timezone.utc) - timedelta(minutes=2)
+
 
     for r in ruangans:
         hb = hb_map.get(r.id)
@@ -753,8 +752,8 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
             device_ip   = hb.device_ip
             device_sn   = hb.device_sn
             device_time = hb.device_time
-            if hb.last_seen:
-                bridge_aktif = hb.last_seen > batas_online
+        if hb.last_seen:
+            bridge_aktif = hb.last_seen > batas_online
 
         hasil.append({
             "ruangan_id":   r.id,
