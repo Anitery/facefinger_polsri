@@ -20,6 +20,14 @@
       </label>
     </div>
     {% endif %}
+
+    {% if user.role in ['admin', 'dosen'] %}
+    <button class="btn btn-outline-primary btn-sm"
+            onclick="safeShowModal('modalJadwalSemester')">
+      <i class="bi bi-calendar2-range me-1"></i>Jadwal Semester
+    </button>
+    {% endif %}
+
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalJadwal">
       <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
     </button>
@@ -58,6 +66,10 @@
         <span class="d-flex align-items-center gap-1">
           <span style="width:12px;height:12px;border-radius:3px;background:#1F3864;display:inline-block;"></span>
           Hari ini
+        </span>
+        <span class="d-flex align-items-center gap-1">
+          <span style="width:12px;height:12px;border-radius:3px;background:#fff1f2;border:1px solid #fecdd3;display:inline-block;"></span>
+          Hari libur nasional
         </span>
         <span class="d-flex align-items-center gap-1">
           <span style="width:12px;height:12px;border-radius:3px;background:#dbeafe;display:inline-block;"></span>
@@ -173,6 +185,110 @@
         <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
         <button class="btn btn-primary" onclick="tambahJadwal()">
           <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalJadwalSemester" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;">
+          <i class="bi bi-calendar2-range me-2"></i>Jadwal Semester (Generate Otomatis)
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+
+        <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+          <i class="bi bi-info-circle me-2"></i>
+          Sistem akan membuat jadwal secara otomatis untuk setiap minggu
+          pada hari yang dipilih, dalam rentang tanggal semester.
+          Tanggal merah dan hari libur nasional otomatis dilewati.
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Nama Kegiatan / Mata Kuliah</label>
+            <input class="form-control" id="sNama" placeholder="Praktek Routing dan Switching">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Kelas</label>
+            <input class="form-control" id="sKelas" placeholder="2CF">
+          </div>
+        </div>
+
+        <div class="mb-3 mt-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Dosen Pengampu</label>
+          <select class="form-select" id="sDosenSelect">
+            <option value="">— Pilih dosen —</option>
+          </select>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Hari Pertemuan</label>
+              <select class="form-select" id="sHari">
+                <option value="0">Minggu</option>
+                <option value="1">Senin</option>
+                <option value="2">Selasa</option>
+                <option value="3">Rabu</option>
+                <option value="4">Kamis</option>
+                <option value="5">Jumat</option>
+                <option value="6">Sabtu</option>
+              </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Jam Mulai</label>
+            <input type="time" class="form-control" id="sMulai" value="12:40">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Jam Selesai</label>
+            <input type="time" class="form-control" id="sSelesai" value="15:10">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Tanggal Mulai Semester</label>
+            <input type="date" class="form-control" id="sTglMulai">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Tanggal Selesai Semester</label>
+            <input type="date" class="form-control" id="sTglSelesai">
+          </div>
+        </div>
+
+        <div id="previewSemester" style="display:none;">
+          <hr>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <label class="form-label fw-bold mb-0" style="font-size:.85rem;">
+              Preview Jadwal yang Akan Dibuat
+            </label>
+            <span class="badge bg-primary" id="previewCount">0 pertemuan</span>
+          </div>
+          <div id="previewList"
+               style="max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;
+                      border-radius:8px;padding:8px;font-size:.78rem;">
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <button class="btn btn-outline-secondary btn-sm" onclick="previewJadwalSemester()">
+            <i class="bi bi-eye me-1"></i>Preview Jadwal
+          </button>
+        </div>
+
+        <div id="alertSemester" class="mt-3"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" id="btnSimpanSemester"
+                onclick="simpanJadwalSemester()" disabled>
+          <i class="bi bi-check-lg me-1"></i>Simpan Semua Jadwal
         </button>
       </div>
     </div>
@@ -317,6 +433,31 @@
   border-color: #93c5fd;
 }
 .cal-cell.has-event .cal-date { color: #1d4ed8; }
+
+/* Hari libur nasional */
+.cal-cell.hari-libur {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+.cal-cell.hari-libur .cal-date {
+  color: #be123c;
+}
+
+/* Label nama libur di dalam sel */
+.cal-libur-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: .5rem;
+  color: #be123c;
+  background: #ffe4e6;
+  border-radius: 3px;
+  padding: 1px 3px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
 
 .cal-cell.other-month {
   opacity: 0.35;
@@ -492,6 +633,10 @@ const BULAN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun',
 let curYear  = new Date().getFullYear();
 let curMonth = new Date().getMonth();  // 0-based
 let allJadwal = [];
+
+// Variabel penampung hari libur & status cache tahunan
+let hariLibur = {};   
+let loadedHolidayYear = null;
 let filterDate = null;
 
 function padZ(n) { return String(n).padStart(2,'0'); }
@@ -515,6 +660,36 @@ async function loadJadwal() {
   } catch(e) { allJadwal = []; }
 }
 
+async function loadHariLibur() {
+  // Optimasi: Hanya fetch ulang dari API jika user berpindah tahun
+  if (loadedHolidayYear === curYear && Object.keys(hariLibur).length > 0) {
+    return;
+  }
+
+  try {
+    // FIX: Arahkan ke endpoint /api dan lemparkan parameter tahun aktif
+    const res  = await fetch(`https://libur.deno.dev/api?year=${curYear}`);
+    
+    if (!res.ok) throw new Error("Gagal fetch API libur.deno.dev");
+    
+    const data = await res.json();
+    hariLibur  = {};
+    
+    // Parsing property dari dokumentasi: 'date' dan 'name'
+    data.forEach(h => { 
+      if (h.date && h.name) {
+        hariLibur[h.date] = h.name; 
+      }
+    });
+
+    loadedHolidayYear = curYear; // Simpan status cache untuk tahun ini
+  } catch(e) {
+    console.warn('Gagal load hari libur:', e);
+    hariLibur = {};   
+    loadedHolidayYear = null;
+  }
+}
+
 function renderKalender() {
   const today       = new Date().toISOString().slice(0,10);
   const firstDay    = new Date(curYear, curMonth, 1).getDay();   // 0=Min
@@ -536,31 +711,48 @@ function renderKalender() {
 
   // Sel tiap hari
   for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr  = `${curYear}-${padZ(curMonth+1)}-${padZ(d)}`;
-    const events   = eventMap[dateStr] || [];
-    const isToday  = dateStr === today;
-    const hasEvent = events.length > 0;
+    const dateStr    = `${curYear}-${padZ(curMonth+1)}-${padZ(d)}`;
+    const events     = eventMap[dateStr] || [];
+    const isToday    = dateStr === today;
+    const hasEvent   = events.length > 0;
+    const isLibur    = dateStr in hariLibur;         
+    const namaLibur  = hariLibur[dateStr] || "";     
     const isSelected = dateStr === filterDate;
 
+    // Tentukan class CSS
     let cls = 'cal-cell';
-    if (isToday)    cls += ' today';
-    else if (hasEvent) cls += ' has-event';
+    if (isToday)        cls += ' today';
+    else if (isLibur)   cls += ' hari-libur';        
+    else if (hasEvent)  cls += ' has-event';
 
-    // Dot events (max 2 tampil, sisanya "+N")
+    // Dot events
     let eventHtml = '';
-    events.slice(0,2).forEach(ev => {
+    
+    // Label hari libur di dalam sel 
+    if (isLibur) {
+      eventHtml += `
+        <div class="cal-libur-label" title="${namaLibur}">
+          <i class="bi bi-flag-fill" style="font-size:.4rem;flex-shrink:0;"></i>
+          <span style="overflow:hidden;text-overflow:ellipsis;font-size:.5rem;">
+            ${namaLibur.length > 10 ? namaLibur.slice(0,9) + '…' : namaLibur}
+          </span>
+        </div>`;
+    }
+
+    events.slice(0, isLibur ? 1 : 2).forEach(ev => {   
       eventHtml += `<div class="cal-event-dot" title="${ev.nama_kegiatan}">
         <i class="bi bi-circle-fill" style="font-size:.4rem;flex-shrink:0;"></i>
         <span style="overflow:hidden;text-overflow:ellipsis;">${ev.jam_mulai}</span>
       </div>`;
     });
-    if (events.length > 2) {
-      eventHtml += `<div class="cal-event-dot">+${events.length-2}</div>`;
+
+    if (events.length > (isLibur ? 1 : 2)) {
+      eventHtml += `<div class="cal-event-dot">+${events.length - (isLibur ? 1 : 2)}</div>`;
     }
 
     cells += `
       <div class="${cls}" onclick="selectDay('${dateStr}')"
-           title="${events.length ? events.length+' jadwal' : ''}"
+           title="${isLibur ? namaLibur + (events.length ? ' · ' + events.length + ' jadwal' : '') : (events.length ? events.length + ' jadwal' : '')}"
            style="${isSelected ? 'outline:2px solid #2E75B6;' : ''}">
         <div class="cal-date">${d}</div>
         ${eventHtml}
@@ -585,15 +777,34 @@ function renderList() {
     : allJadwal;
 
   const label = filterDate
-    ? new Date(filterDate + 'T00:00').toLocaleDateString('id-ID',{
-        weekday:'long', day:'numeric', month:'long'})
+    ? new Date(filterDate + 'T12:00').toLocaleDateString('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long'
+      })
     : `${BULAN[curMonth]} ${curYear}`;
 
   document.getElementById('labelListJadwal').textContent = label;
   document.getElementById('btnShowAll').style.display = filterDate ? 'block' : 'none';
 
+  // Banner hari libur — muncul kalau filter ke 1 tanggal tertentu
+  // dan tanggal itu adalah hari libur nasional
+  const liburBanner = (filterDate && filterDate in hariLibur)
+    ? `<div class="d-flex align-items-center gap-2 px-3 pt-3 pb-2"
+           style="background:#fff1f2;border-bottom:1px solid #fecdd3;">
+         <span style="font-size:1.1rem;">🚩</span>
+         <div>
+           <div class="fw-bold" style="font-size:.81rem;color:#be123c;">
+             Hari Libur Nasional
+           </div>
+           <div style="font-size:.73rem;color:#e11d48;">
+             ${hariLibur[filterDate]}
+           </div>
+         </div>
+       </div>`
+    : '';
+
   if (!data.length) {
     document.getElementById('listJadwal').innerHTML = `
+      ${liburBanner}
       <div class="text-center text-muted py-5" style="font-size:.84rem;">
         <i class="bi bi-calendar-x d-block mb-2" style="font-size:2rem;"></i>
         Tidak ada jadwal
@@ -601,16 +812,13 @@ function renderList() {
     return;
   }
 
-  document.getElementById('listJadwal').innerHTML = data.map(j => {
+  document.getElementById('listJadwal').innerHTML = liburBanner + data.map(j => {
     let rawStatus = j.is_active ?? j.is_aktif ?? j.aktif;
-
-    let isAktif = true; 
-
+    let isAktif = true;
     if (rawStatus !== undefined && rawStatus !== null) {
-      if (rawStatus === 0 || rawStatus === "0" || rawStatus === false || String(rawStatus).toLowerCase() === "false") {
+      if (rawStatus === 0 || rawStatus === "0" || rawStatus === false ||
+          String(rawStatus).toLowerCase() === "false") {
         isAktif = false;
-      } else {
-        isAktif = true; 
       }
     }
 
@@ -622,12 +830,18 @@ function renderList() {
       </div>
       <div class="jadwal-info">
         <div class="title">${j.nama_kegiatan}
-          ${j.kelas ? `<span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:600;margin-left:4px;">${j.kelas}</span>` : ''}
-          
-          ${isAktif 
-            ? `<span style="background:#dcfce3;color:#166534;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:600;margin-left:4px;">Aktif</span>` 
-            : `<span style="background:#fee2e2;color:#b91c1c;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:600;margin-left:4px;">Nonaktif</span>`
-          }
+          ${j.kelas
+            ? `<span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;
+                            border-radius:10px;font-size:.68rem;font-weight:600;
+                            margin-left:4px;">${j.kelas}</span>`
+            : ''}
+          ${isAktif
+            ? `<span style="background:#dcfce3;color:#166534;padding:1px 7px;
+                            border-radius:10px;font-size:.68rem;font-weight:600;
+                            margin-left:4px;">Aktif</span>`
+            : `<span style="background:#fee2e2;color:#b91c1c;padding:1px 7px;
+                            border-radius:10px;font-size:.68rem;font-weight:600;
+                            margin-left:4px;">Nonaktif</span>`}
         </div>
         <div class="meta">
           <i class="bi bi-clock me-1"></i>${j.jam_mulai} – ${j.jam_selesai}
@@ -642,7 +856,8 @@ function renderList() {
       </div>
       <div class="d-flex flex-column gap-1" style="flex-shrink:0;">
         <button class="btn btn-outline-primary btn-sm"
-                onclick="openModalMahasiswaById(${j.id})" title="Kelola mahasiswa">
+                onclick="openModalMahasiswaById(${j.id})"
+                title="Kelola mahasiswa">
           <i class="bi bi-people"></i>
         </button>
         ${(isAdmin || isDosen) ? `
@@ -653,12 +868,13 @@ function renderList() {
           </button>` : ''}
         ${isAdmin ? `
           <button class="btn btn-sm" style="color:#ef4444;padding:2px 6px;"
-                  onclick="hapusJadwalPermanen(${j.id})" title="Hapus permanen">
+                  onclick="hapusJadwalPermanen(${j.id})"
+                  title="Hapus permanen">
             <i class="bi bi-trash"></i>
           </button>` : ''}
       </div>
-    </div>
-  `}).join('');
+    </div>`;
+  }).join('');
 }
 
 function selectDay(dateStr) {
@@ -675,7 +891,11 @@ function showAll() {
 
 async function render() {
   document.getElementById('labelBulan').textContent = `${BULAN[curMonth]} ${curYear}`;
-  await loadJadwal();
+  // Fetch paralel jadwal dan hari libur
+  await Promise.all([
+    loadJadwal(),
+    loadHariLibur()
+  ]);
   renderKalender();
   renderList();
 }
@@ -699,6 +919,20 @@ async function tambahJadwal() {
       <div class="alert alert-danger py-2">
         <i class="bi bi-exclamation-triangle me-2"></i>
         Pilih ruangan terlebih dahulu melalui sidebar.
+      </div>`;
+    return;
+  }
+
+  // Cek tanggal merah — hanya blokir untuk dosen
+  const tglDipilih = tglEl.value;
+  
+  if (myRole === 'dosen' && tglDipilih in hariLibur) {
+    alertEl.innerHTML = `
+      <div class="alert alert-danger py-2">
+        <i class="bi bi-x-circle me-2"></i>
+        Tanggal <strong>${tglDipilih}</strong> adalah hari libur nasional
+        (<strong>${hariLibur[tglDipilih]}</strong>).
+        Jadwal tidak dapat ditambahkan pada hari libur.
       </div>`;
     return;
   }
@@ -815,7 +1049,6 @@ async function loadMahasiswaList() {
   allMahasiswa = data.filter(u => u.role === 'mahasiswa' && u.aktif);
 }
 
-// FIX #1: Logika penampung dan pemanggilan list kelas
 let allKelas = [];
 
 async function loadKelasList() {
@@ -848,8 +1081,6 @@ function openModalMahasiswa(jadwalId, namaJadwal, currentMhs) {
   document.getElementById('alertMhsJadwal').innerHTML   = '';
 
   renderListMhsJadwal(jadwalId, currentMhs);
-  
-  // Isi dropdown kelas baru (Fix #1)
   isiDropdownKelas();
 
   // Isi dropdown manual — filter yang belum terdaftar
@@ -896,7 +1127,6 @@ function renderListMhsJadwal(jadwalId, mhsList) {
     </div>`).join('');
 }
 
-// FIX #1: Aksi Tambah Massal Berdasarkan Kelas
 async function tambahByKelas() {
   const jadwalId = document.getElementById('mhsJadwalId').value;
   const kelas    = document.getElementById('selectKelasJadwal').value;
@@ -913,7 +1143,6 @@ async function tambahByKelas() {
   if (res.ok) {
     alertEl.innerHTML = `<div class="alert alert-success py-2">${data.pesan}</div>`;
     
-    // Refresh tampilan modal
     const jadwalRes  = await fetch(`/jadwal/?ruangan_id=${getRuanganId() || ''}`);
     const jadwalData = await jadwalRes.json();
     const jadwal     = jadwalData.find(j => j.id == jadwalId);
@@ -1001,9 +1230,204 @@ async function hapusMhsJadwal(jadwalId, userId, nama) {
   }
 }
 
-// Panggil di init awal
+// ── Jadwal Semester ─────────────────────────────────────
+const HARI_JS = [0,1,2,3,4,5,6]; // 0=Min, 1=Sen, dst
+
+async function loadDosenForSemester() {
+  try {
+    const res  = await fetch('/jadwal/dosen-list');
+    const data = await res.json();
+    document.getElementById('sDosenSelect').innerHTML =
+      '<option value="">— Pilih dosen —</option>' +
+      data.map(d => `<option value="${d.nama}">${d.nama}</option>`).join('');
+  } catch(e) {}
+}
+
+function generateTanggalSemester() {
+  const hariTarget = parseInt(document.getElementById('sHari').value);
+  // dropdown: 0=Min, 1=Sen, 2=Sel, 3=Rab, 4=Kam, 5=Jum, 6=Sab
+  // getDay():  0=Min, 1=Sen, 2=Sel, 3=Rab, 4=Kam, 5=Jum, 6=Sab
+  // ← nilai dropdown LANGSUNG sama dengan getDay(), tidak perlu konversi
+
+  const tglMulaiStr   = document.getElementById('sTglMulai').value;
+  const tglSelesaiStr = document.getElementById('sTglSelesai').value;
+
+  if (!tglMulaiStr || !tglSelesaiStr) return [];
+
+  // Parse tanggal dengan noon (12:00) agar aman dari timezone shift
+  // (pakai T12:00:00 bukan T00:00 agar tidak mundur 1 hari di WIB)
+  const tglMulai   = new Date(tglMulaiStr + 'T12:00:00');
+  const tglSelesai = new Date(tglSelesaiStr + 'T12:00:00');
+
+  if (isNaN(tglMulai) || isNaN(tglSelesai) || tglMulai > tglSelesai) return [];
+
+  const tanggals = [];
+  const cur = new Date(tglMulai);
+
+  // Maju ke hari pertama yang sesuai dalam minggu tgl mulai
+  while (cur.getDay() !== hariTarget) {
+    cur.setDate(cur.getDate() + 1);
+    if (cur > tglSelesai) return [];
+  }
+
+  // Generate semua hari yang sesuai — setiap 7 hari
+  while (cur <= tglSelesai) {
+    // Format tanggal manual agar tidak kena timezone shift
+    const y   = cur.getFullYear();
+    const m   = String(cur.getMonth() + 1).padStart(2, '0');
+    const d   = String(cur.getDate()).padStart(2, '0');
+    const tgl = `${y}-${m}-${d}`;
+
+    if (!(tgl in hariLibur)) {
+      tanggals.push(tgl);
+    }
+    cur.setDate(cur.getDate() + 7);
+  }
+
+  return tanggals;
+}
+
+let previewTanggals = [];
+
+async function previewJadwalSemester() {
+  const alertEl = document.getElementById('alertSemester');
+  const nama    = document.getElementById('sNama').value.trim();
+  const kelas   = document.getElementById('sKelas').value.trim();
+  const tglM    = document.getElementById('sTglMulai').value;
+  const tglS    = document.getElementById('sTglSelesai').value;
+
+  alertEl.innerHTML = '';
+
+  if (!nama || !kelas || !tglM || !tglS) {
+    alertEl.innerHTML = `<div class="alert alert-warning py-2">
+      Isi semua field terlebih dahulu sebelum preview.</div>`;
+    return;
+  }
+
+  // Pastikan hari libur sudah ter-load untuk tahun yang relevan
+  const yearMulai   = parseInt(tglM.slice(0,4));
+  const yearSelesai = parseInt(tglS.slice(0,4));
+
+  // Kalau semester lintas tahun (Juli–Januari), load dua tahun
+  if (yearMulai !== loadedHolidayYear) {
+    loadedHolidayYear = null;
+    const savedYear = curYear;
+    curYear = yearMulai;
+    await loadHariLibur();
+    curYear = savedYear;
+  }
+  if (yearSelesai !== yearMulai) {
+    const savedYear = curYear;
+    curYear = yearSelesai;
+    loadedHolidayYear = null;
+    await loadHariLibur();
+    curYear = savedYear;
+  }
+
+  previewTanggals = generateTanggalSemester();
+
+  if (!previewTanggals.length) {
+    alertEl.innerHTML = `<div class="alert alert-warning py-2">
+      Tidak ada pertemuan yang bisa dibuat pada rentang tanggal tersebut.</div>`;
+    document.getElementById('previewSemester').style.display = 'none';
+    document.getElementById('btnSimpanSemester').disabled = true;
+    return;
+  }
+
+  const HARI_NAMA = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  document.getElementById('previewCount').textContent = `${previewTanggals.length} pertemuan`;
+  document.getElementById('previewList').innerHTML = previewTanggals.map((tgl, i) => {
+    const d = new Date(tgl + 'T00:00');
+    return `<div class="d-flex align-items-center gap-2 py-1 ${i % 2 === 0 ? 'bg-light' : ''}"
+                style="border-radius:4px;padding:4px 6px;">
+      <span class="badge bg-primary" style="font-size:.65rem;min-width:24px;">${i+1}</span>
+      <span class="fw-bold" style="font-size:.78rem;">${HARI_NAMA[d.getDay()]},
+        ${tgl.slice(8,10)}/${tgl.slice(5,7)}/${tgl.slice(0,4)}</span>
+      <span class="text-muted" style="font-size:.72rem;">
+        ${document.getElementById('sMulai').value}–${document.getElementById('sSelesai').value}
+      </span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('previewSemester').style.display = 'block';
+  document.getElementById('btnSimpanSemester').disabled = false;
+}
+
+async function simpanJadwalSemester() {
+  const rid     = getRuanganId();
+  const alertEl = document.getElementById('alertSemester');
+
+  if (!rid) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">
+      Pilih ruangan terlebih dahulu melalui sidebar.</div>`;
+    return;
+  }
+  if (!previewTanggals.length) {
+    alertEl.innerHTML = `<div class="alert alert-warning py-2">
+      Lakukan preview terlebih dahulu.</div>`;
+    return;
+  }
+
+  const nama    = document.getElementById('sNama').value.trim();
+  const kelas   = document.getElementById('sKelas').value.trim();
+  const dosen   = document.getElementById('sDosenSelect').value || null;
+  const mulai   = document.getElementById('sMulai').value;
+  const selesai = document.getElementById('sSelesai').value;
+
+  document.getElementById('btnSimpanSemester').disabled = true;
+  alertEl.innerHTML = `<div class="alert alert-info py-2">
+    <i class="bi bi-hourglass-split me-2"></i>
+    Menyimpan ${previewTanggals.length} jadwal... mohon tunggu.</div>`;
+
+  let berhasil = 0, gagal = 0;
+
+  for (const tgl of previewTanggals) {
+    try {
+      const res = await fetch('/jadwal/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ruangan_id:    rid,
+          nama_kegiatan: nama,
+          kelas:         kelas,
+          dosen:         dosen,
+          tanggal:       tgl,
+          jam_mulai:     mulai,
+          jam_selesai:   selesai,
+          keterangan:    `Jadwal semester — generate otomatis`,
+        })
+      });
+      res.ok ? berhasil++ : gagal++;
+    } catch { gagal++; }
+  }
+
+  alertEl.innerHTML = berhasil > 0
+    ? `<div class="alert alert-success py-2">
+        <i class="bi bi-check-circle me-2"></i>
+        <strong>${berhasil} jadwal berhasil disimpan</strong>
+        ${gagal ? `— ${gagal} gagal` : ''}
+       </div>`
+    : `<div class="alert alert-danger py-2">
+        Semua jadwal gagal disimpan. Coba lagi.
+       </div>`;
+
+  if (berhasil > 0) {
+    previewTanggals = [];
+    document.getElementById('previewSemester').style.display = 'none';
+    await render();
+    setTimeout(() => {
+      safeHideModal('modalJadwalSemester');
+      alertEl.innerHTML = '';
+      document.getElementById('btnSimpanSemester').disabled = false;
+    }, 2000);
+  } else {
+    document.getElementById('btnSimpanSemester').disabled = false;
+  }
+}
+
+// Init Awal
 loadMahasiswaList();
-loadKelasList(); // ← Memuat daftar kelas saat halaman di-load
+loadKelasList();
 
 document.addEventListener('DOMContentLoaded', () => {
   const aktif = getRuanganAktif?.() ||
@@ -1030,7 +1454,7 @@ function cleanupModalArtifacts() {
 }
 
 function safeShowModal(id) {
-  cleanupModalArtifacts();  // bersihkan dulu sebelum buka modal baru
+  cleanupModalArtifacts();
   const el = document.getElementById(id);
   bootstrap.Modal.getOrCreateInstance(el).show();
 }
@@ -1040,11 +1464,20 @@ function safeHideModal(id) {
   bootstrap.Modal.getOrCreateInstance(el).hide();
 }
 
-// Event delegation di document — menangkap SEMUA modal, termasuk
-// yang dibuka via data-bs-toggle maupun via JS
 document.addEventListener('hidden.bs.modal', () => {
   setTimeout(cleanupModalArtifacts, 50);
 });
+
+// Event Listener Modal Jadwal Semester
+const modalJadwalSemesterEl = document.getElementById('modalJadwalSemester');
+if (modalJadwalSemesterEl) {
+  modalJadwalSemesterEl.addEventListener('show.bs.modal', () => {
+    loadDosenForSemester();
+    document.getElementById('previewSemester').style.display = 'none';
+    document.getElementById('btnSimpanSemester').disabled    = true;
+    document.getElementById('alertSemester').innerHTML       = '';
+  });
+}
 
 </script>
 {% endblock %}

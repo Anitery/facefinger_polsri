@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.orm import Session, joinedload
-from typing import Optional, List
+import httpx
+import requests as http_requests
+from functools import lru_cache
 from datetime import datetime
+from typing import Optional, List, Tuple
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.models import JadwalRuangan, User, Absensi, jadwal_mahasiswa
@@ -36,6 +39,62 @@ class JadwalOut(JadwalCreate):
     mahasiswa_diizinkan: List[MahasiswaInfo] = []
     is_active: bool  
     model_config = {"from_attributes": True}
+
+
+@lru_cache(maxsize=24)  # Cache per bulan agar tidak spam ke API eksternal
+def _fetch_hari_libur_cached(year: int, month: int):
+    try:
+        r = http_requests.get(
+            f"https://api-harilibur.vercel.app/api",
+            params={"month": month, "year": year},
+            timeout=5
+        )
+        if r.ok:
+            return r.json()
+    except Exception:
+        pass
+    return []
+
+def is_hari_libur(tanggal: str) -> Tuple[bool, str]:
+    """
+    Cek apakah tanggal adalah hari libur nasional Indonesia.
+    Returns: (is_libur, nama_libur)
+    """
+    try:
+        year = tanggal[:4]
+        r = httpx.get(
+            f"https://libur.deno.dev/api",
+            params={"year": year},
+            timeout=5
+        )
+        if r.status_code == 200:
+            for h in r.json():
+                if h.get("date") == tanggal:
+                    return True, h.get("name", "Hari libur nasional")
+    except Exception:
+        pass  # Kalau API gagal, jangan blokir (fail-open untuk ketersediaan)
+    return False, ""
+
+
+@router.get("/hari-libur")
+def get_hari_libur(
+    year: int = Query(...),
+    month: int = Query(...)
+):
+    """
+    Ambil daftar hari libur nasional Indonesia untuk bulan tertentu.
+    Data dari api-harilibur.vercel.app (sumber: SKB Menteri).
+    """
+    data = _fetch_hari_libur_cached(year, month)
+    return [
+        {
+            "tanggal": d.get("holiday_date"),
+            "nama":    d.get("holiday_name"),
+            "is_national_holiday": d.get("is_national_holiday", True),
+        }
+        for d in data
+        if d.get("holiday_date")
+    ]
 
 
 @router.get("/", response_model=List[JadwalOut])
@@ -86,7 +145,7 @@ def get_jadwal_aktif(ruangan_id: int, db: Session = Depends(get_db)):
         JadwalRuangan.tanggal    == today,
         JadwalRuangan.jam_mulai  <= now_time,
         JadwalRuangan.jam_selesai > now_time,
-        JadwalRuangan.is_active  == True # Menambahkan filter aktif agar jadwal yang di-nonaktifkan tidak lolos
+        JadwalRuangan.is_active  == True
     ).first()
 
     if not jadwal:
@@ -107,7 +166,23 @@ def get_jadwal_aktif(ruangan_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=JadwalOut)
-def buat_jadwal(payload: JadwalCreate, db: Session = Depends(get_db)):
+def create_jadwal(
+    payload: JadwalCreate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current = get_current_user_session(request)
+    
+    # Dosen tidak boleh tambah jadwal di hari libur nasional
+    if current["role"] == "dosen":
+        libur, nama_libur = is_hari_libur(payload.tanggal)
+        if libur:
+            raise HTTPException(
+                400,
+                f"Tanggal {payload.tanggal} adalah hari libur nasional "
+                f"({nama_libur}). Jadwal tidak dapat dibuat pada hari libur."
+            )
+            
     jadwal = JadwalRuangan(**payload.model_dump())
     db.add(jadwal)
     db.commit()
