@@ -24,6 +24,9 @@ def get_current_role(request: Request) -> str:
     return user["role"]
 
 
+# ==========================================
+# PYDANTIC SCHEMAS / MODELS
+# ==========================================
 class AccessLogDetail(BaseModel):
     id: int
     user_id: Optional[int] = None
@@ -39,20 +42,40 @@ class AccessLogDetail(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginationMeta(BaseModel):
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+    has_prev: bool
+    has_next: bool
+
+
+class PaginatedAccessLogResponse(BaseModel):
+    data: List[AccessLogDetail]
+    pagination: PaginationMeta
+
+
 class BulkDeletePayload(BaseModel):
     ids: List[int]
 
 
-@router.get("/", response_model=list[AccessLogDetail])
+# ==========================================
+# ENDPOINTS
+# ==========================================
+
+@router.get("/", response_model=PaginatedAccessLogResponse)
 def get_logs(
     ruangan_id:     Optional[int] = Query(None),
     status:         Optional[str] = Query(None),
     metode:         Optional[str] = Query(None),
     tanggal_dari:   Optional[str] = Query(None),
     tanggal_sampai: Optional[str] = Query(None),
-    limit:          Optional[int] = Query(None),
+    limit:          int = Query(10, ge=1, le=500),  # Default 10 agar mudah tes paginasi
+    page:           int = Query(1, ge=1),
     db: Session = Depends(get_db)
 ):
+    """Mengambil data log akses dengan filter dan paginasi."""
     q = db.query(AccessLog).options(joinedload(AccessLog.user))
 
     if ruangan_id:
@@ -66,16 +89,17 @@ def get_logs(
     if tanggal_sampai:
         q = q.filter(func.date(AccessLog.waktu_akses) <= tanggal_sampai)
 
-    q = q.order_by(AccessLog.waktu_akses.desc())
+    # Hitung total data sebelum di-slice oleh limit & offset
+    total = q.count()
+    offset = (page - 1) * limit
     
-    if limit:
-        q = q.limit(limit)
+    # Ambil data sesuai halaman
+    logs = q.order_by(AccessLog.waktu_akses.desc()).offset(offset).limit(limit).all()
 
-    logs = q.all()
-
-    result = []
+    # Mapping data ke format schema Pydantic
+    data_result = []
     for log in logs:
-        result.append(AccessLogDetail(
+        data_result.append(AccessLogDetail(
             id          = log.id,
             user_id     = log.user_id,
             nama_user   = log.user.nama    if log.user else None,
@@ -87,7 +111,18 @@ def get_logs(
             status      = log.status,
             keterangan  = log.keterangan,
         ))
-    return result
+
+    return {
+        "data": data_result,
+        "pagination": {
+            "total":       total,
+            "page":        page,
+            "limit":       limit,
+            "total_pages": (total + limit - 1) // limit,
+            "has_prev":    page > 1,
+            "has_next":    page * limit < total,
+        }
+    }
 
 
 @router.delete("/bulk")
@@ -180,20 +215,19 @@ def export_excel(
     hdr_fill  = PatternFill("solid", fgColor="1F3864")
     hdr_align = Alignment(horizontal="center", vertical="center")
 
-    headers    = ["No","Waktu Akses","Nama Pengguna","NIM/NIP",
-                  "Metode","Status","Keterangan"]
+    headers    = ["No", "Waktu Akses", "Nama Pengguna", "NIM/NIP", "Metode", "Status", "Keterangan"]
     col_widths = [5, 22, 25, 20, 15, 12, 30]
 
     for col, (h, w) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=1, column=col, value=h)
-        cell.font = hdr_font; cell.fill = hdr_fill
+        cell.font = hdr_font
+        cell.fill = hdr_fill
         cell.alignment = hdr_align
         ws.column_dimensions[cell.column_letter].width = w
     ws.row_dimensions[1].height = 22
 
     for i, log in enumerate(logs, 1):
-        waktu = log.waktu_akses.strftime("%d/%m/%Y %H:%M:%S") \
-                if log.waktu_akses else ""
+        waktu = log.waktu_akses.strftime("%d/%m/%Y %H:%M:%S") if log.waktu_akses else ""
         row = [
             i, waktu,
             log.user.nama    if log.user else "Tidak dikenal",
@@ -216,57 +250,11 @@ def export_excel(
     ws.row_dimensions[1].height = 20
 
     buf = BytesIO()
-    wb.save(buf); buf.seek(0)
+    wb.save(buf)
+    buf.seek(0)
     fname = f"log_akses_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={fname}"}
     )
-
-@router.get("/")
-def get_logs(
-    ruangan_id:      Optional[int] = None,
-    tanggal_dari:    Optional[str] = None,
-    tanggal_sampai:  Optional[str] = None,
-    status:          Optional[str] = None,
-    metode:          Optional[str] = None,
-    limit:           int = Query(100, ge=1, le=500),
-    page:            int = Query(1,   ge=1),
-    db: Session = Depends(get_db)
-):
-    q = db.query(AccessLog).options(joinedload(AccessLog.user))
-
-    if ruangan_id:    q = q.filter(AccessLog.ruangan_id == ruangan_id)
-    if tanggal_dari:  q = q.filter(func.date(AccessLog.waktu_akses) >= tanggal_dari)
-    if tanggal_sampai:q = q.filter(func.date(AccessLog.waktu_akses) <= tanggal_sampai)
-    if status:        q = q.filter(AccessLog.status == status)
-    if metode:        q = q.filter(AccessLog.metode == metode)
-
-    total  = q.count()
-    offset = (page - 1) * limit
-    logs   = q.order_by(AccessLog.waktu_akses.desc()).offset(offset).limit(limit).all()
-
-    return {
-        "data": [
-            {
-                "id":           l.id,
-                "waktu_akses":  l.waktu_akses.isoformat(),
-                "nama_user":    l.user.nama if l.user else None,
-                "nim_nip":      l.user.nim_nip if l.user else None,
-                "metode":       l.metode,
-                "status":       l.status,
-                "keterangan":   l.keterangan,
-                "ruangan_id":   l.ruangan_id,
-            }
-            for l in logs
-        ],
-        "pagination": {
-            "total":        total,
-            "page":         page,
-            "limit":        limit,
-            "total_pages":  (total + limit - 1) // limit,
-            "has_prev":     page > 1,
-            "has_next":     page * limit < total,
-        }
-    }
