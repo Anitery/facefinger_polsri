@@ -169,18 +169,18 @@ def get_users_for_device(
     db: Session = Depends(get_db)
 ):
     """
-    Return semua user aktif dengan fingerprint_id.
+    Return semua user aktif dengan id_perangkat.
     Bridge akan set user ini ke device via SOAP SetUserInfo.
     """
     users = db.query(User).filter(
         User.aktif          == True,
-        User.fingerprint_id != None
+        User.id_perangkat != None
     ).all()
 
     return [
         {
             "user_id":        u.id,
-            "fingerprint_id": u.fingerprint_id,
+            "id_perangkat":   u.id_perangkat,
             "nama":           u.nama,
             "role":           u.role,
             "nim_nip":        u.nim_nip,
@@ -199,7 +199,7 @@ def get_jadwal_hari_ini(
     db: Session = Depends(get_db)
 ):
     """
-    Return jadwal hari ini + fingerprint_id mahasiswa per jadwal.
+    Return jadwal hari ini + id_perangkat mahasiswa per jadwal.
     """
     today   = wib_today_str()
     jadwals = db.query(JadwalRuangan).options(
@@ -217,10 +217,10 @@ def get_jadwal_hari_ini(
             "jam_mulai":       j.jam_mulai,
             "jam_selesai":     j.jam_selesai,
             "dosen":           j.dosen,
-            "fp_ids_diizinkan": [
-                m.fingerprint_id
+            "id_perangkat_diizinkan": [
+                m.id_perangkat
                 for m in j.mahasiswa_diizinkan
-                if m.fingerprint_id is not None
+                if m.id_perangkat is not None
             ],
         }
         for j in jadwals
@@ -276,16 +276,16 @@ def receive_logs(
             # ── Tentukan metode verifikasi ───────────────
             metode = VERIFY_MAP.get(str(log_item.verified), "other")
 
-            # ── Cari user berdasarkan fingerprint_id ────
+            # ── Cari user berdasarkan id_perangkat ────
             try:
-                fp_id = int(log_item.pin)
+                perangkat_id = int(log_item.pin)
             except ValueError:
-                fp_id = None
+                perangkat_id = None
 
             user = None
-            if fp_id is not None:
+            if perangkat_id is not None:
                 user = db.query(User).filter(
-                    User.fingerprint_id == fp_id,
+                    User.id_perangkat == perangkat_id,
                     User.aktif == True
                 ).first()
 
@@ -425,12 +425,12 @@ def sync_enrollment(
     updated = 0
     for du in payload.device_users:
         try:
-            fp_id = int(du.pin)
+            perangkat_id = int(du.pin)
         except ValueError:
             continue
 
         user = db.query(User).filter(
-            User.fingerprint_id == fp_id,
+            User.id_perangkat == perangkat_id,
             User.aktif          == True
         ).first()
 
@@ -445,11 +445,11 @@ def sync_enrollment(
                 User.aktif == True
             ).first()
             
-            if user and not user.fingerprint_id:
-                user.fingerprint_id = fp_id
+            if user and not user.id_perangkat:
+                user.id_perangkat = perangkat_id
                 db.commit()
                 updated += 1
-                log.info(f"Auto-mapped: {user.nama} → FP:{fp_id}")
+                log.info(f"Auto-mapped: {user.nama} → ID Perangkat:{perangkat_id}")
 
     return {
         "status":  "ok",
@@ -467,7 +467,7 @@ def get_device_info(
     """Info lengkap untuk paket inisialisasi awal bridge local."""
     users = db.query(User).filter(
         User.aktif          == True,
-        User.fingerprint_id != None
+        User.id_perangkat != None
     ).all()
 
     today = wib_today_str()
@@ -481,7 +481,7 @@ def get_device_info(
     return {
         "users": [
             {
-                "fingerprint_id": u.fingerprint_id,
+                "id_perangkat":   u.id_perangkat,
                 "nama":           u.nama,
                 "role":           u.role,
                 "nim_nip":        u.nim_nip,
@@ -496,10 +496,10 @@ def get_device_info(
                 "jam_mulai":        j.jam_mulai,
                 "jam_selesai":      j.jam_selesai,
                 "dosen":            j.dosen,
-                "fp_ids_diizinkan": [
-                    m.fingerprint_id
+                "id_perangkat_diizinkan": [
+                    m.id_perangkat
                     for m in j.mahasiswa_diizinkan
-                    if m.fingerprint_id
+                    if m.id_perangkat
                 ],
             }
             for j in jadwals
@@ -635,10 +635,10 @@ def bridge_status_public(
                 "jam_mulai": j.jam_mulai,
                 "jam_selesai": j.jam_selesai,
                 "dosen": j.dosen,
-                "fp_ids_diizinkan": [
-                    m.fingerprint_id
+                "id_perangkat_diizinkan": [
+                    m.id_perangkat
                     for m in j.mahasiswa_diizinkan
-                    if m.fingerprint_id
+                    if m.id_perangkat
                 ],
             }
             for j in jadwals
@@ -666,7 +666,7 @@ def debug_recent_logs(
             "user_id":     l.user_id,
             "nama":        l.user.nama if l.user else "TIDAK DIKENAL",
             "nim_nip":     l.user.nim_nip if l.user else "—",
-            "fp_id":       l.user.fingerprint_id if l.user else "—",
+            "id_perangkat":l.user.id_perangkat if l.user else "—",
             "metode":      l.metode,
             "status":      l.status,
             "keterangan":  l.keterangan,
