@@ -54,17 +54,23 @@ class Ruangan(Base):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    nama = Column(String(100), nullable=False)
-    nim_nip = Column(String(20), unique=True, index=True)
-    kelas = Column(String(50), nullable=True)  # khusus mahasiswa (contoh: "6CC")
-    role = Column(String(20), default="mahasiswa")
-    face_encoding = Column(Text, nullable=True)
-    fingerprint_id = Column(Integer, nullable=True)
+    id            = Column(Integer, primary_key=True, index=True)
+    nama          = Column(String(100), nullable=False)
+    nim_nip       = Column(String(30),  unique=True, index=True)
+    kelas         = Column(String(50),  nullable=True)  # khusus mahasiswa (contoh: "6CC")
+    role          = Column(String(20),  default="mahasiswa")
     password_hash = Column(String(255), nullable=True)
-    ruangan_id = Column(Integer, ForeignKey("ruangan.id"), nullable=True)
-    aktif = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Digunakan sebagai PIN di perangkat X606-S saat sinkronisasi SOAP
+    # Nilai ini = User ID (PIN) yang didaftarkan ke device
+    id_perangkat  = Column(Integer, nullable=True)   # ← GANTI NAMA dari fingerprint_id
+    
+    # face_encoding DIHAPUS — enrollment wajah dilakukan langsung di device X606-S
+    # Tidak disimpan di server (sesuai arsitektur on-device Face VX7.0)
+    
+    ruangan_id    = Column(Integer, ForeignKey("ruangan.id"), nullable=True)
+    aktif         = Column(Boolean, default=True)
+    created_at    = Column(DateTime(timezone=True), server_default=func.now())
 
     ruangan = relationship("Ruangan", back_populates="users")
     access_logs = relationship("AccessLog", back_populates="user")

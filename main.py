@@ -406,13 +406,26 @@ def cetak_laporan_bulanan(
             "laporan tidak dapat dibuat"
         )
 
+    # Cari Ketua Jurusan — Dr. Slamet Widodo (NIP konsisten di seed)
+    ketua_jurusan = db.query(User).filter(
+        User.nim_nip == "197305162002121001"
+    ).first()
+    
+    # Kalau tidak ketemu fallback ke admin pertama
+    if not ketua_jurusan:
+        ketua_jurusan = db.query(User).filter(
+            User.role == "admin"
+        ).first()
+
     return templates.TemplateResponse(
         request=request,
         name="pages/cetak_laporan.html",
         context={
-            "ruangan":     ruangan,
-            "bulan_label": f"{BULAN_NAMA.get(bln, bln)} {thn}",
-            "print_pages": print_pages,
+            "ruangan":       ruangan,
+            "bulan_label":   f"{BULAN_NAMA.get(bln, bln)} {thn}",
+            "print_pages":   print_pages,
+            "ketua_jurusan": ketua_jurusan.nama if ketua_jurusan else "Ketua Jurusan",
+            "ketua_nip":     ketua_jurusan.nim_nip if ketua_jurusan else "",
         }
     )
 

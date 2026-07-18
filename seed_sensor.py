@@ -14,12 +14,12 @@ def h(pw): return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
 # ── Helper ───────────────────────────────────────────────────────────────────
 
-def upsert_user(nama, nim_nip, role, kelas=None, fp_id=None, password="polsri123"):
+def upsert_user(nama, nim_nip, role, kelas=None, id_perangkat=None, password="polsri123"):
     u = db.query(User).filter(User.nim_nip == nim_nip).first()
     if not u:
         u = User(
             nama=nama, nim_nip=nim_nip, role=role,
-            kelas=kelas, fingerprint_id=fp_id, aktif=True,
+            kelas=kelas, id_perangkat=id_perangkat, aktif=True,
             password_hash=h(password),
         )
         db.add(u)
@@ -28,7 +28,7 @@ def upsert_user(nama, nim_nip, role, kelas=None, fp_id=None, password="polsri123
     else:
         u.kelas = kelas
         u.aktif = True
-        if fp_id: u.fingerprint_id = fp_id
+        if id_perangkat: u.id_perangkat = id_perangkat
         print(f"  ~ [{role:10}] {nama} — update")
     return u
 
@@ -71,19 +71,19 @@ print(f"✓ {ruangan.nama} (id={ruangan.id})")
 # ── Dosen & Teknisi ───────────────────────────────────────────────────────────
 
 print("\n=== Dosen & Teknisi ===")
-# FP ID 1 = admin, 2-3 = slot cadangan, mulai dari 7 untuk staf
-upsert_user("Dr. Slamet Widodo, S.Kom., M.Kom.",                   "197305162002121001", "dosen",   fp_id=7)
-upsert_user("Ali Firdaus, M. Kom.",                                "197010112001121001", "dosen",   fp_id=8)
-upsert_user("Indarto, S.T., M.Cs.",                                "197307062005011003", "dosen",   fp_id=9)
-upsert_user("Herlambang Saputra, M.Kom, Ph.D",                    "198103182008121002", "dosen",   fp_id=10)
-upsert_user("Ariansyah Saputra, S.Kom. M.Kom",                    "198907122019031012", "dosen",   fp_id=11)
-upsert_user("Iwan setiawan, S.T.",                                 "197807212008101001", "teknisi", fp_id=12)
-upsert_user("Muhammad Wahyudi, S.Kom.",                            "199009152010121001", "teknisi", fp_id=13)
-upsert_user("Willy Andre, S.Kom.",                                 "198501082019031007", "teknisi", fp_id=14)
+# ID Perangkat 1 = admin, 2-3 = slot cadangan, mulai dari 7 untuk staf
+upsert_user("Dr. Slamet Widodo, S.Kom., M.Kom.",                   "197305162002121001", "dosen",   id_perangkat=7)
+upsert_user("Ali Firdaus, M. Kom.",                                "197010112001121001", "dosen",   id_perangkat=8)
+upsert_user("Indarto, S.T., M.Cs.",                                "197307062005011003", "dosen",   id_perangkat=9)
+upsert_user("Herlambang Saputra, M.Kom, Ph.D",                    "198103182008121002", "dosen",   id_perangkat=10)
+upsert_user("Ariansyah Saputra, S.Kom. M.Kom",                    "198907122019031012", "dosen",   id_perangkat=11)
+upsert_user("Iwan setiawan, S.T.",                                 "197807212008101001", "teknisi", id_perangkat=12)
+upsert_user("Muhammad Wahyudi, S.Kom.",                            "199009152010121001", "teknisi", id_perangkat=13)
+upsert_user("Willy Andre, S.Kom.",                                 "198501082019031007", "teknisi", id_perangkat=14)
 upsert_user("Dr. Ir. Alan Novi Tompunu, S.T., M.T., IPM., ASEAN Eng., APEC Eng",
-                                                                   "197611082000031002", "dosen",   fp_id=15)
-faris = upsert_user("Faris Humam, M.Kom.",                        "199105052022031006", "dosen",   fp_id=16)
-agus  = upsert_user("Muhammad Agus Triawan, M.T.",                "199008122022031004", "dosen",   fp_id=17)
+                                                                   "197611082000031002", "dosen",   id_perangkat=15)
+faris = upsert_user("Faris Humam, M.Kom.",                        "199105052022031006", "dosen",   id_perangkat=16)
+agus  = upsert_user("Muhammad Agus Triawan, M.T.",                "199008122022031004", "dosen",   id_perangkat=17)
 db.commit()
 
 # ── Mahasiswa 2CC ─────────────────────────────────────────────────────────────
@@ -112,10 +112,10 @@ DATA_2CC = [
     ("062530701434", "Rizma Muzdalifah"),
     ("062530701435", "Tri Mawarni"),
 ]
-fp_counter = 20  # mulai FP ID 20 untuk mahasiswa baru
+perangkat_counter = 20  # mulai ID perangkat 20 untuk mahasiswa baru
 for nim, nama in DATA_2CC:
-    upsert_user(nama, nim, "mahasiswa", kelas="2CC", fp_id=fp_counter)
-    fp_counter += 1
+    upsert_user(nama, nim, "mahasiswa", kelas="2CC", id_perangkat=perangkat_counter)
+    perangkat_counter += 1
 db.commit()
 
 # ── Mahasiswa 2CE ─────────────────────────────────────────────────────────────
@@ -144,8 +144,8 @@ DATA_2CE = [
     ("062530701479", "Sandy Aryanto"),
 ]
 for nim, nama in DATA_2CE:
-    upsert_user(nama, nim, "mahasiswa", kelas="2CE", fp_id=fp_counter)
-    fp_counter += 1
+    upsert_user(nama, nim, "mahasiswa", kelas="2CE", id_perangkat=perangkat_counter)
+    perangkat_counter += 1
 db.commit()
 
 # ── Mahasiswa 2CF ─────────────────────────────────────────────────────────────
@@ -172,8 +172,8 @@ DATA_2CF = [
     ("062530701500", "Syalwa Meidini Putri"),
 ]
 for nim, nama in DATA_2CF:
-    upsert_user(nama, nim, "mahasiswa", kelas="2CF", fp_id=fp_counter)
-    fp_counter += 1
+    upsert_user(nama, nim, "mahasiswa", kelas="2CF", id_perangkat=perangkat_counter)
+    perangkat_counter += 1
 db.commit()
 
 # ── Mahasiswa Tambahan (TA Kelompok) ─────────────────────────────────────────
@@ -181,16 +181,16 @@ db.commit()
 print("\n=== Mahasiswa Tambahan ===")
 DATA_TAMBAHAN = [
     ("062330701452", "Nicco Dwi Satria",           "6CC", None),
-    ("062330701514", "Fatah Alfi Syahri",           "6CF", 4),   # fp_id sudah ada
+    ("062330701514", "Fatah Alfi Syahri",           "6CF", 4),   # id_perangkat sudah ada
     ("062330701511", "Avip Kurniawan Harahap",      "6CF", None),
     ("062330701517", "M. Andriano Alfarazy",        "6CF", None),
     ("062330701521", "Muhammad Eqsha Azmiansyah",   "6CF", None),
 ]
-for nim, nama, kelas, fp_id in DATA_TAMBAHAN:
-    u = upsert_user(nama, nim, "mahasiswa", kelas=kelas, fp_id=fp_id)
-    if not fp_id:  # assign FP ID kalau belum ada
-        u.fingerprint_id = fp_counter
-        fp_counter += 1
+for nim, nama, kelas, id_prk in DATA_TAMBAHAN:
+    u = upsert_user(nama, nim, "mahasiswa", kelas=kelas, id_perangkat=id_prk)
+    if not id_prk:  # assign ID Perangkat kalau belum ada
+        u.id_perangkat = perangkat_counter
+        perangkat_counter += 1
 db.commit()
 
 # ── Jadwal KBM ────────────────────────────────────────────────────────────────
@@ -230,7 +230,7 @@ for _ in range(8):
     d += timedelta(weeks=1)
 db.commit()
 
-print(f"\n✅ Selesai. FP ID terakhir dipakai: {fp_counter - 1}")
+print(f"\n✅ Selesai. ID Perangkat terakhir dipakai: {perangkat_counter - 1}")
 print("   Langkah berikutnya:")
 print("   1. python seed_lab_sensor.py (sudah selesai)")
 print("   2. Buka dashboard → Jadwal → Kelola Mahasiswa per jadwal")

@@ -570,3 +570,29 @@ def check_status(db: Session = Depends(get_db)):
                            .filter(InventarisAlat.ruangan_id == 13).count()
         }
     }
+
+@router.post("/migrate-users-v2")
+def migrate_users_v2(key: str, db: Session = Depends(get_db)):
+    """
+    - Rename kolom fingerprint_id → id_perangkat
+    - Hapus kolom face_encoding (tidak dipakai, enrollment on-device)
+    """
+    if not SETUP_KEY or key != SETUP_KEY:
+        raise HTTPException(403, "Kunci tidak valid")
+    from sqlalchemy import text
+    hasil = []
+    operasi = [
+        # Rename fingerprint_id → id_perangkat
+        "ALTER TABLE users RENAME COLUMN fingerprint_id TO id_perangkat",
+        # Hapus face_encoding (jika masih ada)
+        "ALTER TABLE users DROP COLUMN IF EXISTS face_encoding",
+    ]
+    for sql in operasi:
+        try:
+            db.execute(text(sql))
+            db.commit()
+            hasil.append(f"✓ {sql}")
+        except Exception as e:
+            db.rollback()
+            hasil.append(f"✗ {sql} → {e}")
+    return {"hasil": hasil}

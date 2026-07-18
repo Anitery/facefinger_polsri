@@ -35,7 +35,7 @@ class UserBase(BaseModel):
     ruangan_id: Optional[int] = None
 
 class UserCreate(UserBase):
-    fingerprint_id: Optional[int] = None
+    id_perangkat: Optional[int] = None
     password: Optional[str] = None
 
 class UserUpdate(BaseModel):
@@ -44,13 +44,12 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     kelas: Optional[str] = None  # ← FIX: Tambahan agar bisa update kelas
     aktif: Optional[bool] = None
-    fingerprint_id: Optional[int] = None
+    id_perangkat: Optional[int] = None
 
 class UserOut(UserBase):
     id: int
     aktif: bool
-    fingerprint_id: Optional[int] = None
-    face_encoding: Optional[str] = None
+    id_perangkat: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -558,7 +558,7 @@ def bridge_status_public(
     role: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Status bridge + info device ringkas untuk dashboard sipil."""
+    """Status bridge + info device ringkas dan identitas ruangan untuk dashboard sipil."""
     hb = db.query(BridgeHeartbeat).filter(
         BridgeHeartbeat.ruangan_id == ruangan_id
     ).order_by(
@@ -588,6 +588,18 @@ def bridge_status_public(
     if role == "dosen":
         device_ip_display = "Terhubung" if bridge_aktif else "—"
 
+    # ── Identitas Ruangan & Penanggung Jawab ─────────────────
+    ruangan = db.query(Ruangan).options(
+        joinedload(Ruangan.penanggung_jawab)
+    ).filter(Ruangan.id == ruangan_id).first()
+
+    pj_list = []
+    if ruangan and hasattr(ruangan, "penanggung_jawab") and ruangan.penanggung_jawab:
+        pj_list = [
+            {"nama": u.nama, "role": u.role}
+            for u in ruangan.penanggung_jawab
+        ]
+
     today = wib_today_str()
     jadwals = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
@@ -609,6 +621,12 @@ def bridge_status_public(
         "device_time": device_time,
         "total_user_device": total_user,
         "log_hari_ini": log_hari_ini,
+        "identitas_ruangan": {
+            "nama":             ruangan.nama if ruangan else "—",
+            "lokasi":           ruangan.lokasi if ruangan else "—",
+            "lantai":           getattr(ruangan, "lantai", None) if ruangan else None,
+            "penanggung_jawab": pj_list,
+        },
         "jadwal_hari_ini": [
             {
                 "jadwal_id": j.id,

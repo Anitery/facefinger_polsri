@@ -3,18 +3,6 @@
 {% block page_title %}Absensi{% endblock %}
 
 {% block content %}
-<style>
-  /* Memastikan border tabel terlihat jelas dan rapi */
-  .table-bordered, .table-bordered th, .table-bordered td {
-    border: 1px solid #cbd5e1 !important;
-  }
-  .table thead th {
-    background-color: #f8fafc;
-    border-bottom: 2px solid #94a3b8 !important;
-    color: #334155;
-    font-weight: 600;
-  }
-</style>
 
 <div class="section-card p-3 mb-3">
   <div class="row g-2 align-items-end">
@@ -43,7 +31,7 @@
   <div class="col-6 col-lg-3">
     <div class="stat-card">
       <div class="icon" style="background:#dcfce7;color:#15803d;">
-        <i class="bi bi-check-circle-fill"></i>
+        <i class="bi bi-check-circle"></i>
       </div>
       <div>
         <div class="val text-success" id="statHadir">0</div>
@@ -54,7 +42,7 @@
   <div class="col-6 col-lg-3">
     <div class="stat-card">
       <div class="icon" style="background:#fef9c3;color:#a16207;">
-        <i class="bi bi-clock-fill"></i>
+        <i class="bi bi-clock-history"></i>
       </div>
       <div>
         <div class="val text-warning" id="statTerlambat">0</div>
@@ -65,7 +53,7 @@
   <div class="col-6 col-lg-3">
     <div class="stat-card">
       <div class="icon" style="background:#fee2e2;color:#b91c1c;">
-        <i class="bi bi-x-circle-fill"></i>
+        <i class="bi bi-x-circle"></i>
       </div>
       <div>
         <div class="val text-danger" id="statTidakHadir">0</div>
@@ -76,7 +64,7 @@
   <div class="col-6 col-lg-3">
     <div class="stat-card">
       <div class="icon" style="background:#eff6ff;color:#1d4ed8;">
-        <i class="bi bi-clipboard-check-fill"></i>
+        <i class="bi bi-clipboard-check"></i>
       </div>
       <div>
         <div class="val text-primary" id="statSesi">0</div>
@@ -88,13 +76,13 @@
 
 <div class="tbl-wrap d-none d-md-block mb-3" id="tabelRekap">
   <div style="overflow-x:auto;">
-    <table class="table table-hover table-bordered mb-0" style="min-width:640px;">
+    <table class="table table-hover mb-0" style="min-width:640px;">
       <thead>
         <tr>
           <th style="width: 30px; text-align: center;">
             <input type="checkbox" class="form-check-input" id="checkAllJadwal" onchange="toggleAllJadwal(this)">
           </th>
-          <th style="text-align: center; width: 50px;">No</th>
+          <th>No</th>
           <th>Tanggal</th>
           <th>Kegiatan / Kelas</th>
           <th>Jam</th>
@@ -102,7 +90,7 @@
           <th style="text-align:center;">Hadir</th>
           <th style="text-align:center;">Terlambat</th>
           <th style="text-align:center;">Absen</th>
-          <th style="text-align:center; width: 100px;">Aksi</th>
+          <th style="text-align:center;">Aksi</th>
         </tr>
       </thead>
       <tbody id="rekapBody">
@@ -152,36 +140,42 @@
           </div>
         </div>
 
-        <div class="px-4 py-2 border-bottom d-flex gap-4 flex-wrap align-items-center"
+        <div class="px-4 py-2 border-bottom d-flex gap-4 flex-wrap"
              style="font-size:.82rem;">
-          <span class="d-flex align-items-center">
-            <i class="bi bi-check-circle-fill text-success me-1" style="font-size:1rem;"></i>
-            Hadir: <strong class="ms-1" id="detailHadir">0</strong>
+          <span>
+            <span class="badge-ok me-1">✓</span>
+            Hadir: <strong id="detailHadir">0</strong>
           </span>
-          <span class="d-flex align-items-center">
-            <i class="bi bi-clock-fill text-warning me-1" style="font-size:1rem;"></i>
-            Terlambat: <strong class="ms-1" id="detailTerlambat">0</strong>
+          <span>
+            <span style="background:#fef9c3;color:#a16207;padding:2px 7px;
+                         border-radius:10px;font-size:.72rem;font-weight:600;">
+              ⚠
+            </span>
+            Terlambat: <strong id="detailTerlambat">0</strong>
           </span>
-          <span class="d-flex align-items-center">
-            <i class="bi bi-x-circle-fill text-danger me-1" style="font-size:1rem;"></i>
-            Absen: <strong class="ms-1" id="detailAbsen">0</strong>
+          <span>
+            <span class="badge-no :me-1">✗</span>
+            Absen: <strong id="detailAbsen">0</strong>
           </span>
-          <span class="d-flex align-items-center">
-            <i class="bi bi-file-earmark-text-fill text-primary me-1" style="font-size:1rem;"></i>
-            Izin: <strong class="ms-1" id="detailIzin">0</strong>
+          <span>
+            <span style="background:#eff6ff;color:#1d4ed8;padding:2px 7px;
+                         border-radius:10px;font-size:.72rem;font-weight:600;">
+              📋
+            </span>
+            Izin: <strong id="detailIzin">0</strong>
           </span>
         </div>
 
         <div style="overflow-x:auto; max-height:380px; overflow-y:auto;">
-          <table class="table table-hover table-bordered mb-0" style="min-width:480px;">
-            <thead style="position:sticky;top:0;z-index:1;">
+          <table class="table table-hover mb-0" style="min-width:480px;">
+            <thead style="position:sticky;top:0;">
               <tr>
-                <th style="text-align: center; width: 50px;">No</th>
+                <th>No</th>
                 <th>Nama</th>
                 <th>NIM/NIP</th>
-                <th style="text-align: center;">Status</th>
+                <th>Status</th>
                 <th>Jam Masuk</th>
-                <th style="text-align: center; width: 70px;">Aksi</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody id="detailBody">
@@ -230,21 +224,21 @@
         <input type="hidden" id="ubahAbsensiId">
         <input type="hidden" id="ubahJadwalId">
         <div class="d-grid gap-2">
-          <button class="btn btn-outline-success d-flex align-items-center justify-content-center"
+          <button class="btn btn-outline-success"
                   onclick="setStatus('hadir')">
-            <i class="bi bi-check-circle me-2"></i>Hadir
+            ✓ Hadir
           </button>
-          <button class="btn btn-outline-warning d-flex align-items-center justify-content-center"
+          <button class="btn btn-outline-warning"
                   onclick="setStatus('terlambat')">
-            <i class="bi bi-clock me-2"></i>Terlambat
+            ⚠ Terlambat
           </button>
-          <button class="btn btn-outline-danger d-flex align-items-center justify-content-center"
+          <button class="btn btn-outline-danger"
                   onclick="setStatus('tidak_hadir')">
-            <i class="bi bi-x-circle me-2"></i>Tidak Hadir
+            ✗ Tidak Hadir
           </button>
-          <button class="btn btn-outline-primary d-flex align-items-center justify-content-center"
+          <button class="btn btn-outline-primary"
                   onclick="setStatus('izin')">
-            <i class="bi bi-file-earmark-text me-2"></i>Izin
+            📋 Izin
           </button>
         </div>
         <div class="mt-3">
@@ -255,6 +249,7 @@
     </div>
   </div>
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -294,6 +289,7 @@ function cetakLaporanBulanan() {
   const selected = getSelectedJadwalIds();
   let url = `/absensi/cetak-laporan?ruangan_id=${rid}&bulan=${bulan}`;
 
+  // Jika ada jadwal yang dipilih, tambahkan parameter jadwal_ids
   if (selected.length > 0) {
     url += `&jadwal_ids=${selected.join(',')}`;
   }
@@ -310,6 +306,7 @@ async function loadRekap() {
   if (rid)   url += `ruangan_id=${rid}&`;
   if (bulan) url += `bulan=${bulan}`;
 
+  // Reset CheckAll jika reload
   const checkAllBox = document.getElementById('checkAllJadwal');
   if (checkAllBox) checkAllBox.checked = false;
 
@@ -317,6 +314,7 @@ async function loadRekap() {
     const res  = await fetch(url);
     const data = await res.json();
 
+    // Update stat cards
     const totalHadir      = data.reduce((s,j) => s + j.hadir,       0);
     const totalTerlambat  = data.reduce((s,j) => s + j.terlambat,   0);
     const totalTidakHadir = data.reduce((s,j) => s + j.tidak_hadir, 0);
@@ -335,10 +333,10 @@ async function loadRekap() {
 
 function statusBadge(status) {
   const map = {
-    hadir:       '<span class="badge-ok d-inline-flex align-items-center"><i class="bi bi-check-circle me-1"></i>Hadir</span>',
-    terlambat:   '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.73rem;font-weight:600;" class="d-inline-flex align-items-center"><i class="bi bi-clock me-1"></i>Terlambat</span>',
-    tidak_hadir: '<span class="badge-no d-inline-flex align-items-center"><i class="bi bi-x-circle me-1"></i>Absen</span>',
-    izin:        '<span class="badge-role d-inline-flex align-items-center"><i class="bi bi-file-earmark-text me-1"></i>Izin</span>',
+    hadir:       '<span class="badge-ok">✓ Hadir</span>',
+    terlambat:   '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.73rem;font-weight:600;">⚠ Terlambat</span>',
+    tidak_hadir: '<span class="badge-no">✗ Absen</span>',
+    izin:        '<span class="badge-role">📋 Izin</span>',
   };
   return map[status] || status;
 }
@@ -366,7 +364,7 @@ function renderRekap(data) {
       <td style="text-align:center;">
         <input type="checkbox" class="form-check-input jadwal-check" value="${j.jadwal_id}">
       </td>
-      <td class="text-muted" style="font-size:.75rem; text-align:center;">${i+1}</td>
+      <td class="text-muted" style="font-size:.75rem;">${i+1}</td>
       <td style="font-size:.8rem;white-space:nowrap;">${j.tanggal}</td>
       <td>
         <div class="fw-bold" style="font-size:.83rem;">
@@ -374,8 +372,8 @@ function renderRekap(data) {
         </div>
         ${j.kelas
           ? `<span style="background:#eff6ff;color:#1d4ed8;
-                         padding:1px 7px;border-radius:10px;
-                         font-size:.68rem;font-weight:600;">
+                          padding:1px 7px;border-radius:10px;
+                          font-size:.68rem;font-weight:600;">
                ${j.kelas}
              </span>`
           : ''}
@@ -445,12 +443,12 @@ function renderRekap(data) {
         </div>
       </div>
       <div class="d-flex gap-2 ms-4" style="font-size:.77rem;">
-        <span class="badge-ok d-inline-flex align-items-center"><i class="bi bi-check-circle me-1"></i>${j.hadir}</span>
+        <span class="badge-ok">✓ ${j.hadir}</span>
         <span style="background:#fef9c3;color:#a16207;padding:3px 8px;
-                     border-radius:20px;font-size:.73rem;font-weight:600;" class="d-inline-flex align-items-center">
-          <i class="bi bi-clock me-1"></i>${j.terlambat}
+                     border-radius:20px;font-size:.73rem;font-weight:600;">
+          ⚠ ${j.terlambat}
         </span>
-        <span class="badge-no d-inline-flex align-items-center"><i class="bi bi-x-circle me-1"></i>${j.tidak_hadir}</span>
+        <span class="badge-no">✗ ${j.tidak_hadir}</span>
       </div>
     </div>`).join('');
 }
@@ -486,15 +484,15 @@ async function lihatDetail(jadwalId) {
     document.getElementById('detailBody').innerHTML =
       data.detail.map((d, i) => `
         <tr style="background:${getStatusBg(d.status)};">
-          <td class="text-muted" style="font-size:.75rem; text-align:center;">${i+1}</td>
+          <td class="text-muted" style="font-size:.75rem;">${i+1}</td>
           <td>
             <div class="fw-bold" style="font-size:.83rem;">${d.nama}</div>
             <div style="font-size:.7rem;color:#94a3b8;">${d.role}</div>
           </td>
           <td style="font-size:.78rem;">${d.nim_nip}</td>
-          <td style="text-align:center;">${statusBadge(d.status)}</td>
+          <td>${statusBadge(d.status)}</td>
           <td style="font-size:.78rem;">${d.waktu_masuk}</td>
-          <td style="text-align:center;">
+          <td>
             <button class="btn btn-outline-secondary btn-sm"
                     onclick="bukaUbahStatus(${d.user_id},'${d.nama.replace(/'/g,"\\'")}', ${jadwalId})">
               <i class="bi bi-pencil"></i>

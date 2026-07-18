@@ -174,10 +174,10 @@
         <div class="nip-nim">NIP/NIM. {{ p.dosen_nim_nip if p.dosen_nim_nip else '............................' }}</div>
       </div>
       <div class="ttd">
-        <div>Admin Sistem</div>
+        <div>Ketua Jurusan</div>
         <div class="space-ttd"></div>
-        <div class="line">( .............................. )</div>
-        <div class="nip-nim">&nbsp;</div>
+        <div class="line">( {{ ketua_jurusan }} )</div>
+        <div class="nip-nim">NIP. {{ ketua_nip if ketua_nip else '............................' }}</div>
       </div>
     </div>
     {% else %}

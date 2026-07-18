@@ -200,7 +200,7 @@
     @media (max-width: 767.98px) { .content-area { padding: 16px; } }
     @media (max-width: 575.98px) { .content-area { padding: 12px; } }
 
-    /* ── Footer Utama (Diperbaiki posisinya di dalam #main) ── */
+    /* ── Footer Utama ── */
     .main-footer {
       background: #1e293b;
       color: #94a3b8;
@@ -285,6 +285,24 @@
     </div>
 
     <div class="py-2 flex-grow-1 sidebar-nav">
+      
+      {% if ruangan_list %}
+      <!-- Di SIDEBAR (untuk mobile) -->
+      <div class="sidebar-ruangan-wrap px-3 py-2 border-bottom d-lg-none mb-2" style="border-color: rgba(255,255,255,.1) !important;">
+        <label style="font-size:.72rem;color:rgba(255,255,255,.5);font-weight:600; text-transform:uppercase;letter-spacing:.05em;">
+          Ruangan Aktif
+        </label>
+        <select id="ruanganSelectSidebar" class="form-select form-select-sm mt-1 border-secondary"
+                style="background:rgba(255,255,255,.1); color:#fff;"
+                onchange="gantiRuangan(this.value, this.options[this.selectedIndex].text)">
+          <option value="" style="color:#000;">— Semua Ruangan —</option>
+          {% for r in ruangan_list %}
+          <option value="{{ r.id }}" style="color:#000;">{{ r.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
       {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
       <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Dashboard
@@ -361,31 +379,17 @@
       </div>
       
       {% if ruangan_list %}
-      <div class="dropdown d-none d-md-block">
-        <button class="btn btn-sm d-flex align-items-center gap-2"
-                style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 14px; font-size:.84rem;"
-                data-bs-toggle="dropdown">
-          <i class="bi bi-building text-primary"></i>
-          <span id="namaRuanganAktif" style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:#1e293b;">Semua Ruangan</span>
-          <i class="bi bi-chevron-down ms-1" style="font-size:.65rem; color:#94a3b8;"></i>
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:220px; max-height:320px; overflow-y:auto; border-radius:10px; font-size:.85rem; border-color: #e2e8f0;">
-          <li>
-            <a class="dropdown-item py-2" href="#" onclick="pilihRuangan(null, 'Semua Ruangan')">
-              <i class="bi bi-grid me-2 text-muted"></i>Semua Ruangan
-            </a>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
+      <!-- Di TOPBAR (untuk desktop) -->
+      <div class="d-none d-lg-flex align-items-center gap-2">
+        <i class="bi bi-building text-primary" style="font-size: 1.1rem;"></i>
+        <select id="ruanganSelectTopbar" class="form-select form-select-sm shadow-sm"
+                style="min-width:180px; border-radius: 8px; border-color: #e2e8f0; font-weight: 600; color: #1e293b; background-color: #f8fafc;"
+                onchange="gantiRuangan(this.value, this.options[this.selectedIndex].text)">
+          <option value="">— Semua Ruangan —</option>
           {% for r in ruangan_list %}
-          <li>
-            <a class="dropdown-item py-2 ruangan-item" href="#" data-id="{{ r.id }}" data-nama="{{ r.nama|e }}">
-              <i class="bi bi-door-open me-2 text-primary"></i>
-              <span>{{ r.nama }}</span>
-              <small class="text-muted ms-1">L{{ r.lantai }}</small>
-            </a>
-          </li>
+          <option value="{{ r.id }}">{{ r.nama }}</option>
           {% endfor %}
-        </ul>
+        </select>
       </div>
       {% endif %}
 
@@ -447,7 +451,7 @@
       {% block content %}{% endblock %}
     </div>
 
-    <!-- Footer Utama (Sekarang Bada DI DALAM #main) -->
+    <!-- Footer Utama -->
     <footer class="main-footer">
       <div>
         <span class="footer-title">Smart Door Lock</span>
@@ -497,7 +501,7 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 30000);
 
-// ── Manajemen Ruangan ────────────────────────────────────
+// ── Manajemen Ruangan Tersinkronisasi ────────────────────
 function getRuanganAktif() {
   const s = localStorage.getItem('ruangan_aktif');
   return s ? JSON.parse(s) : { id: null, nama: 'Semua Ruangan' };
@@ -508,34 +512,35 @@ function getRuanganId() {
   return aktif.id || null;
 }
 
-function pilihRuangan(id, nama) {
-  const data = { id, nama };
+function gantiRuangan(id, nama) {
+  const parsedId = id ? parseInt(id) : null;
+  const data = { id: parsedId, nama: nama };
   localStorage.setItem('ruangan_aktif', JSON.stringify(data));
 
-  const elTopbar = document.getElementById('namaRuanganAktif');
-  if (elTopbar) elTopbar.textContent = nama;
+  // Sync kedua select agar tampilan konsisten (Desktop & Mobile)
+  ['ruanganSelectTopbar', 'ruanganSelectSidebar'].forEach(elId => {
+    const el = document.getElementById(elId);
+    if (el) el.value = id || "";
+  });
 
   window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
 
+  // Tutup sidebar jika mengubah ruangan via mobile
   if (isMobile()) {
     closeSidebar();
   }
 }
 
-// Event handler dropdown ruangan (Delegasi Event)
-document.addEventListener('click', function(e) {
-  const item = e.target.closest('.ruangan-item');
-  if (item) {
-    e.preventDefault();
-    pilihRuangan(item.dataset.id, item.dataset.nama);
-  }
-});
-
-// Init Ruangan saat DOMLoaded
+// Restore pilihan dari localStorage saat halaman dimuat
 document.addEventListener('DOMContentLoaded', () => {
-  const aktif = getRuanganAktif();
-  const elTopbar = document.getElementById('namaRuanganAktif');
-  if (elTopbar) elTopbar.textContent = aktif.nama;
+  const saved = localStorage.getItem('ruangan_aktif');
+  if (saved) {
+    const { id } = JSON.parse(saved);
+    ['ruanganSelectTopbar', 'ruanganSelectSidebar'].forEach(elId => {
+      const el = document.getElementById(elId);
+      if (el) el.value = id || "";
+    });
+  }
 });
 
 // ── Notifikasi Realtime ──────────────────────────────────

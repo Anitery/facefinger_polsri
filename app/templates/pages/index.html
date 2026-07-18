@@ -56,6 +56,15 @@
 
 <div class="row g-3">
   <div class="col-12 col-xl-5">
+    <!-- Card Identitas Ruangan -->
+    <div class="section-card p-3 mb-3 bg-white rounded shadow-sm" id="cardIdentitasRuangan" style="display:none;">
+      <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
+        <i class="bi bi-building me-2 text-primary"></i>Identitas Ruangan
+      </h6>
+      <div class="d-flex flex-column gap-2" id="infoIdentitasRuangan" style="font-size:.83rem;">
+      </div>
+    </div>
+
     <div class="section-card p-3 mb-3 bg-white rounded shadow-sm">
       <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
         <i class="bi bi-router me-2 text-primary"></i>Info Device
@@ -157,6 +166,7 @@ function getTodayLocal() {
 async function loadDeviceInfo() {
   const rid = getRuanganId();
   if (!rid) {
+    document.getElementById('cardIdentitasRuangan').style.display = 'none';
     document.getElementById('infoDevice').innerHTML =
       '<div class="text-warning text-center">Pilih ruangan di sidebar</div>';
     return;
@@ -165,6 +175,42 @@ async function loadDeviceInfo() {
     const role = "{{ user.role }}";
     const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}&role=${role}`);
     const data = await r.json();
+
+    // Render Identitas Ruangan
+    const identitas = data.identitas_ruangan || {};
+    const pjList    = identitas.penanggung_jawab || [];
+    if (identitas.nama && identitas.nama !== '—') {
+      document.getElementById('cardIdentitasRuangan').style.display = 'block';
+      document.getElementById('infoIdentitasRuangan').innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+          <span class="text-muted" style="min-width:90px;">Nama</span>
+          <span class="fw-bold text-end">${identitas.nama}</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted" style="min-width:90px;">Lokasi</span>
+          <span>${identitas.lokasi || '—'}</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted" style="min-width:90px;">Lantai</span>
+          <span>${identitas.lantai ? 'Lantai ' + identitas.lantai : '—'}</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-start">
+          <span class="text-muted" style="min-width:90px;">Penanggung Jawab</span>
+          <div class="text-end">
+            ${pjList.length
+              ? pjList.map(p =>
+                  `<div>
+                    <span class="fw-bold" style="font-size:.82rem;">${p.nama}</span>
+                    <span class="text-muted" style="font-size:.7rem;"> (${p.role})</span>
+                  </div>`
+                ).join('')
+              : '<span class="text-muted">Belum ditentukan</span>'
+            }
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('cardIdentitasRuangan').style.display = 'none';
+    }
 
     document.getElementById('statusDevice').innerHTML =
       data.bridge_aktif 
@@ -237,6 +283,7 @@ async function loadDeviceInfo() {
     document.getElementById('jadwalHariIni').innerHTML = jadwalHtml;
 
   } catch(e) {
+    document.getElementById('cardIdentitasRuangan').style.display = 'none';
     document.getElementById('infoDevice').innerHTML =
       '<div class="text-danger text-center">Bridge belum aktif</div>';
     document.getElementById('statusDevice').innerHTML = 
