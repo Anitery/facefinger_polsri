@@ -122,7 +122,7 @@ def seed_lab_sensor_final(key: str, db: Session = Depends(get_db)):
     Seed data final TA:
     - Seluruh staf (dosen + teknisi) Jurusan Teknik Komputer
     - Mahasiswa 2CC, 2CE, 2CF + mahasiswa tambahan TA
-    - Jadwal KBM 8 minggu ke depan untuk Lab Sensor & Wireless (id=7)
+    - Jadwal KBM 8 minggu ke depan untuk Lab Sensor & Wireless (id=6)
     """
     if not SETUP_KEY or key != SETUP_KEY:
         raise HTTPException(403, "Kunci tidak valid")
@@ -174,9 +174,9 @@ def seed_lab_sensor_final(key: str, db: Session = Depends(get_db)):
         ))
 
     # ── Verifikasi Ruangan ─────────────────────────────────────
-    ruangan = db.query(Ruangan).filter(Ruangan.id == 7).first()
+    ruangan = db.query(Ruangan).filter(Ruangan.id == 6).first()
     if not ruangan:
-        raise HTTPException(404, "Ruangan id=7 (Lab Sensor & Wireless) tidak ditemukan. "
+        raise HTTPException(404, "Ruangan id=6 (Lab Sensor & Wireless) tidak ditemukan. "
                                  "Jalankan /setup/init terlebih dahulu.")
 
     # ── Staf Jurusan Teknik Komputer ──────────────────────────
@@ -336,19 +336,19 @@ def seed_lab_sensor_final(key: str, db: Session = Depends(get_db)):
     for _ in range(8):
         sen_str = tgl_sen.strftime("%Y-%m-%d")
         # 2CC — Senin, dua blok
-        buat_jadwal(7, sen_str, "Praktek Routing dan Switching",
+        buat_jadwal(6, sen_str, "Praktek Routing dan Switching",
                     "2CC", faris.nama, "07:00", "09:30")
-        buat_jadwal(7, sen_str, "Praktek Routing dan Switching",
+        buat_jadwal(6, sen_str, "Praktek Routing dan Switching",
                     "2CC", faris.nama, "10:00", "12:30")
         tgl_sen   += timedelta(weeks=1)
         jadwal_count += 2
 
         sel_str = tgl_sel.strftime("%Y-%m-%d")
         # 2CF — Selasa siang
-        buat_jadwal(7, sel_str, "Praktek Routing dan Switching",
+        buat_jadwal(6, sel_str, "Praktek Routing dan Switching",
                     "2CF", agus.nama, "12:40", "15:10")
         # 2CE — Selasa sore
-        buat_jadwal(7, sel_str, "Praktek Routing dan Switching",
+        buat_jadwal(6, sel_str, "Praktek Routing dan Switching",
                     "2CE", agus.nama, "15:40", "18:10")
         tgl_sel   += timedelta(weeks=1)
         jadwal_count += 2

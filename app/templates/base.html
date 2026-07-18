@@ -13,18 +13,24 @@
       --sidebar-w: 240px;
       --navy:      #1F3864;
       --accent:    #2E75B6;
+      --bg-light:  #f0f4f8;
     }
 
     * { box-sizing: border-box; }
+    
     body {
-      background: #f0f4f8;
-      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-light);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       margin: 0; padding: 0;
       overflow-x: hidden;
     }
 
     /* ── Layout ── */
-    .layout { display: flex; min-height: 100vh; width: 100%; }
+    .layout {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
 
     /* ── Sidebar ── */
     #sidebar {
@@ -37,7 +43,6 @@
       position: fixed;
       top: 0; left: 0; bottom: 0;
       z-index: 1030;
-      overflow-y: auto;
       transition: transform 0.28s cubic-bezier(.4,0,.2,1);
     }
 
@@ -51,14 +56,19 @@
       border-bottom: 1px solid rgba(255,255,255,.12);
       flex-shrink: 0;
     }
-    #sidebar .brand h6 { color:#fff; font-weight:700; font-size:.85rem; margin:0; line-height:1.3; }
-    #sidebar .brand small { color:rgba(255,255,255,.55); font-size:.7rem; }
+    #sidebar .brand h6 { color: #fff; font-weight: 700; font-size: .88rem; margin: 0; line-height: 1.3; }
+    #sidebar .brand small { color: rgba(255,255,255,.55); font-size: .72rem; }
+
+    #sidebar .sidebar-nav {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
 
     #sidebar .nav-link {
       color: rgba(255,255,255,.75);
       padding: 10px 14px;
       border-radius: 8px;
-      margin: 2px 10px;
+      margin: 3px 10px;
       font-size: .86rem;
       display: flex; align-items: center; gap: 10px;
       transition: all .18s ease;
@@ -70,17 +80,19 @@
       background: rgba(255,255,255,.15);
       color: #fff;
     }
-    #sidebar .nav-link i { font-size:1.05rem; width:20px; text-align:center; flex-shrink:0; }
+    #sidebar .nav-link i { font-size: 1.1rem; width: 20px; text-align: center; flex-shrink: 0; }
+    
     #sidebar .nav-section {
-      color: rgba(255,255,255,.38);
-      font-size: .65rem; font-weight:700; letter-spacing:.09em;
+      color: rgba(255,255,255,.4);
+      font-size: .68rem; font-weight: 700; letter-spacing: .08em;
       text-transform: uppercase;
-      padding: 14px 22px 5px;
+      padding: 16px 22px 6px;
     }
+    
     #sidebar .sidebar-footer {
       padding: 12px 16px;
       border-top: 1px solid rgba(255,255,255,.1);
-      margin-top: auto; flex-shrink:0;
+      margin-top: auto; flex-shrink: 0;
     }
 
     /* ── Main ── */
@@ -88,7 +100,9 @@
       margin-left: var(--sidebar-w);
       flex: 1; min-width: 0;
       display: flex; flex-direction: column;
+      min-height: 100vh;
       width: calc(100% - var(--sidebar-w));
+      transition: margin-left 0.28s ease, width 0.28s ease;
     }
     @media (max-width: 991.98px) {
       #main { margin-left: 0 !important; width: 100% !important; }
@@ -98,47 +112,43 @@
     #topbar {
       background: #fff;
       border-bottom: 1px solid #e2e8f0;
-      padding: 0 16px;
+      padding: 0 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 12px;
       position: sticky; top: 0; z-index: 1020;
-      height: 56px;
-      box-shadow: 0 1px 6px rgba(0,0,0,.07);
+      height: 60px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.04);
     }
 
-    /* Kiri: toggle + judul */
     .topbar-left {
       display: flex; align-items: center;
-      gap: 10px; flex: 1; min-width: 0;
+      gap: 12px; flex: 1; min-width: 0;
     }
     .page-title {
       font-weight: 600; color: var(--navy);
-      margin: 0; font-size: .95rem;
+      margin: 0; font-size: 1rem;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* Kanan: aksi (bell + user) — selalu rapat */
     .topbar-right {
       display: flex; align-items: center;
-      gap: 6px; flex-shrink: 0;
+      gap: 10px; flex-shrink: 0;
     }
 
-    /* Clock + status — HANYA muncul di desktop (≥ lg) */
     .topbar-meta {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 10px;
       flex-shrink: 0;
     }
     @media (max-width: 991.98px) {
       .topbar-meta { display: none !important; }
     }
 
-    /* Mobile toggle */
     .mobile-toggle {
       background: none; border: none;
-      color: var(--navy); font-size: 1.3rem;
-      padding: 6px 8px; border-radius: 8px;
+      color: var(--navy); font-size: 1.4rem;
+      padding: 4px 8px; border-radius: 8px;
       line-height: 1; cursor: pointer;
       display: none; flex-shrink: 0;
     }
@@ -147,7 +157,7 @@
     }
     .mobile-toggle:hover { background: #f1f5f9; }
 
-    /* Bell button */
+    /* ── Tombol Notifikasi ── */
     .notif-btn {
       position: relative;
       width: 38px; height: 38px;
@@ -159,80 +169,101 @@
       transition: all .18s ease; cursor: pointer;
       flex-shrink: 0;
     }
-    .notif-btn:hover { background: var(--accent); color: #fff; }
+    .notif-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
     .notif-badge {
-      position: absolute; top: -3px; right: -3px;
+      position: absolute; top: -4px; right: -4px;
       background: #dc3545; color: #fff;
-      border-radius: 50%; width: 17px; height: 17px;
-      font-size: .6rem; font-weight: 700;
+      border-radius: 50%; width: 18px; height: 18px;
+      font-size: .62rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
+      border: 2px solid #fff;
     }
 
-    /* User avatar */
+    /* ── Profil User ── */
     .user-avatar {
-      width: 36px; height: 36px; border-radius: 50%;
+      width: 38px; height: 38px; border-radius: 50%;
       background: linear-gradient(135deg, var(--navy), var(--accent));
       color: #fff; display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: .85rem; flex-shrink: 0; cursor: pointer;
+      font-weight: 700; font-size: .9rem; flex-shrink: 0; cursor: pointer;
+      box-shadow: 0 2px 5px rgba(31,56,100,.2);
     }
-
-    /* User info teks — sembunyikan di mobile kecil */
-    .user-text { line-height: 1.2; }
-    .user-text .u-name { font-weight:600; color:var(--navy); font-size:.82rem; white-space:nowrap; }
-    .user-text .u-role { font-size:.68rem; color:#64748b; white-space:nowrap; }
+    .user-text { line-height: 1.25; text-align: left; }
+    .user-text .u-name { font-weight: 600; color: #1e293b; font-size: .84rem; white-space: nowrap; }
+    .user-text .u-role { font-size: .7rem; color: #64748b; white-space: nowrap; text-transform: capitalize; }
     @media (max-width: 575.98px) { .user-text { display: none; } }
 
-    /* ── Content ── */
-    .content-area { padding: 20px; flex: 1; }
-    @media (max-width: 767.98px) { .content-area { padding: 14px; } }
-    @media (max-width: 575.98px) { .content-area { padding: 10px; } }
+    /* ── Area Konten ── */
+    .content-area {
+      padding: 24px;
+      flex: 1 0 auto;
+    }
+    @media (max-width: 767.98px) { .content-area { padding: 16px; } }
+    @media (max-width: 575.98px) { .content-area { padding: 12px; } }
 
-    /* ── Stat cards ── */
-    .stat-card {
-      border:none; border-radius:12px; padding:18px;
-      display:flex; align-items:center; gap:14px;
-      background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.07);
-      height:100%; transition: transform .2s;
+    /* ── Footer Utama (Diperbaiki posisinya di dalam #main) ── */
+    .main-footer {
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: .78rem;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: auto;
+      border-top: 1px solid rgba(255,255,255,.05);
     }
-    .stat-card:hover { transform: translateY(-2px); }
-    .stat-card .icon {
-      width:50px; height:50px; border-radius:12px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:1.35rem; flex-shrink:0;
-    }
-    .stat-card .val { font-size:1.55rem; font-weight:700; line-height:1; }
-    .stat-card .lbl { font-size:.76rem; color:#64748b; margin-top:3px; }
-
-    /* ── Table ── */
-    .tbl-wrap { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); }
-    .tbl-wrap table { margin:0; }
-    .tbl-wrap thead th {
-      background:var(--navy); color:#fff; font-weight:600;
-      font-size:.8rem; border:none; padding:12px 14px; white-space:nowrap;
-    }
-    .tbl-wrap tbody tr:hover { background:#f8fafc; }
-    .tbl-wrap td { font-size:.83rem; padding:10px 14px; vertical-align:middle; border-color:#f1f5f9; }
+    .main-footer span { display: inline-flex; align-items: center; }
+    .main-footer .footer-title { color: #fff; font-weight: 600; }
     @media (max-width: 575.98px) {
-      .tbl-wrap td, .tbl-wrap thead th { padding: 8px 10px; font-size:.76rem; }
+      .main-footer { flex-direction: column; align-items: flex-start; text-align: left; padding: 16px; }
     }
 
-    /* ── Badges ── */
-    .badge-ok  { background:#dcfce7; color:#15803d; padding:3px 9px; border-radius:20px; font-size:.73rem; font-weight:600; }
-    .badge-no  { background:#fee2e2; color:#b91c1c; padding:3px 9px; border-radius:20px; font-size:.73rem; font-weight:600; }
-    .badge-role{ background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:20px; font-size:.7rem; }
+    /* ── Elemen Pendukung UI ── */
+    .stat-card {
+      border: none; border-radius: 12px; padding: 18px;
+      display: flex; align-items: center; gap: 14px;
+      background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+      height: 100%; transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+    .stat-card .icon {
+      width: 50px; height: 50px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; flex-shrink: 0;
+    }
+    .stat-card .val { font-size: 1.55rem; font-weight: 700; line-height: 1; color: #1e293b; }
+    .stat-card .lbl { font-size: .76rem; color: #64748b; margin-top: 4px; }
 
-    /* ── Section card ── */
-    .section-card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+    .tbl-wrap { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+    .tbl-wrap table { margin: 0; }
+    .tbl-wrap thead th {
+      background: var(--navy); color: #fff; font-weight: 600;
+      font-size: .82rem; border: none; padding: 14px 16px; white-space: nowrap;
+    }
+    .tbl-wrap tbody tr:hover { background: #f8fafc; }
+    .tbl-wrap td { font-size: .84rem; padding: 12px 16px; vertical-align: middle; border-color: #f1f5f9; color: #334155; }
+    @media (max-width: 575.98px) {
+      .tbl-wrap td, .tbl-wrap thead th { padding: 10px 12px; font-size: .78rem; }
+    }
 
-    /* ── Backdrop mobile ── */
+    .badge-ok   { background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: .73rem; font-weight: 600; display: inline-flex; align-items: center; }
+    .badge-no   { background: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 20px; font-size: .73rem; font-weight: 600; display: inline-flex; align-items: center; }
+    .badge-role { background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+
+    .section-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.05); padding: 20px; }
+
+    /* ── Backdrop Mobile ── */
     .sidebar-backdrop {
-      position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,.5); z-index:1025;
-      opacity:0; visibility:hidden; transition:all .28s ease;
-      display:none;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, .5); z-index: 1025;
+      opacity: 0; visibility: hidden; transition: all .28s ease;
+      display: none;
+      backdrop-filter: blur(2px);
     }
-    @media (max-width: 991.98px) { .sidebar-backdrop { display:block; } }
-    .sidebar-backdrop.show { opacity:1; visibility:visible; }
+    @media (max-width: 991.98px) { .sidebar-backdrop { display: block; } }
+    .sidebar-backdrop.show { opacity: 1; visibility: visible; }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -240,198 +271,203 @@
 <body>
 <div class="layout">
 
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <!-- Backdrop untuk mobile -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-<nav id="sidebar">
-  <div class="brand">
-    <div class="d-flex align-items-center gap-2 mb-1">
-      <i class="bi bi-shield-lock-fill text-white" style="font-size:1.3rem;"></i>
-      <h6>Smart Door Lock</h6>
-    </div>
-    <small>Ruang Multimedia Polsri</small>
-  </div>
-
-<div class="py-2 flex-grow-1 sidebar-nav">
-    {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
-    <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
-      <i class="bi bi-speedometer2"></i> Dashboard
-    </a>
-    {% endif %}
-
-    {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
-    <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
-      <i class="bi bi-list-ul"></i> Log Akses
-    </a>
-    {% endif %}
-
-    {% if user and user.role in ['admin', 'teknisi'] %}
-    <a href="/dashboard/status-lab"
-      class="nav-link {% if active=='status_lab' %}active{% endif %}">
-      <i class="bi bi-clipboard-check"></i> Status Perangkat
-    </a>
-    {% endif %}
-
-    {% if user and user.role in ['admin', 'dosen'] %}
-    <a href="/dashboard/jadwal" class="nav-link {% if active=='jadwal' %}active{% endif %}">
-      <i class="bi bi-calendar3"></i> Jadwal Ruangan
-    </a>
-    <a href="/dashboard/absensi" class="nav-link {% if active=='absensi' %}active{% endif %}">
-      <i class="bi bi-clipboard-check"></i> Absensi
-    </a>
-    {% endif %}
-
-        {% if user and user.role in ['admin', 'teknisi'] %}
-    <a href="/dashboard/ruangan" class="nav-link {% if active=='ruangan' %}active{% endif %}">
-      <i class="bi bi-building"></i> Ruangan
-    </a>
-    {% endif %}
-
-    {% if user and user.role in ['admin', 'dosen', 'teknisi'] %}
-    <a href="/dashboard/pengguna" class="nav-link {% if active=='pengguna' %}active{% endif %}">
-      <i class="bi bi-people"></i> Pengguna
-    </a>
-    {% endif %}
-
-    <div class="nav-section mt-3">Akun & Sistem</div>
-    <a href="/dashboard/profil" class="nav-link {% if active=='profil' %}active{% endif %}">
-      <i class="bi bi-person-circle"></i> Profil Saya
-    </a>
-    
-        {% if user and user.role == 'admin' %}
-    <a href="/docs" target="_blank" class="nav-link">
-      <i class="bi bi-code-square"></i> API Docs
-    </a>
-    {% endif %}
-  </div>
-
-  <div class="sidebar-footer">
-    <small style="color:rgba(255,255,255,.38); font-size:.68rem;">v1.1.0</small>
-  </div>
-</nav>
-
-<div id="main">
-
-  <div id="topbar">
-
-    <div class="topbar-left">
-      <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
-        <i class="bi bi-list"></i>
-      </button>
-      <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="brand">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-shield-lock-fill text-white" style="font-size:1.35rem;"></i>
+        <h6>Smart Door Lock</h6>
+      </div>
+      <small>Ruang Multimedia Polsri</small>
     </div>
 
-    <div class="topbar-meta">
-      <span id="clock" style="font-size:.8rem; color:#64748b;"></span>
-      <span class="badge-ok" style="font-size:.72rem;">
-        <i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>Online
-      </span>
-    </div>
-    
-    {% if ruangan_list %}
-    <div class="dropdown d-none d-md-block">
-      <button class="btn btn-sm d-flex align-items-center gap-2"
-              style="background:#f1f5f9; border:1px solid #e2e8f0;
-                    border-radius:8px; padding:5px 12px; font-size:.82rem;"
-              data-bs-toggle="dropdown">
-        <i class="bi bi-building text-primary"></i>
-        <span id="namaRuanganAktif" style="max-width:160px; overflow:hidden;
-              text-overflow:ellipsis; white-space:nowrap; font-weight:600;
-              color:#1e293b;">Semua Ruangan</span>
-        <i class="bi bi-chevron-down" style="font-size:.65rem; color:#94a3b8;"></i>
-      </button>
-      <ul class="dropdown-menu dropdown-menu-end shadow"
-          style="min-width:220px; max-height:320px; overflow-y:auto;
-                border-radius:10px; font-size:.84rem;">
-        <li>
-          <a class="dropdown-item py-2" href="#"
-            onclick="pilihRuangan(null, 'Semua Ruangan')">
-            <i class="bi bi-grid me-2 text-muted"></i>Semua Ruangan
-          </a>
-        </li>
-        <li><hr class="dropdown-divider my-1"></li>
-        {% for r in ruangan_list %}
-        <li>
-          <a class="dropdown-item py-2 ruangan-item"
-            href="#"
-            data-id="{{ r.id }}"
-            data-nama="{{ r.nama|e }}">
-            <i class="bi bi-door-open me-2 text-primary"></i>
-            <span>{{ r.nama }}</span>
-            <small class="text-muted ms-1">L{{ r.lantai }}</small>
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
+    <div class="py-2 flex-grow-1 sidebar-nav">
+      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+      {% endif %}
 
-    <div class="topbar-right">
-      {% if user %}
+      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
+        <i class="bi bi-list-ul"></i> Log Akses
+      </a>
+      {% endif %}
 
-      <div class="dropdown">
-        <button class="notif-btn" id="notifBtn" data-bs-toggle="dropdown"
-                aria-label="Notifikasi">
-          <i class="bi bi-bell"></i>
-          <span class="notif-badge d-none" id="notifBadge">0</span>
+      {% if user and user.role in ['admin', 'teknisi'] %}
+      <a href="/dashboard/status-lab" class="nav-link {% if active=='status_lab' %}active{% endif %}">
+        <i class="bi bi-cpu"></i> Status Perangkat
+      </a>
+      {% endif %}
+
+      {% if user and user.role in ['admin', 'dosen'] %}
+      <a href="/dashboard/jadwal" class="nav-link {% if active=='jadwal' %}active{% endif %}">
+        <i class="bi bi-calendar3"></i> Jadwal Ruangan
+      </a>
+      <a href="/dashboard/absensi" class="nav-link {% if active=='absensi' %}active{% endif %}">
+        <i class="bi bi-clipboard-check"></i> Absensi
+      </a>
+      {% endif %}
+
+      {% if user and user.role in ['admin', 'teknisi'] %}
+      <a href="/dashboard/ruangan" class="nav-link {% if active=='ruangan' %}active{% endif %}">
+        <i class="bi bi-building"></i> Ruangan
+      </a>
+      {% endif %}
+
+      {% if user and user.role in ['admin', 'dosen', 'teknisi'] %}
+      <a href="/dashboard/pengguna" class="nav-link {% if active=='pengguna' %}active{% endif %}">
+        <i class="bi bi-people"></i> Pengguna
+      </a>
+      {% endif %}
+
+      <div class="nav-section mt-3">Akun &amp; Sistem</div>
+      <a href="/dashboard/profil" class="nav-link {% if active=='profil' %}active{% endif %}">
+        <i class="bi bi-person-circle"></i> Profil Saya
+      </a>
+      
+      {% if user and user.role == 'admin' %}
+      <a href="/docs" target="_blank" class="nav-link">
+        <i class="bi bi-code-square"></i> API Docs
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="sidebar-footer">
+      <small style="color:rgba(255,255,255,.45); font-size:.72rem;">Versi 1.1.0</small>
+    </div>
+  </nav>
+
+  <!-- Konten Utama (Main) -->
+  <div id="main">
+
+    <!-- Topbar -->
+    <div id="topbar">
+      <div class="topbar-left">
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+          <i class="bi bi-list"></i>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow p-0"
-            style="min-width:300px; max-height:380px; overflow-y:auto; border-radius:12px;">
-          <li class="px-3 py-2 border-bottom">
-            <span style="font-size:.82rem; font-weight:700; color:#1e293b;">Notifikasi Akses</span>
-          </li>
-          <li id="notifEmpty" class="text-center text-muted py-4"
-              style="font-size:.82rem;">
-            <i class="bi bi-bell-slash d-block mb-1" style="font-size:1.5rem;"></i>
-            Tidak ada notifikasi baru
-          </li>
-          <ul id="notifList" class="list-unstyled mb-0"></ul>
-        </ul>
+        <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
       </div>
 
-      <div class="dropdown">
-        <button class="d-flex align-items-center gap-2 p-0"
-                style="background:none; border:none; cursor:pointer;"
+      <div class="topbar-meta">
+        <span id="clock" style="font-size:.82rem; color:#64748b; font-weight: 500;"></span>
+        <span class="badge-ok">
+          <i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>Online
+        </span>
+      </div>
+      
+      {% if ruangan_list %}
+      <div class="dropdown d-none d-md-block">
+        <button class="btn btn-sm d-flex align-items-center gap-2"
+                style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 14px; font-size:.84rem;"
                 data-bs-toggle="dropdown">
-          <div class="user-avatar">{{ user.nama[0]|upper }}</div>
-          <div class="user-text d-none d-sm-block">
-            <div class="u-name">{{ user.nama }}</div>
-            <div class="u-role">{{ user.role }}</div>
-          </div>
-          <i class="bi bi-chevron-down d-none d-sm-block"
-             style="font-size:.65rem; color:#94a3b8;"></i>
+          <i class="bi bi-building text-primary"></i>
+          <span id="namaRuanganAktif" style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:#1e293b;">Semua Ruangan</span>
+          <i class="bi bi-chevron-down ms-1" style="font-size:.65rem; color:#94a3b8;"></i>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow"
-            style="min-width:190px; border-radius:10px; font-size:.85rem;">
-          <li class="px-3 py-2 border-bottom">
-            <div style="font-weight:700; color:#1e293b; font-size:.85rem;">
-              {{ user.nama }}
-            </div>
-            <div style="font-size:.72rem; color:#64748b;">{{ user.nim_nip }}</div>
-          </li>
+        <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:220px; max-height:320px; overflow-y:auto; border-radius:10px; font-size:.85rem; border-color: #e2e8f0;">
           <li>
-            <a class="dropdown-item py-2" href="/dashboard/profil">
-              <i class="bi bi-person-circle me-2 text-primary"></i>Profil Saya
+            <a class="dropdown-item py-2" href="#" onclick="pilihRuangan(null, 'Semua Ruangan')">
+              <i class="bi bi-grid me-2 text-muted"></i>Semua Ruangan
             </a>
           </li>
           <li><hr class="dropdown-divider my-1"></li>
+          {% for r in ruangan_list %}
           <li>
-            <a class="dropdown-item py-2 text-danger" href="/logout">
-              <i class="bi bi-box-arrow-right me-2"></i>Keluar
+            <a class="dropdown-item py-2 ruangan-item" href="#" data-id="{{ r.id }}" data-nama="{{ r.nama|e }}">
+              <i class="bi bi-door-open me-2 text-primary"></i>
+              <span>{{ r.nama }}</span>
+              <small class="text-muted ms-1">L{{ r.lantai }}</small>
             </a>
           </li>
+          {% endfor %}
         </ul>
       </div>
-
       {% endif %}
-    </div>
-  </div>
-  <div class="content-area">
-    {% block content %}{% endblock %}
-  </div>
 
-</div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+      <div class="topbar-right">
+        {% if user %}
+        <!-- Notifikasi -->
+        <div class="dropdown">
+          <button class="notif-btn" id="notifBtn" data-bs-toggle="dropdown" aria-label="Notifikasi">
+            <i class="bi bi-bell"></i>
+            <span class="notif-badge d-none" id="notifBadge">0</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow p-0" style="min-width:310px; max-height:380px; overflow-y:auto; border-radius:12px; border-color: #e2e8f0;">
+            <li class="px-3 py-2 border-bottom bg-light d-flex justify-content-between align-items-center">
+              <span style="font-size:.84rem; font-weight:700; color:#1e293b;">Notifikasi Akses</span>
+              <span class="badge bg-secondary" style="font-size: .65rem;">Terbaru</span>
+            </li>
+            <li id="notifEmpty" class="text-center text-muted py-4" style="font-size:.84rem;">
+              <i class="bi bi-bell-slash d-block mb-1 text-secondary" style="font-size:1.6rem;"></i>
+              Tidak ada notifikasi baru
+            </li>
+            <div id="notifList" class="list-unstyled mb-0"></div>
+          </ul>
+        </div>
+
+        <!-- Profil -->
+        <div class="dropdown">
+          <button class="d-flex align-items-center gap-2 p-1" style="background:none; border:none; cursor:pointer;" data-bs-toggle="dropdown">
+            <div class="user-avatar">{{ user.nama[0]|upper }}</div>
+            <div class="user-text d-none d-sm-block">
+              <div class="u-name">{{ user.nama }}</div>
+              <div class="u-role">{{ user.role }}</div>
+            </div>
+            <i class="bi bi-chevron-down d-none d-sm-block ms-1" style="font-size:.65rem; color:#94a3b8;"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:200px; border-radius:10px; font-size:.85rem; border-color: #e2e8f0;">
+            <li class="px-3 py-2 border-bottom bg-light">
+              <div style="font-weight:700; color:#1e293b; font-size:.86rem;">{{ user.nama }}</div>
+              <div style="font-size:.74rem; color:#64748b;">{{ user.nim_nip }}</div>
+            </li>
+            <li>
+              <a class="dropdown-item py-2 mt-1" href="/dashboard/profil">
+                <i class="bi bi-person-circle me-2 text-primary"></i>Profil Saya
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1"></li>
+            <li>
+              <a class="dropdown-item py-2 text-danger mb-1" href="/logout">
+                <i class="bi bi-box-arrow-right me-2"></i>Keluar
+              </a>
+            </li>
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Area Konten Utama -->
+    <div class="content-area">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer Utama (Sekarang Bada DI DALAM #main) -->
+    <footer class="main-footer">
+      <div>
+        <span class="footer-title">Smart Door Lock</span>
+        &nbsp;·&nbsp;
+        <span>Jurusan Teknik Komputer, Politeknik Negeri Sriwijaya</span>
+      </div>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span><i class="bi bi-cpu me-1"></i> Solution X606-S · Face VX7.0</span>
+        <span><i class="bi bi-server me-1"></i> FastAPI + PostgreSQL</span>
+        <span style="color:#64748b;">&copy; {{ now.year if now else '2026' }} Fatah Alfi Syahri</span>
+      </div>
+    </footer>
+
+  </div> <!-- End #main -->
+</div> <!-- End .layout -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+
 <script>
-// ── Sidebar mobile ───────────────────────────────────────
+// ── Sidebar Mobile ───────────────────────────────────────
 const sidebar  = document.getElementById('sidebar');
 const backdrop = document.getElementById('sidebarBackdrop');
 const toggle   = document.getElementById('mobileToggle');
@@ -441,35 +477,78 @@ function closeSidebar() { sidebar.classList.remove('show'); backdrop.classList.r
 function isMobile()     { return window.innerWidth <= 991.98; }
 
 toggle?.addEventListener('click', () => {
-  isMobile() ? (sidebar.classList.contains('show') ? closeSidebar() : openSidebar()) : null;
+  if (isMobile()) {
+    sidebar.classList.contains('show') ? closeSidebar() : openSidebar();
+  }
 });
+
 backdrop?.addEventListener('click', closeSidebar);
 window.addEventListener('resize', () => { if (!isMobile()) closeSidebar(); });
 
-// ── Clock (HANYA update teks, elemen sudah ada) ──────────
+// ── Jam Realtime ─────────────────────────────────────────
 function updateClock() {
   const el = document.getElementById('clock');
   if (!el) return;
   el.textContent = new Date().toLocaleString('id-ID', {
-    weekday:'short', day:'numeric', month:'short',
-    hour:'2-digit', minute:'2-digit'
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit'
   });
 }
 updateClock();
-setInterval(updateClock, 30000); // update tiap 30 detik cukup
+setInterval(updateClock, 30000);
 
-// ── Notifikasi ───────────────────────────────────────────
+// ── Manajemen Ruangan ────────────────────────────────────
+function getRuanganAktif() {
+  const s = localStorage.getItem('ruangan_aktif');
+  return s ? JSON.parse(s) : { id: null, nama: 'Semua Ruangan' };
+}
+
+function getRuanganId() {
+  const aktif = getRuanganAktif();
+  return aktif.id || null;
+}
+
+function pilihRuangan(id, nama) {
+  const data = { id, nama };
+  localStorage.setItem('ruangan_aktif', JSON.stringify(data));
+
+  const elTopbar = document.getElementById('namaRuanganAktif');
+  if (elTopbar) elTopbar.textContent = nama;
+
+  window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
+
+  if (isMobile()) {
+    closeSidebar();
+  }
+}
+
+// Event handler dropdown ruangan (Delegasi Event)
+document.addEventListener('click', function(e) {
+  const item = e.target.closest('.ruangan-item');
+  if (item) {
+    e.preventDefault();
+    pilihRuangan(item.dataset.id, item.dataset.nama);
+  }
+});
+
+// Init Ruangan saat DOMLoaded
+document.addEventListener('DOMContentLoaded', () => {
+  const aktif = getRuanganAktif();
+  const elTopbar = document.getElementById('namaRuanganAktif');
+  if (elTopbar) elTopbar.textContent = aktif.nama;
+});
+
+// ── Notifikasi Realtime ──────────────────────────────────
 let lastLogId   = 0;
 let unreadCount = 0;
 
 async function checkNotif() {
   try {
     const rid = getRuanganId();
-    const url = rid
-      ? `/log-akses/?ruangan_id=${rid}&limit=10`
-      : `/log-akses/?limit=10`;
+    const url = rid ? `/log-akses/?ruangan_id=${rid}&limit=10` : `/log-akses/?limit=10`;
     const res = await fetch(url);
     const logs = await res.json();
+    
     if (!Array.isArray(logs) || !logs.length) return;
 
     const newest = logs[0];
@@ -480,43 +559,41 @@ async function checkNotif() {
     lastLogId = newest.id;
     unreadCount += newLogs.length;
 
-    // Badge
+    // Update Badge
     const badge = document.getElementById('notifBadge');
     if (badge) {
       badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
       badge.classList.toggle('d-none', unreadCount === 0);
     }
 
-    // Sembunyikan "kosong"
+    // Sembunyikan pesan kosong
     const empty = document.getElementById('notifEmpty');
     if (empty) empty.style.display = 'none';
 
-    // Tambah item ke list
+    // Update Daftar
     const list = document.getElementById('notifList');
     if (!list) return;
+    
     newLogs.forEach(log => {
-      const time = new Date(log.waktu_akses).toLocaleTimeString('id-ID', {
-        hour:'2-digit', minute:'2-digit'
-      });
-      const isOk   = log.status === 'berhasil';
-      const nama   = log.nama_user || 'Tidak dikenal';
-      const li     = document.createElement('li');
-      li.innerHTML = `
-        <a class="dropdown-item py-2 px-3 d-flex align-items-start gap-2"
-           href="/dashboard/log-akses" style="font-size:.82rem;">
-          <i class="bi ${isOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} mt-1"
-             style="font-size:.9rem; flex-shrink:0;"></i>
-          <div>
-            <div class="fw-600">${nama}</div>
-            <div class="text-muted" style="font-size:.73rem;">
-              ${log.metode} &middot; ${log.status} &middot; ${time}
-            </div>
+      const time = new Date(log.waktu_akses).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const isOk = log.status === 'berhasil';
+      const nama = log.nama_user || 'Tidak dikenal';
+      
+      const a = document.createElement('a');
+      a.className = 'dropdown-item py-2 px-3 d-flex align-items-start gap-2 border-bottom';
+      a.href = '/dashboard/log-akses';
+      a.style.fontSize = '.82rem';
+      a.innerHTML = `
+        <i class="bi ${isOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} mt-1" style="font-size:.95rem; flex-shrink:0;"></i>
+        <div>
+          <div class="fw-bold text-dark">${nama}</div>
+          <div class="text-muted" style="font-size:.73rem;">
+            ${log.metode} &middot; ${log.status} &middot; ${time}
           </div>
-        </a>`;
-      list.prepend(li);
+        </div>`;
+      list.prepend(a);
     });
-
-  } catch(e) { /* silent fail */ }
+  } catch(e) { /* Silent fail pada background fetch */ }
 }
 
 function markRead() {
@@ -524,98 +601,13 @@ function markRead() {
   const badge = document.getElementById('notifBadge');
   if (badge) badge.classList.add('d-none');
 }
+
 document.getElementById('notifBtn')?.addEventListener('click', markRead);
 
 setTimeout(checkNotif, 2000);
 setInterval(checkNotif, 8000);
 </script>
-<script>
-// ── Ruangan aktif (disimpan di localStorage) ─────────────
-function getRuanganAktif() {
-  const s = localStorage.getItem('ruangan_aktif');
-  return s ? JSON.parse(s) : { id: null, nama: 'Semua Ruangan' };
-}
 
-function getRuanganId() {
-  const s = localStorage.getItem('ruangan_aktif');
-  if (!s) return null;
-  const data = JSON.parse(s);
-  return data.id || null;
-}
-
-function pilihRuangan(id, nama) {
-  const data = { id, nama };
-  localStorage.setItem('ruangan_aktif', JSON.stringify(data));
-
-  // Update teks di topbar (jika masih ada)
-  const elTopbar = document.getElementById('namaRuanganAktif');
-  if (elTopbar) elTopbar.textContent = nama;
-
-  // Update teks di sidebar
-  const elSidebar = document.getElementById('namaRuanganSidebar');
-  if (elSidebar) elSidebar.textContent = nama;
-
-  // Dispatch event ke halaman aktif
-  window.dispatchEvent(new CustomEvent('ruanganChanged', { detail: data }));
-
-  // Tutup sidebar di mobile setelah pilih ruangan
-  if (window.innerWidth <= 991.98) {
-    closeSidebar();
-  }
-}
-
-// Init saat halaman load
-document.addEventListener('DOMContentLoaded', () => {
-  const aktif = getRuanganAktif();
-
-  const elTopbar = document.getElementById('namaRuanganAktif');
-  if (elTopbar) elTopbar.textContent = aktif.nama;
-
-  const elSidebar = document.getElementById('namaRuanganSidebar');
-  if (elSidebar) elSidebar.textContent = aktif.nama;
-});
-
-// Init: set nama ruangan aktif di dropdown saat halaman load
-document.addEventListener('DOMContentLoaded', () => {
-  const aktif = getRuanganAktif();
-  const el = document.getElementById('namaRuanganAktif');
-  if (el) el.textContent = aktif.nama;
-});
-</script>
-<script>
-// ── Event handler untuk dropdown ruangan (TAMBAHAN) ──────
-document.addEventListener('click', function(e) {
-  if (e.target.closest('.ruangan-item')) {
-    e.preventDefault();
-    const item = e.target.closest('.ruangan-item');
-    const id = item.dataset.id;
-    const nama = item.dataset.nama;
-    pilihRuangan(id, nama);
-  }
-});
-</script>
 {% block extra_js %}{% endblock %}
-
-<footer style="  background:#1e293b;  color:#94a3b8;  font-size:.75rem;  padding:14px 24px;  display:flex;  align-items:center;  justify-content:space-between;  flex-wrap:wrap;  gap:8px;  margin-top:auto;">
-  <div>
-    <span style="color:#fff;font-weight:600;">Smart Door Lock</span>
-    &nbsp;·&nbsp;
-    Jurusan Teknik Komputer, Politeknik Negeri Sriwijaya
-  </div>
-  <div class="d-flex align-items-center gap-3">
-    <span>
-      <i class="bi bi-cpu me-1"></i>
-      Solution X606-S · Face VX7.0
-    </span>
-    <span>
-      <i class="bi bi-server me-1"></i>
-      FastAPI + PostgreSQL
-    </span>
-    <span style="color:#475569;">
-      &copy; {{ now.year if now else '2026' }} Fatah Alfi Syahri
-    </span>
-  </div>
-</footer>
-
 </body>
 </html>
