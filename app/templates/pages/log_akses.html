@@ -45,7 +45,7 @@
 
     <div class="col-12 col-lg-4">
       <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-sm btn-primary" onclick="loadLog()">
+        <button class="btn btn-sm btn-primary" onclick="loadLog(1)">
           <i class="bi bi-search me-1"></i>Filter
         </button>
         <button class="btn btn-sm btn-outline-secondary" onclick="resetFilter()">
@@ -123,13 +123,8 @@
       </tbody>
     </table>
   </div>
-  <div class="px-3 py-2 border-top d-flex justify-content-between
-              align-items-center flex-wrap gap-2">
-    <small class="text-muted" id="logFooter" style="font-size:.76rem;">—</small>
-    <small class="text-muted" style="font-size:.73rem;">
-      Maks. 1000 entri per load
-    </small>
-  </div>
+  <!-- Tempat Paginasi (Menggantikan footer lama) -->
+  <div id="paginasiLog"></div>
 </div>
 
 {% endblock %}
@@ -141,6 +136,8 @@ const isAdmin    = "{{ user.role }}" === "admin";
 let allLogs      = [];
 let selectedIds  = new Set();
 let autoRefTimer = null;
+let currentPage  = 1;
+const PAGE_LIMIT = 100;
 
 // ── Helper ───────────────────────────────────────────────
 function getRuanganId() {
@@ -148,11 +145,10 @@ function getRuanganId() {
   return s ? JSON.parse(s).id : null;
 }
 
-function fmtDateTime(iso) {
-  return new Date(iso).toLocaleString('id-ID', {
-    day:'2-digit', month:'short', year:'numeric',
-    hour:'2-digit', minute:'2-digit', second:'2-digit'
-  });
+function metodeLabel(m) {
+  if (m === 'face')        return '<i class="bi bi-camera text-primary me-1"></i>Face';
+  if (m === 'fingerprint') return '<i class="bi bi-fingerprint text-success me-1"></i>FP';
+  return m || '—';
 }
 
 function buildParams() {
@@ -168,18 +164,36 @@ function buildParams() {
   if (sampai) p.set('tanggal_sampai', sampai);
   if (status) p.set('status',         status);
   if (metode) p.set('metode',         metode);
-  p.set('limit', '1000');
   return p;
 }
 
 // ── Load log ─────────────────────────────────────────────
-async function loadLog() {
-  const params = buildParams();
-  try {
-    const res  = await fetch(`/log-akses/?${params}`);
-    allLogs    = await res.json();
+async function loadLog(page = 1) {
+  currentPage = page;
+  const rid  = getRuanganId();
+  const dari = document.getElementById('filterDari')?.value  || '';
+  const sdp  = document.getElementById('filterSampai')?.value || '';
+  const sts  = document.getElementById('filterStatus')?.value || '';
+  const mtd  = document.getElementById('filterMetode')?.value || '';
 
-    // Reset pilihan saat reload
+  let url = `/log-akses/?limit=${PAGE_LIMIT}&page=${page}`;
+  if (rid)  url += `&ruangan_id=${rid}`;
+  if (dari) url += `&tanggal_dari=${dari}`;
+  if (sdp)  url += `&tanggal_sampai=${sdp}`;
+  if (sts)  url += `&status=${sts}`;
+  if (mtd)  url += `&metode=${mtd}`;
+
+  try {
+    const res  = await fetch(url);
+    const json = await res.json();
+    const data = json.data        || [];
+    const pg   = json.pagination  || {};
+
+    // Simpan data halaman ini untuk keperluan fitur "Pilih Semua"
+    allLogs = data;
+
+    // Reset pilihan UI saat reload (hanya jika ini reload manual dan bukan auto-refresh background saat checkbox menyala)
+    // Supaya lebih aman saat load page baru, clear semua selection.
     selectedIds.clear();
     updateBulkUI();
     if (isAdmin) {
@@ -187,36 +201,37 @@ async function loadLog() {
       document.getElementById('checkAllHeader').checked = false;
     }
 
-    renderLog();
+    renderLog(data);
+    renderPagination(pg);
     updateExportLink();
 
+    if (pg.total !== undefined) {
+      document.getElementById('logInfo').textContent = `${pg.total.toLocaleString('id-ID')} entri ditemukan`;
+    }
+
   } catch(e) {
+    console.error(e);
     document.getElementById('logBody').innerHTML =
       `<tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-4 text-danger">Gagal memuat data</td></tr>`;
   }
 }
 
 // ── Render tabel ─────────────────────────────────────────
-function renderLog() {
+function renderLog(data) {
   const tbody = document.getElementById('logBody');
 
-  // Update info
-  document.getElementById('logInfo').textContent =
-    `${allLogs.length} entri ditemukan`;
-  document.getElementById('logFooter').textContent =
-    `Menampilkan ${allLogs.length} log`;
-
-  if (!allLogs.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-5 text-muted">
-        <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;"></i>
-        Tidak ada log akses
-      </td></tr>`;
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-4 text-muted">
+      <i class="bi bi-inbox d-block mb-1" style="font-size:1.5rem;"></i>
+      Tidak ada data log
+    </td></tr>`;
     return;
   }
 
-  tbody.innerHTML = allLogs.map((l, i) => {
+  tbody.innerHTML = data.map((l, i) => {
     const isChecked = selectedIds.has(l.id);
+    const no = (currentPage - 1) * PAGE_LIMIT + i + 1;
+
     return `
       <tr id="row_${l.id}" class="${isChecked ? 'table-active' : ''}">
 
@@ -228,37 +243,18 @@ function renderLog() {
         </td>
         ` : ''}
 
-        <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+        <td class="text-muted" style="font-size:.75rem;">${no}</td>
 
-        <td style="white-space:nowrap; font-size:.78rem;">
-          ${fmtDateTime(l.waktu_akses)}
+        <td style="font-size:.78rem;white-space:nowrap;">
+          ${new Date(l.waktu_akses).toLocaleString('id-ID')}
         </td>
 
         <td>
-          <div class="fw-bold" style="font-size:.83rem;">
-            ${l.nama_user ||
-              '<span class="text-muted fst-italic">Tidak dikenal</span>'}
-          </div>
-          ${l.nim_nip
-            ? `<div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip}</div>`
-            : ''}
+          <div class="fw-bold" style="font-size:.83rem;">${l.nama_user || '<span class="text-muted">—</span>'}</div>
+          <div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip || ''}</div>
         </td>
 
-        <td>
-          ${l.metode === 'face'
-            ? `<span class="badge-role">
-                 <i class="bi bi-camera me-1"></i>Face
-               </span>`
-            : l.metode === 'fingerprint'
-            ? `<span style="background:#dcfce7;color:#15803d;padding:3px 9px;
-                             border-radius:20px;font-size:.72rem;font-weight:600;">
-                 <i class="bi bi-fingerprint me-1"></i>FP
-               </span>`
-            : `<span style="background:#f1f5f9;color:#64748b;padding:3px 9px;
-                             border-radius:20px;font-size:.72rem;">
-                 ${l.metode}
-               </span>`}
-        </td>
+        <td style="font-size:.78rem;">${metodeLabel(l.metode)}</td>
 
         <td>
           ${l.status === 'berhasil'
@@ -266,15 +262,11 @@ function renderLog() {
             : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Ditolak</span>'}
         </td>
 
-        <td style="font-size:.77rem;color:#64748b;max-width:200px;
-                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          ${l.keterangan || '—'}
-        </td>
+        <td style="font-size:.75rem;color:#64748b;">${l.keterangan || '—'}</td>
 
         ${isAdmin ? `
         <td style="text-align:center;">
-          <button class="btn btn-outline-danger btn-sm"
-                  style="padding:2px 8px;"
+          <button class="btn btn-outline-danger btn-sm" style="padding:2px 8px;"
                   onclick="hapusSatu(${l.id})" title="Hapus log ini">
             <i class="bi bi-trash" style="font-size:.8rem;"></i>
           </button>
@@ -285,12 +277,63 @@ function renderLog() {
   }).join('');
 }
 
+// ── Render Paginasi ──────────────────────────────────────
+function renderPagination(pg) {
+  const wrap = document.getElementById('paginasiLog');
+  if (!wrap) return;
+
+  const { total, page, limit, total_pages, has_prev, has_next } = pg;
+  if (!total) { wrap.innerHTML = ''; return; }
+
+  const start = (page - 1) * limit + 1;
+  const end   = Math.min(page * limit, total);
+
+  // Buat nomor halaman yang ditampilkan (max 5 di sekitar halaman saat ini)
+  const pages = [];
+  const delta = 2;
+  for (let i = Math.max(1, page - delta); i <= Math.min(total_pages, page + delta); i++) {
+    pages.push(i);
+  }
+
+  wrap.innerHTML = `
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2
+                border-top" style="font-size:.8rem;color:#64748b;">
+      <div>
+        Menampilkan <strong>${start}–${end}</strong> dari
+        <strong>${total.toLocaleString('id-ID')}</strong> log
+      </div>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item ${!has_prev ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadLog(1)"
+                    ${!has_prev ? 'disabled' : ''}>«</button>
+          </li>
+          <li class="page-item ${!has_prev ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadLog(${page - 1})"
+                    ${!has_prev ? 'disabled' : ''}>‹</button>
+          </li>
+          ${pages.map(p => `
+            <li class="page-item ${p === page ? 'active' : ''}">
+              <button class="page-link" onclick="loadLog(${p})">${p}</button>
+            </li>`).join('')}
+          <li class="page-item ${!has_next ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadLog(${page + 1})"
+                    ${!has_next ? 'disabled' : ''}>›</button>
+          </li>
+          <li class="page-item ${!has_next ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadLog(${total_pages})"
+                    ${!has_next ? 'disabled' : ''}>»</button>
+          </li>
+        </ul>
+      </nav>
+    </div>`;
+}
+
 // ── Checkbox logic ───────────────────────────────────────
 function toggleRow(id, checked) {
   if (checked) selectedIds.add(id);
   else         selectedIds.delete(id);
 
-  // Update warna baris
   const row = document.getElementById(`row_${id}`);
   if (row) row.className = checked ? 'table-active' : '';
 
@@ -302,14 +345,12 @@ function toggleAll(checked) {
   selectedIds.clear();
   if (checked) allLogs.forEach(l => selectedIds.add(l.id));
 
-  // Update semua checkbox dan warna baris
   document.querySelectorAll('.row-check').forEach(cb => {
     cb.checked = checked;
     const row  = document.getElementById(`row_${cb.value}`);
     if (row) row.className = checked ? 'table-active' : '';
   });
 
-  // Sync kedua checkbox "pilih semua"
   if (isAdmin) {
     document.getElementById('checkAll').checked       = checked;
     document.getElementById('checkAllHeader').checked = checked;
@@ -320,15 +361,14 @@ function toggleAll(checked) {
 
 function syncCheckAll() {
   if (!isAdmin) return;
-  const allChecked = allLogs.length > 0 &&
-                     selectedIds.size === allLogs.length;
+  const allChecked = allLogs.length > 0 && selectedIds.size === allLogs.length;
   document.getElementById('checkAll').checked       = allChecked;
   document.getElementById('checkAllHeader').checked = allChecked;
 }
 
 function updateBulkUI() {
   if (!isAdmin) return;
-  const count   = selectedIds.size;
+  const count    = selectedIds.size;
   const btnHapus = document.getElementById('btnHapusTerpilih');
   if (btnHapus) {
     document.getElementById('jumlahTerpilih').textContent = count;
@@ -341,10 +381,9 @@ async function hapusSatu(id) {
   if (!confirm('Hapus log ini?')) return;
   const res = await fetch(`/log-akses/${id}`, { method: 'DELETE' });
   if (res.ok) {
-    allLogs = allLogs.filter(l => l.id !== id);
     selectedIds.delete(id);
-    updateBulkUI();
-    renderLog();
+    // Reload halaman saat ini agar data tersinkronisasi
+    loadLog(currentPage);
   } else {
     alert('Gagal menghapus log.');
   }
@@ -363,11 +402,9 @@ async function hapusTerpilih() {
 
   if (res.ok) {
     const data = await res.json();
-    allLogs    = allLogs.filter(l => !selectedIds.has(l.id));
     selectedIds.clear();
-    updateBulkUI();
-    renderLog();
     showToast(`${data.dihapus} log berhasil dihapus.`, 'success');
+    loadLog(currentPage);
   } else {
     alert('Gagal menghapus log.');
   }
@@ -392,7 +429,7 @@ async function hapusSemua() {
   if (res.ok) {
     const data = await res.json();
     showToast(`${data.dihapus} log berhasil dihapus.`, 'success');
-    loadLog();
+    loadLog(1);
   } else {
     alert('Gagal menghapus semua log.');
   }
@@ -401,19 +438,16 @@ async function hapusSemua() {
 // ── Export Excel (ikuti filter aktif) ────────────────────
 function updateExportLink() {
   const params = buildParams();
-  // Hapus limit dari export (biarkan server handle 5000)
-  params.delete('limit');
-  document.getElementById('exportExcel').href =
-    `/log-akses/export/excel?${params}`;
+  document.getElementById('exportExcel').href = `/log-akses/export/excel?${params}`;
 }
 
 // ── Reset filter ─────────────────────────────────────────
 function resetFilter() {
-  document.getElementById('filterDari').value    = '';
-  document.getElementById('filterSampai').value  = '';
-  document.getElementById('filterStatus').value  = '';
-  document.getElementById('filterMetode').value  = '';
-  loadLog();
+  document.getElementById('filterDari').value   = '';
+  document.getElementById('filterSampai').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterMetode').value = '';
+  loadLog(1);
 }
 
 // ── Toast notifikasi ─────────────────────────────────────
@@ -435,26 +469,27 @@ function showToast(msg, type='success') {
 // ── Auto-refresh & event listeners ───────────────────────
 function startAutoRefresh() {
   if (autoRefTimer) clearInterval(autoRefTimer);
-  autoRefTimer = setInterval(loadLog, 30000);
+  // Auto-refresh tetap memuat ulang halaman yang sama (currentPage)
+  autoRefTimer = setInterval(() => loadLog(currentPage), 30000);
 }
 
-window.addEventListener('ruanganChanged', () => { loadLog(); updateExportLink(); });
+window.addEventListener('ruanganChanged', () => { loadLog(1); updateExportLink(); });
 
 document.getElementById('filterDari').addEventListener('change', () => {
-  loadLog(); updateExportLink();
+  loadLog(1); updateExportLink();
 });
 document.getElementById('filterSampai').addEventListener('change', () => {
-  loadLog(); updateExportLink();
+  loadLog(1); updateExportLink();
 });
 document.getElementById('filterStatus').addEventListener('change', () => {
-  loadLog(); updateExportLink();
+  loadLog(1); updateExportLink();
 });
 document.getElementById('filterMetode').addEventListener('change', () => {
-  loadLog(); updateExportLink();
+  loadLog(1); updateExportLink();
 });
 
 // ── Init ─────────────────────────────────────────────────
-loadLog();
+loadLog(1);
 updateExportLink();
 startAutoRefresh();
 </script>

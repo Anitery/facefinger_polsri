@@ -16,20 +16,27 @@ import sys
 import time
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Konstanta WIB
+WIB = timezone(timedelta(hours=7))
+
+def now_wib() -> datetime:
+    """Selalu kembalikan waktu WIB, apapun timezone STB."""
+    return datetime.now(WIB)
+
 # ── Konfigurasi ──────────────────────────────────────────
-DEVICE_IP         = os.getenv("DEVICE_IP",         "192.168.0.177")
+DEVICE_IP         = os.getenv("DEVICE_IP",         "10.17.44.162")
 DEVICE_COMKEY     = os.getenv("DEVICE_COMKEY",     "0")
-DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "9"))
-SERVER_URL        = os.getenv("SERVER_URL",        "http://localhost:8000/")
+DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "7"))
+SERVER_URL        = os.getenv("SERVER_URL",        "https://facefingerpolsri-production.up.railway.app")
 BRIDGE_API_KEY    = os.getenv("BRIDGE_API_KEY",    "bridge-key-polsri-2026")
 PULL_INTERVAL     = int(os.getenv("PULL_INTERVAL", "30"))
 SYNC_INTERVAL     = int(os.getenv("SYNC_INTERVAL", "10"))
-DEVICE_SN         = os.getenv("DEVICE_SN",         "X606S-001")
+DEVICE_SN         = os.getenv("DEVICE_SN",         "X606S-006")
 
 HEADERS = {
     "X-API-Key":    BRIDGE_API_KEY,
@@ -92,7 +99,7 @@ def railway_post(path: str, data: dict) -> dict:
 # BAGIAN A — Sync user + timezone ke device
 # ══════════════════════════════════════════════════════════
 
-ZONE_OPEN_ID     = int(os.getenv("ZONE_OPEN_ID",     "1"))
+'''ZONE_OPEN_ID     = int(os.getenv("ZONE_OPEN_ID",     "1"))
 ZONE_BLOCKED_ID  = int(os.getenv("ZONE_BLOCKED_ID",  "2"))
 GROUP_TERKONTROL = 1   # ← default device, fail-safe tertutup (mahasiswa)
 GROUP_BEBAS      = 2   # ← eksplisit via bridge (admin/teknisi/dosen)
@@ -134,7 +141,7 @@ def get_access_config(user: dict, jadwals: list) -> tuple[int, int]:
 def sync_users(client: X606SOAPClient):
     """Sync semua user dari Railway ke device dengan timezone dan group yang benar."""
     log.info("── Sync user ke device...")
-    
+
     users   = railway_get("/device-bridge/users")
     jadwals = railway_get(
         "/device-bridge/jadwal-hari-ini",
@@ -186,7 +193,7 @@ def sync_users(client: X606SOAPClient):
     log.info(f"  Sync selesai: {synced} OK, {failed} gagal")
     return synced
 
-
+'''
 # ══════════════════════════════════════════════════════════
 # BAGIAN B — Pull log dari device → Railway
 # ══════════════════════════════════════════════════════════
@@ -349,6 +356,12 @@ def main():
     print(f"  Pull setiap: {PULL_INTERVAL}s | Sync tiap {SYNC_INTERVAL} loop")
     print("═" * 58)
 
+    # Konfirmasi timezone sebelum mulai
+    _now_utc = datetime.now(timezone.utc)
+    _now_wib = now_wib()
+    log.info(f"  Waktu UTC : {_now_utc.strftime('%Y-%m-%d %H:%M:%S')}")
+    log.info(f"  Waktu WIB : {_now_wib.strftime('%Y-%m-%d %H:%M:%S')} (yang dikirim ke device)")
+
     # ── Test Railway ─────────────────────────────────────
     log.info("Test koneksi Railway...")
     try:
@@ -372,7 +385,7 @@ def main():
     try:
         t = client.ping()
         if t.get("date") or t.get("time"):
-            now = datetime.now()
+            now = now_wib()
             client.set_time(
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S")
@@ -394,8 +407,8 @@ def main():
     heartbeat(client)
 
     # ── Sync awal ────────────────────────────────────────
-    log.info("Sync awal user...")
-    sync_users(client)
+    # log.info("Sync awal user...")
+    # sync_users(client)
 
     # ── Pull log awal ────────────────────────────────────
     log.info("Pull log awal...")
@@ -422,16 +435,16 @@ def main():
 
             if loop % SYNC_INTERVAL == 0:
                 log.info(f"Loop #{loop}: Sync periodik...")
-                sync_users(client)
+                # sync_users(client)
                 sync_enrollment(client)
 
             if loop % (3600 // PULL_INTERVAL) == 0:
-                now = datetime.now()
+                now = now_wib()
                 client.set_time(
                     now.strftime("%Y-%m-%d"),
                     now.strftime("%H:%M:%S")
                 )
-                log.info("Waktu device disinkronkan")
+                log.info(f"Waktu device disinkronkan → {now.strftime('%H:%M:%S')} WIB")
 
         except KeyboardInterrupt:
             raise

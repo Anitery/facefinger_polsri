@@ -595,5 +595,27 @@ document.addEventListener('click', function(e) {
 });
 </script>
 {% block extra_js %}{% endblock %}
+
+<footer style="  background:#1e293b;  color:#94a3b8;  font-size:.75rem;  padding:14px 24px;  display:flex;  align-items:center;  justify-content:space-between;  flex-wrap:wrap;  gap:8px;  margin-top:auto;">
+  <div>
+    <span style="color:#fff;font-weight:600;">Smart Door Lock</span>
+    &nbsp;·&nbsp;
+    Jurusan Teknik Komputer, Politeknik Negeri Sriwijaya
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <span>
+      <i class="bi bi-cpu me-1"></i>
+      Solution X606-S · Face VX7.0
+    </span>
+    <span>
+      <i class="bi bi-server me-1"></i>
+      FastAPI + PostgreSQL
+    </span>
+    <span style="color:#475569;">
+      &copy; {{ now.year if now else '2026' }} Fatah Alfi Syahri
+    </span>
+  </div>
+</footer>
+
 </body>
 </html>

@@ -223,3 +223,50 @@ def export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={fname}"}
     )
+
+@router.get("/")
+def get_logs(
+    ruangan_id:      Optional[int] = None,
+    tanggal_dari:    Optional[str] = None,
+    tanggal_sampai:  Optional[str] = None,
+    status:          Optional[str] = None,
+    metode:          Optional[str] = None,
+    limit:           int = Query(100, ge=1, le=500),
+    page:            int = Query(1,   ge=1),
+    db: Session = Depends(get_db)
+):
+    q = db.query(AccessLog).options(joinedload(AccessLog.user))
+
+    if ruangan_id:    q = q.filter(AccessLog.ruangan_id == ruangan_id)
+    if tanggal_dari:  q = q.filter(func.date(AccessLog.waktu_akses) >= tanggal_dari)
+    if tanggal_sampai:q = q.filter(func.date(AccessLog.waktu_akses) <= tanggal_sampai)
+    if status:        q = q.filter(AccessLog.status == status)
+    if metode:        q = q.filter(AccessLog.metode == metode)
+
+    total  = q.count()
+    offset = (page - 1) * limit
+    logs   = q.order_by(AccessLog.waktu_akses.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "data": [
+            {
+                "id":           l.id,
+                "waktu_akses":  l.waktu_akses.isoformat(),
+                "nama_user":    l.user.nama if l.user else None,
+                "nim_nip":      l.user.nim_nip if l.user else None,
+                "metode":       l.metode,
+                "status":       l.status,
+                "keterangan":   l.keterangan,
+                "ruangan_id":   l.ruangan_id,
+            }
+            for l in logs
+        ],
+        "pagination": {
+            "total":        total,
+            "page":         page,
+            "limit":        limit,
+            "total_pages":  (total + limit - 1) // limit,
+            "has_prev":     page > 1,
+            "has_next":     page * limit < total,
+        }
+    }
