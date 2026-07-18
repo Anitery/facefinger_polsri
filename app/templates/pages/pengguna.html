@@ -30,12 +30,19 @@
 
 <div class="tbl-wrap d-none d-md-block">
   <div style="overflow-x:auto;">
-    <table class="table table-hover mb-0" style="min-width:680px;">
-      <thead>
+    <!-- Tambahkan table-bordered dan align-middle di sini -->
+    <table class="table table-hover table-bordered align-middle mb-0" style="min-width:680px;">
+      <!-- Tambahkan table-light (opsional) agar header ada background pembeda -->
+      <thead class="table-light">
         <tr>
-          <th>No</th><th>Nama</th><th>NIM / NIP</th><th>Kelas</th>
-          <th>Role</th><th>ID Perangkat <small class="text-muted fw-normal">(PIN X606-S)</small></th>
-          <th>Status</th><th style="text-align:center;">Aksi</th>
+          <th class="text-center">No</th>
+          <th>Nama</th>
+          <th>NIM / NIP</th>
+          <th>Kelas</th>
+          <th>Role</th>
+          <th>ID Perangkat <small class="text-muted fw-normal">(PIN X606-S)</small></th>
+          <th>Status</th>
+          <th style="text-align:center;">Aksi</th>
         </tr>
       </thead>
       <tbody id="userBodyDesktop">

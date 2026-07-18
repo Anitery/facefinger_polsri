@@ -76,7 +76,8 @@
 
 <div class="tbl-wrap d-none d-md-block mb-3" id="tabelRekap">
   <div style="overflow-x:auto;">
-    <table class="table table-hover mb-0" style="min-width:640px;">
+    <!-- Ditambahkan table-bordered di sini -->
+    <table class="table table-bordered table-hover mb-0" style="min-width:640px;">
       <thead>
         <tr>
           <th style="width: 30px; text-align: center;">
@@ -143,32 +144,33 @@
         <div class="px-4 py-2 border-bottom d-flex gap-4 flex-wrap"
              style="font-size:.82rem;">
           <span>
-            <span class="badge-ok me-1">✓</span>
+            <span class="badge-ok me-1"><i class="bi bi-check-circle-fill"></i></span>
             Hadir: <strong id="detailHadir">0</strong>
           </span>
           <span>
             <span style="background:#fef9c3;color:#a16207;padding:2px 7px;
                          border-radius:10px;font-size:.72rem;font-weight:600;">
-              ⚠
+              <i class="bi bi-exclamation-triangle-fill"></i>
             </span>
             Terlambat: <strong id="detailTerlambat">0</strong>
           </span>
           <span>
-            <span class="badge-no :me-1">✗</span>
+            <span class="badge-no me-1"><i class="bi bi-x-circle-fill"></i></span>
             Absen: <strong id="detailAbsen">0</strong>
           </span>
           <span>
             <span style="background:#eff6ff;color:#1d4ed8;padding:2px 7px;
                          border-radius:10px;font-size:.72rem;font-weight:600;">
-              📋
+              <i class="bi bi-clipboard-fill"></i>
             </span>
             Izin: <strong id="detailIzin">0</strong>
           </span>
         </div>
 
         <div style="overflow-x:auto; max-height:380px; overflow-y:auto;">
-          <table class="table table-hover mb-0" style="min-width:480px;">
-            <thead style="position:sticky;top:0;">
+          <!-- Ditambahkan table-bordered di sini -->
+          <table class="table table-bordered table-hover mb-0" style="min-width:480px;">
+            <thead style="position:sticky;top:0;background:#fff;z-index:1;">
               <tr>
                 <th>No</th>
                 <th>Nama</th>
@@ -226,19 +228,19 @@
         <div class="d-grid gap-2">
           <button class="btn btn-outline-success"
                   onclick="setStatus('hadir')">
-            ✓ Hadir
+            <i class="bi bi-check-circle me-1"></i> Hadir
           </button>
           <button class="btn btn-outline-warning"
                   onclick="setStatus('terlambat')">
-            ⚠ Terlambat
+            <i class="bi bi-exclamation-triangle me-1"></i> Terlambat
           </button>
           <button class="btn btn-outline-danger"
                   onclick="setStatus('tidak_hadir')">
-            ✗ Tidak Hadir
+            <i class="bi bi-x-circle me-1"></i> Tidak Hadir
           </button>
           <button class="btn btn-outline-primary"
                   onclick="setStatus('izin')">
-            📋 Izin
+            <i class="bi bi-clipboard me-1"></i> Izin
           </button>
         </div>
         <div class="mt-3">
@@ -333,10 +335,10 @@ async function loadRekap() {
 
 function statusBadge(status) {
   const map = {
-    hadir:       '<span class="badge-ok">✓ Hadir</span>',
-    terlambat:   '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.73rem;font-weight:600;">⚠ Terlambat</span>',
-    tidak_hadir: '<span class="badge-no">✗ Absen</span>',
-    izin:        '<span class="badge-role">📋 Izin</span>',
+    hadir:       '<span class="badge-ok"><i class="bi bi-check-circle-fill me-1"></i>Hadir</span>',
+    terlambat:   '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.73rem;font-weight:600;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Terlambat</span>',
+    tidak_hadir: '<span class="badge-no"><i class="bi bi-x-circle-fill me-1"></i>Absen</span>',
+    izin:        '<span class="badge-role"><i class="bi bi-clipboard-fill me-1"></i>Izin</span>',
   };
   return map[status] || status;
 }
@@ -443,12 +445,12 @@ function renderRekap(data) {
         </div>
       </div>
       <div class="d-flex gap-2 ms-4" style="font-size:.77rem;">
-        <span class="badge-ok">✓ ${j.hadir}</span>
+        <span class="badge-ok"><i class="bi bi-check-circle-fill me-1"></i>${j.hadir}</span>
         <span style="background:#fef9c3;color:#a16207;padding:3px 8px;
                      border-radius:20px;font-size:.73rem;font-weight:600;">
-          ⚠ ${j.terlambat}
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>${j.terlambat}
         </span>
-        <span class="badge-no">✗ ${j.tidak_hadir}</span>
+        <span class="badge-no"><i class="bi bi-x-circle-fill me-1"></i>${j.tidak_hadir}</span>
       </div>
     </div>`).join('');
 }

@@ -299,7 +299,15 @@ async function loadLog() {
     const r = await fetch(
       `/log-akses/?ruangan_id=${rid}&tanggal_dari=${today}&tanggal_sampai=${today}&limit=15`
     );
-    const data = await r.json();
+    let data = await r.json();
+
+    // --- PERBAIKAN: Cek apakah data adalah array ---
+    if (!Array.isArray(data)) {
+      console.warn("Log Akses API tidak merespons array. Respons:", data);
+      // Coba ambil dari properti 'data' atau 'items', jika tidak ada jadikan array kosong
+      data = data.data || data.items || []; 
+    }
+    // -------------------------------------------------
 
     document.getElementById('statBerhasil').textContent =
       data.filter(l => l.status === 'berhasil').length;
@@ -326,7 +334,24 @@ async function loadLog() {
               : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25"><i class="bi bi-x-lg me-1"></i>Tolak</span>'}
         </td>
       </tr>`).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error("Error loadLog:", e); }
+}
+
+async function loadTotalPengguna() {
+  try {
+    const r = await fetch('/users/');
+    let data = await r.json();
+    
+    // --- PERBAIKAN: Lakukan hal yang sama untuk endpoint users ---
+    if (!Array.isArray(data)) {
+      console.warn("Users API tidak merespons array. Respons:", data);
+      data = data.data || data.items || [];
+    }
+    // -------------------------------------------------------------
+
+    document.getElementById('statPengguna').textContent =
+      data.filter(u => u.aktif).length;
+  } catch(e) { console.error("Error loadTotalPengguna:", e); }
 }
 
 async function loadTotalPengguna() {
