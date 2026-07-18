@@ -71,7 +71,7 @@
     <div class="form-check mb-0">
       <input class="form-check-input" type="checkbox" id="checkAll" onchange="toggleAll(this.checked)">
       <label class="form-check-label" for="checkAll" style="font-size:.82rem; color:#64748b;">
-        Pilih Semua
+        Pilih Semua (Halaman Ini)
       </label>
     </div>
     {% endif %}
@@ -84,22 +84,23 @@
 
 <div class="tbl-wrap">
   <div style="overflow-x:auto;">
-    <table class="table table-hover mb-0" style="min-width:560px;">
-      <thead>
+    <!-- PERUBAHAN: Ditambahkan class 'table-bordered' untuk memunculkan garis antar kolom -->
+    <table class="table table-bordered table-hover mb-0" style="min-width:560px; border-color: #cbd5e1;">
+      <thead class="table-light">
         <tr>
           {% if user.role == 'admin' %}
-          <th style="width:40px;">
+          <th style="width:40px; text-align:center; vertical-align:middle;">
             <input class="form-check-input" type="checkbox" id="checkAllHeader" onchange="toggleAll(this.checked)">
           </th>
           {% endif %}
-          <th>No</th>
-          <th>Waktu</th>
-          <th>Nama</th>
-          <th>Metode</th>
-          <th>Status</th>
-          <th>Keterangan</th>
+          <th style="width:60px; text-align:center; vertical-align:middle;">No</th>
+          <th style="vertical-align:middle;">Waktu</th>
+          <th style="vertical-align:middle;">Nama</th>
+          <th style="vertical-align:middle;">Metode</th>
+          <th style="vertical-align:middle;">Status</th>
+          <th style="vertical-align:middle;">Keterangan</th>
           {% if user.role == 'admin' %}
-          <th style="width:60px; text-align:center;">Aksi</th>
+          <th style="width:70px; text-align:center; vertical-align:middle;">Aksi</th>
           {% endif %}
         </tr>
       </thead>
@@ -111,7 +112,7 @@
     </table>
   </div>
   
-  <!-- Tempat Paginasi (Menggantikan footer lama) -->
+  <!-- Tempat Paginasi (Break Page per 100 data) -->
   <div id="paginasiLog"></div>
 </div>
 
@@ -165,6 +166,11 @@ function buildParams() {
 
 // ── Load log ─────────────────────────────────────────────
 async function loadLog(page = 1) {
+  if (page !== currentPage && page > 1) {
+    const tableWrap = document.querySelector('.tbl-wrap');
+    if (tableWrap) tableWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   currentPage = page;
   const params = buildParams();
   params.set('limit', PAGE_LIMIT);
@@ -177,16 +183,31 @@ async function loadLog(page = 1) {
     let data = [];
     let pg = {};
 
-    // Deteksi Format Respons Backend (Penting agar data selalu muncul)
-    if (Array.isArray(json)) {
-      // 1. Jika backend mengembalikan format Array langsung (Client-Side Pagination)
-      const total = json.length;
+    let rawData = Array.isArray(json) ? json : (json.data || json.results || json.logs || []);
+    let serverPg = (!Array.isArray(json) && (json.pagination || json.meta || json.page_info)) || null;
+
+    if (serverPg && serverPg.total_pages !== undefined) {
+      data = rawData;
+      const total = serverPg.total || serverPg.count || data.length;
+      const limit = serverPg.limit || serverPg.per_page || PAGE_LIMIT;
+      const total_pages = serverPg.total_pages || serverPg.last_page || Math.ceil(total / limit) || 1;
+      
+      pg = {
+        total: total,
+        page: currentPage,
+        limit: limit,
+        total_pages: total_pages,
+        has_prev: currentPage > 1,
+        has_next: currentPage < total_pages
+      };
+    } else {
+      const total = rawData.length;
       const total_pages = Math.ceil(total / PAGE_LIMIT) || 1;
       
-      if (currentPage > total_pages) currentPage = total_pages; // Pencegahan halaman lebih
+      if (currentPage > total_pages) currentPage = total_pages || 1;
       
       const startIndex = (currentPage - 1) * PAGE_LIMIT;
-      data = json.slice(startIndex, startIndex + PAGE_LIMIT);
+      data = rawData.slice(startIndex, startIndex + PAGE_LIMIT);
       
       pg = {
         total: total,
@@ -196,16 +217,10 @@ async function loadLog(page = 1) {
         has_prev: currentPage > 1,
         has_next: currentPage < total_pages
       };
-    } else {
-      // 2. Jika backend sudah mengembalikan format {data: [], pagination: {}} (Server-Side)
-      data = json.data || [];
-      pg = json.pagination || {};
     }
 
-    // Simpan data halaman ini untuk keperluan fitur "Pilih Semua"
     allLogs = data;
 
-    // Reset pilihan check box tiap load baru
     selectedIds.clear();
     updateBulkUI();
     if (isAdmin) {
@@ -224,7 +239,7 @@ async function loadLog(page = 1) {
   } catch(e) {
     console.error("Gagal memuat log:", e);
     document.getElementById('logBody').innerHTML =
-      `<tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-4 text-danger">Gagal memuat data</td></tr>`;
+      `<tr><td colspan="${isAdmin ? 8 : 6}" class="text-center py-4 text-danger">Gagal memuat data log.</td></tr>`;
   }
 }
 
@@ -248,40 +263,40 @@ function renderLog(data) {
       <tr id="row_${l.id}" class="${isChecked ? 'table-active' : ''}">
 
         ${isAdmin ? `
-        <td>
+        <td style="text-align:center; vertical-align:middle;">
           <input class="form-check-input row-check" type="checkbox"
                  value="${l.id}" ${isChecked ? 'checked' : ''}
                  onchange="toggleRow(${l.id}, this.checked)">
         </td>
         ` : ''}
 
-        <td class="text-muted" style="font-size:.75rem;">${no}</td>
+        <td class="text-muted text-center" style="font-size:.75rem; vertical-align:middle;">${no}</td>
 
-        <td style="white-space:nowrap; font-size:.78rem;">
+        <td style="white-space:nowrap; font-size:.78rem; vertical-align:middle;">
           ${fmtDateTime(l.waktu_akses)}
         </td>
 
-        <td>
+        <td style="vertical-align:middle;">
           <div class="fw-bold" style="font-size:.83rem;">
             ${l.nama_user || '<span class="text-muted fst-italic">Tidak dikenal</span>'}
           </div>
           ${l.nim_nip ? `<div style="font-size:.7rem;color:#94a3b8;">${l.nim_nip}</div>` : ''}
         </td>
 
-        <td>${metodeLabel(l.metode)}</td>
+        <td style="vertical-align:middle;">${metodeLabel(l.metode)}</td>
 
-        <td>
+        <td style="vertical-align:middle;">
           ${l.status === 'berhasil'
             ? '<span class="badge-ok"><i class="bi bi-check-lg me-1"></i>Berhasil</span>'
             : '<span class="badge-no"><i class="bi bi-x-lg me-1"></i>Ditolak</span>'}
         </td>
 
-        <td style="font-size:.77rem;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <td style="font-size:.77rem;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; vertical-align:middle;">
           ${l.keterangan || '—'}
         </td>
 
         ${isAdmin ? `
-        <td style="text-align:center;">
+        <td style="text-align:center; vertical-align:middle;">
           <button class="btn btn-outline-danger btn-sm" style="padding:2px 8px;"
                   onclick="hapusSatu(${l.id})" title="Hapus log ini">
             <i class="bi bi-trash" style="font-size:.8rem;"></i>
@@ -293,15 +308,16 @@ function renderLog(data) {
   }).join('');
 }
 
-// ── Render Paginasi ──────────────────────────────────────
+// ── Render Paginasi (Break Page per 100) ─────────────────
 function renderPagination(pg) {
   const wrap = document.getElementById('paginasiLog');
   if (!wrap) return;
 
   const { total, page, limit, total_pages, has_prev, has_next } = pg;
+  
   if (!total || total_pages <= 1) { 
     wrap.innerHTML = `<div class="px-3 py-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <small class="text-muted" style="font-size:.76rem;">Menampilkan ${total || 0} log</small>
+      <small class="text-muted" style="font-size:.76rem;">Menampilkan seluruh ${total || 0} log</small>
     </div>`;
     return; 
   }
@@ -309,25 +325,25 @@ function renderPagination(pg) {
   const start = (page - 1) * limit + 1;
   const end   = Math.min(page * limit, total);
 
-  // Buat list halaman
   const pages = [];
-  const delta = 2; // Tampilkan 2 halaman di kiri dan kanan halaman aktif
+  const delta = 2; 
   for (let i = Math.max(1, page - delta); i <= Math.min(total_pages, page + delta); i++) {
     pages.push(i);
   }
 
   wrap.innerHTML = `
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 px-3 py-2 border-top" style="font-size:.8rem;color:#64748b;">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 px-3 py-3 border-top" style="font-size:.8rem;color:#64748b;">
       <div>
-        Menampilkan <strong>${start}–${end}</strong> dari <strong>${total.toLocaleString('id-ID')}</strong> log
+        Menampilkan <strong>${start}–${end}</strong> dari <strong>${total.toLocaleString('id-ID')}</strong> log 
+        <span class="badge bg-light text-secondary border ms-1">(Maks. 100/page)</span>
       </div>
-      <nav>
+      <nav aria-label="Page navigation">
         <ul class="pagination pagination-sm mb-0">
           <li class="page-item ${!has_prev ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadLog(1)" ${!has_prev ? 'disabled' : ''}>«</button>
+            <button class="page-link" onclick="loadLog(1)" ${!has_prev ? 'disabled' : ''} title="Halaman Pertama">«</button>
           </li>
           <li class="page-item ${!has_prev ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadLog(${page - 1})" ${!has_prev ? 'disabled' : ''}>‹</button>
+            <button class="page-link" onclick="loadLog(${page - 1})" ${!has_prev ? 'disabled' : ''}>‹ Sebelumnya</button>
           </li>
           
           ${pages.map(p => `
@@ -337,10 +353,10 @@ function renderPagination(pg) {
           `).join('')}
           
           <li class="page-item ${!has_next ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadLog(${page + 1})" ${!has_next ? 'disabled' : ''}>›</button>
+            <button class="page-link fw-bold text-primary" onclick="loadLog(${page + 1})" ${!has_next ? 'disabled' : ''}>Next Page ›</button>
           </li>
           <li class="page-item ${!has_next ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadLog(${total_pages})" ${!has_next ? 'disabled' : ''}>»</button>
+            <button class="page-link" onclick="loadLog(${total_pages})" ${!has_next ? 'disabled' : ''} title="Halaman Terakhir (${total_pages})">»</button>
           </li>
         </ul>
       </nav>

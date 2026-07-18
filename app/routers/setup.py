@@ -327,34 +327,54 @@ def seed_lab_sensor_final(key: str, db: Session = Depends(get_db)):
 
     db.commit()
 
-    # ── Jadwal KBM — 8 minggu ke depan ───────────────────────
-    today    = date.today()
-    tgl_sen  = next_wd(today, 0)   # Senin  untuk 2CC
-    tgl_sel  = next_wd(today, 1)   # Selasa untuk 2CF dan 2CE
+# ── Jadwal KBM — 8 minggu ke depan ───────────────────────
+    today = date.today()
+    tgl_sen = next_wd(today, 0)  # Senin  untuk 2CC
+    tgl_sel = next_wd(today, 1)  # Selasa untuk 2CF dan 2CE
     jadwal_count = 0
 
     for _ in range(8):
-        sen_str = tgl_sen.strftime("%Y-%m-%d")
-        # 2CC — Senin, dua blok
-        buat_jadwal(6, sen_str, "Praktek Routing dan Switching",
-                    "2CC", faris.nama, "07:00", "09:30")
-        buat_jadwal(6, sen_str, "Praktek Routing dan Switching",
-                    "2CC", faris.nama, "10:00", "12:30")
-        tgl_sen   += timedelta(weeks=1)
-        jadwal_count += 2
+      sen_str = tgl_sen.strftime("%Y-%m-%d")
 
-        sel_str = tgl_sel.strftime("%Y-%m-%d")
-        # 2CF — Selasa siang
-        buat_jadwal(6, sel_str, "Praktek Routing dan Switching",
-                    "2CF", agus.nama, "12:40", "15:10")
-        # 2CE — Selasa sore
-        buat_jadwal(6, sel_str, "Praktek Routing dan Switching",
-                    "2CE", agus.nama, "15:40", "18:10")
-        tgl_sel   += timedelta(weeks=1)
-        jadwal_count += 2
+      # 2CC — Senin, DIGABUNG menjadi 1 blok (07:30 - 12:30)
+      buat_jadwal(
+          6,
+          sen_str,
+          "Praktek Routing dan Switching",
+          "2CC",
+          faris.nama,
+          "07:30",
+          "12:30",
+      )
+      tgl_sen += timedelta(weeks=1)
+      jadwal_count += 1  # PENTING: Ubah dari += 2 menjadi += 1 karena sekarang hanya 1 sesi/minggu
+
+      sel_str = tgl_sel.strftime("%Y-%m-%d")
+      # 2CF — Selasa siang (Tetap)
+      buat_jadwal(
+          6,
+          sel_str,
+          "Praktek Routing dan Switching",
+          "2CF",
+          agus.nama,
+          "12:40",
+          "15:10",
+      )
+      # 2CE — Selasa sore (Tetap)
+      buat_jadwal(
+          6,
+          sel_str,
+          "Praktek Routing dan Switching",
+          "2CE",
+          agus.nama,
+          "15:40",
+          "18:10",
+      )
+      tgl_sel += timedelta(weeks=1)
+      jadwal_count += 2
 
     db.commit()
-
+    
     return {
         "status":  "berhasil",
         "ruangan": ruangan.nama,
