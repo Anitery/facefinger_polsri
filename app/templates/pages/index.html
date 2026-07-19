@@ -163,6 +163,14 @@ function getTodayLocal() {
   return local.toISOString().slice(0, 10);
 }
 
+// --- PERBAIKAN 1: Helper function untuk format lantai ---
+function formatLantai(l) {
+  if (l === null || l === undefined || l === '') return '—';
+  if (Number(l) === 0) return 'Dasar';
+  return 'Lantai ' + l;
+}
+// --------------------------------------------------------
+
 async function loadDeviceInfo() {
   const rid = getRuanganId();
   if (!rid) {
@@ -192,7 +200,7 @@ async function loadDeviceInfo() {
         </div>
         <div class="d-flex justify-content-between">
           <span class="text-muted" style="min-width:90px;">Lantai</span>
-          <span>${identitas.lantai ? 'Lantai ' + identitas.lantai : '—'}</span>
+          <span>${formatLantai(identitas.lantai)}</span>
         </div>
         <div class="d-flex justify-content-between align-items-start">
           <span class="text-muted" style="min-width:90px;">Penanggung Jawab</span>
@@ -301,13 +309,12 @@ async function loadLog() {
     );
     let data = await r.json();
 
-    // --- PERBAIKAN: Cek apakah data adalah array ---
+    // --- Cek apakah data adalah array ---
     if (!Array.isArray(data)) {
       console.warn("Log Akses API tidak merespons array. Respons:", data);
-      // Coba ambil dari properti 'data' atau 'items', jika tidak ada jadikan array kosong
       data = data.data || data.items || []; 
     }
-    // -------------------------------------------------
+    // ------------------------------------
 
     document.getElementById('statBerhasil').textContent =
       data.filter(l => l.status === 'berhasil').length;
@@ -342,26 +349,19 @@ async function loadTotalPengguna() {
     const r = await fetch('/users/');
     let data = await r.json();
     
-    // --- PERBAIKAN: Lakukan hal yang sama untuk endpoint users ---
+    // --- Cek apakah data adalah array ---
     if (!Array.isArray(data)) {
       console.warn("Users API tidak merespons array. Respons:", data);
       data = data.data || data.items || [];
     }
-    // -------------------------------------------------------------
-
+    // ------------------------------------
+    
     document.getElementById('statPengguna').textContent =
       data.filter(u => u.aktif).length;
   } catch(e) { console.error("Error loadTotalPengguna:", e); }
 }
 
-async function loadTotalPengguna() {
-  try {
-    const r = await fetch('/users/');
-    const data = await r.json();
-    document.getElementById('statPengguna').textContent =
-      data.filter(u => u.aktif).length;
-  } catch(e) {}
-}
+// PERBAIKAN 2: Fungsi loadTotalPengguna() duplikat di bawah sini sudah dihapus
 
 // Inisialisasi awal
 loadHariLiburDashboard().then(() => {

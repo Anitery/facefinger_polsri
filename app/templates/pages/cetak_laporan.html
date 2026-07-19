@@ -5,20 +5,20 @@
 <title>Laporan Bulanan Absensi</title>
 
 <style id="page-size-style">
-  @page { size: A4 portrait; margin: 15mm; }
+  @page { size: A4 portrait; margin: 0; }
 </style>
 
 <style>
   html, body { height: 100%; margin: 0; background: #fff; }
-  body { font-family: Arial, sans-serif; font-size: 11px; color:#111; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color:#111; }
   
   /* Container Utama */
   .print-wrapper {
     display: flex;
     flex-direction: column;
-    min-height: 250mm; /* Tinggi standar halaman A4 */
+    min-height: 297mm; /* Tinggi penuh A4 */
     box-sizing: border-box;
-    padding: 20px;
+    padding: 15mm; 
   }
   
   .page-break { page-break-after: always; }
@@ -27,54 +27,106 @@
   .title { text-align:center; font-weight:bold; font-size:22px; margin-bottom:6px; letter-spacing: 0.5px; }
   .subtitle { text-align:center; font-size:14px; margin-bottom:20px; color: #444; }
   
-  /* Info Ruangan & Bulan */
-  .info { margin-bottom:12px; font-size:12px; padding-bottom: 4px; }
-  .info span { font-weight:bold; color: #000; }
+  /* INFO RUANGAN (BASE: A4) */
+  .info { 
+    margin-bottom: 15px; 
+    font-size: 11px; 
+  }
+  .info table {
+    width: auto;
+    border-collapse: collapse;
+    margin-top: 0;
+    font-size: 11px; 
+  }
+  .info th, .info td {
+    border: none;
+    padding: 3px 6px 3px 0;
+    text-align: left;
+    white-space: nowrap;
+    background: transparent !important;
+  }
+  .info th {
+    font-weight: bold;
+    color: #000;
+    width: 95px; 
+  }
   
-  /* OPTIMALISASI TABEL UNTUK 20 KOLOM DATA */
+  /* TABEL DATA (BASE: A4) */
   table { 
     width:100%; 
     border-collapse: collapse; 
-    margin-top:5px; 
-    font-size: 9px; /* Diperkecil dari 11px agar muat 20 kolom */
+    margin-top:8px; 
+    font-size: 9px; 
     table-layout: auto; 
   }
   th, td { 
     border:1px solid #333; 
-    padding: 4px 2px; /* Padding dirapatkan agar hemat ruang horizontal */
+    padding: 4px 2px; 
     text-align:center; 
-    white-space: nowrap; /* Mencegah teks tanggal/NIM terpotong ke bawah */
+    white-space: nowrap; 
   }
   th { background:#ffffff; color:#000000; font-weight: bold; }
   tr:nth-child(even) td { background:#f9fbfd; }
   
   /* Pengaturan Lebar Kolom Utama */
   th:nth-child(1), td:nth-child(1) { width: 3%; } /* No */
-  th:nth-child(2), td:nth-child(2) { width: 10%; } /* NIM */
+  th:nth-child(2), td:nth-child(2) { width: 12%; } /* NIM */
   td.nama { 
     text-align:left; 
-    padding-left: 4px; 
-    white-space: normal; /* Nama mahasiswa boleh turun ke bawah jika terlalu panjang */
-    font-size: 9.5px;
+    padding-left: 6px; 
+    white-space: normal; 
+    font-size: 9.5px; 
   }  
-  .col-rekap { width: 25px; font-weight: bold; }
+  .col-rekap { width: 28px; font-weight: bold; }
   
-  .ket { margin-top:12px; font-size:10px; color: #555; }
+  /* KETERANGAN & TTD (BASE: A4) */
+  .ket { margin-top:14px; font-size:10px; color: #444; } 
   
-  /* AREA TANDA TANGAN (TTD) DIPERKECIL */
   .ttd-wrap { 
     margin-top: auto; 
-    padding-top: 20px;
+    padding-top: 25px;
     width: 100%; 
     display: flex; 
     justify-content: space-between; 
     page-break-inside: avoid; 
   }
-  /* Lebar diperkecil ke 38% agar tidak terlalu besar dan melebar */
-  .ttd { width: 38%; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
-  .ttd .space-ttd { height: 50px; } /* Tinggi ruang kosong tanda tangan diperkecil dari 75px ke 50px */
-  .ttd .line { border-top: 1px solid #333; padding-top: 4px; font-weight: bold; }
-  .ttd .nip-nim { font-size: 10px; color: #333; margin-top: 2px; }
+  .ttd { 
+    width: 40%; 
+    text-align: center; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    font-size: 11px; 
+  }
+  .ttd .space-ttd { height: 60px; } 
+  .ttd .line { 
+    border-top: 1px solid #333; 
+    padding-top: 5px; 
+    font-weight: bold; 
+    font-size: 11px; 
+  }
+  .ttd .nip-nim { 
+    font-size: 10px; 
+    color: #333; 
+    margin-top: 3px; 
+  }
+
+  /* =========================================
+     OVERRIDE KHUSUS KERTAS LEGAL (LEGAL MODE)
+     ========================================= */
+  body.legal-mode .info { font-size: 12px; }
+  body.legal-mode .info table { font-size: 12px; }
+  
+  body.legal-mode table { font-size: 11px; }
+  body.legal-mode th, body.legal-mode td { padding: 6px 4px; }
+  body.legal-mode td.nama { font-size: 11.5px; }
+  
+  body.legal-mode .ket { font-size: 11px; }
+  
+  body.legal-mode .ttd { font-size: 12px; }
+  body.legal-mode .ttd .line { font-size: 12px; }
+  body.legal-mode .ttd .nip-nim { font-size: 11px; }
+  /* ========================================= */
   
   /* Menu Navigasi */
   .no-print { 
@@ -92,7 +144,7 @@
   
   @media print { 
     .no-print { display:none; } 
-    .print-wrapper { padding: 0; }
+    .print-wrapper { padding: 15mm; }
   }
 </style>
 </head>
@@ -103,8 +155,8 @@
   
   <label for="paperSize">Ukuran Kertas:</label>
   <select id="paperSize" onchange="updatePaperSize(this.value)">
-    <option value="A4">A4 (Portrait)</option>
-    <option value="legal">Legal (Portrait)</option>
+    <option value="A4" {% if kertas == 'A4' %}selected{% endif %}>A4 (Portrait)</option>
+    <option value="legal" {% if kertas == 'legal' %}selected{% endif %}>Legal (Portrait)</option>
   </select>
 
   <button onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
@@ -124,10 +176,24 @@
     <div class="subtitle">Politeknik Negeri Sriwijaya — Jurusan Teknik Komputer</div>
     
     <div class="info">
-      <span>Ruangan:</span> {{ ruangan.nama if ruangan else '-' }} &nbsp;|&nbsp;
-      <span>Bulan:</span> {{ bulan_label }} &nbsp;|&nbsp;
-      <span>Kelas:</span> {{ p.kelas }} &nbsp;|&nbsp;
-      <span>Dosen:</span> {{ p.dosen_nama }}
+      <table>
+        <tr>
+          <th>Ruangan</th>
+          <td>: {{ ruangan.nama if ruangan else '-' }}</td>
+        </tr>
+        <tr>
+          <th>Bulan/Tahun</th>
+          <td>: {{ bulan_label }}</td>
+        </tr>
+        <tr>
+          <th>Kelas</th>
+          <td>: {{ p.kelas }}</td>
+        </tr>
+        <tr>
+          <th>Pengajar</th>
+          <td>: {{ p.dosen_nama }}</td>
+        </tr>
+      </table>
     </div>
     
     <table>
@@ -165,7 +231,13 @@
     
     <div class="ket">Keterangan: H = Hadir, T = Terlambat, A = Tidak Hadir/Alfa, I = Izin</div>
     
-    {% if p.is_last_chunk_of_group %}
+    <!-- Teks bersambung hanya muncul jika masih ada halaman berikutnya -->
+    {% if not p.is_last_chunk_of_group %}
+    <p style="text-align:right; font-style:italic; font-size:10px; margin-top:4px; margin-bottom:0;">
+      (bersambung ke halaman berikutnya)
+    </p>
+    {% endif %}
+    
     <div class="ttd-wrap">
       <div class="ttd">
         <div>Dosen Pengampu</div>
@@ -180,28 +252,40 @@
         <div class="nip-nim">NIP. {{ ketua_nip if ketua_nip else '............................' }}</div>
       </div>
     </div>
-    {% else %}
-    <p style="text-align:right; font-style:italic; font-size:9px; margin-top:8px;">
-      (bersambung ke halaman berikutnya)
-    </p>
-    {% endif %}
     
   </div>
   {% endfor %}
 {% endif %}
 
 <script>
-function updatePaperSize(size) {
+// Langsung set CSS dan class body berdasarkan pilihan saat halaman dimuat
+document.addEventListener("DOMContentLoaded", function() {
+  const currentSize = document.getElementById('paperSize').value;
+  applyPaperStyles(currentSize);
+});
+
+function applyPaperStyles(size) {
   const sizeStyle = document.getElementById('page-size-style');
   const wrappers = document.querySelectorAll('.print-wrapper');
+  const body = document.body;
   
   if (size === 'legal') {
-    sizeStyle.innerHTML = '@page { size: legal portrait; margin: 15mm; }';
-    wrappers.forEach(w => w.style.minHeight = '315mm');
+    sizeStyle.innerHTML = '@page { size: legal portrait; margin: 0; }';
+    wrappers.forEach(w => w.style.minHeight = '355mm');
+    body.classList.add('legal-mode'); 
   } else {
-    sizeStyle.innerHTML = '@page { size: A4 portrait; margin: 15mm; }';
-    wrappers.forEach(w => w.style.minHeight = '250mm');
+    sizeStyle.innerHTML = '@page { size: A4 portrait; margin: 0; }';
+    wrappers.forEach(w => w.style.minHeight = '297mm');
+    body.classList.remove('legal-mode'); 
   }
+}
+
+function updatePaperSize(size) {
+  // Reload halaman dengan menambahkan parameter kertas di URL 
+  // agar backend merender ulang pembagian limit (25 vs 30)
+  const url = new URL(window.location.href);
+  url.searchParams.set('kertas', size);
+  window.location.href = url.toString();
 }
 </script>
 

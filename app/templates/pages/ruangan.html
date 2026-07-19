@@ -51,8 +51,9 @@
         </div>
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">Lantai</label>
+          <!-- PERBAIKAN: Mengubah min="1" menjadi min="0" agar bisa input Lantai Dasar -->
           <input type="number" class="form-control" id="rLantai"
-                 min="1" max="10" value="1">
+                 min="0" max="10" value="1">
         </div>
         <div id="alertRuangan"></div>
       </div>
@@ -124,17 +125,28 @@
 const myRole        = "{{ user.role }}";
 let editRuanganMode = false;
 let allUsers        = [];
-const LANTAI_COLOR  = ['','#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444'];
+// PERBAIKAN: Menambahkan warna untuk indeks 0 (#0d9488 - Teal) agar lantai dasar punya warna
+const LANTAI_COLOR  = ['#0d9488','#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444'];
 const ROLE_ICON     = {
   admin: 'bi-shield-fill text-danger',
   teknisi: 'bi-tools text-warning',
   dosen: 'bi-mortarboard-fill text-primary'
 };
 
+// --- PERBAIKAN: Helper function untuk format lantai ---
+function formatLantai(l) {
+  if (l === null || l === undefined || l === '') return '—';
+  if (Number(l) === 0) return 'Dasar';
+  return 'Lantai ' + l;
+}
+// ------------------------------------------------------
+
 // ── Load semua user (untuk dropdown PJ) ─────────────────
 async function loadAllUsers() {
   const res  = await fetch('/users/');
-  const data = await res.json();
+  let data = await res.json();
+  if (!Array.isArray(data)) data = data.data || data.items || [];
+  
   // Filter hanya yang bisa jadi PJ
   allUsers = data.filter(u =>
     ['dosen','teknisi','admin'].includes(u.role) && u.aktif
@@ -145,7 +157,9 @@ async function loadAllUsers() {
 async function loadRuangan() {
   const showInactive = document.getElementById('showInactiveRuangan')?.checked || false;
   const res  = await fetch(`/ruangan/?include_inactive=${showInactive}`);
-  const data = await res.json();
+  let data = await res.json();
+  if (!Array.isArray(data)) data = data.data || data.items || [];
+  
   const grid = document.getElementById('ruanganGrid');
 
   if (!data.length) {
@@ -180,8 +194,9 @@ async function loadRuangan() {
             <div class="flex-grow-1 min-w-0">
               <div class="fw-bold" style="font-size:.87rem;color:#1e293b;
                    line-height:1.3;">${r.nama}</div>
+              <!-- PERBAIKAN: Menggunakan formatLantai(r.lantai) -->
               <div style="font-size:.72rem;color:#64748b;">
-                ${r.lokasi||'—'} · Lantai ${r.lantai||'—'}
+                ${r.lokasi||'—'} · ${formatLantai(r.lantai)}
               </div>
             </div>
             <span style="font-size:.67rem;font-weight:600;padding:2px 8px;
@@ -272,7 +287,8 @@ function openEditRuangan(r) {
   document.getElementById('editRuanganId').value = r.id;
   document.getElementById('rNama').value         = r.nama;
   document.getElementById('rLokasi').value       = r.lokasi || '';
-  document.getElementById('rLantai').value       = r.lantai || 1;
+  // PERBAIKAN: Menggunakan r.lantai ?? 1 (nullish coalescing) agar nilai 0 tidak berubah jadi 1
+  document.getElementById('rLantai').value       = r.lantai ?? 1;
   document.getElementById('alertRuangan').innerHTML = '';
   document.getElementById('modalRuanganTitle').innerHTML =
     '<i class="bi bi-pencil me-2"></i>Edit Ruangan';

@@ -288,6 +288,7 @@ def cetak_laporan_bulanan(
     bulan: str,
     kelas: Optional[str] = None,
     jadwal_ids: Optional[str] = None,
+    kertas: Optional[str] = "A4",  # <-- TAMBAHAN: Default A4
     db: Session = Depends(get_db)
 ):
     user = get_session(request)
@@ -300,6 +301,7 @@ def cetak_laporan_bulanan(
     from collections import defaultdict
     from app.models.models import JadwalRuangan, Absensi, Ruangan, User
 
+    # ... (Query jadwal_list, ruangan, dsb tetap SAMA) ...
     q = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     ).filter(
@@ -332,8 +334,9 @@ def cetak_laporan_bulanan(
     }
     thn, bln = bulan.split("-")
 
-    # ── Kelompokkan jadwal per (dosen, kelas) — supaya tiap kelas
-    # ── tampil sebagai blok laporan terpisah, bukan tergabung ──
+    # ── LOGIKA BARU: Tentukan limit baris per halaman ──
+    limit_baris = 30 if kertas == "legal" else 25
+
     groups_map = defaultdict(list)
     for j in jadwal_list:
         key = (j.dosen or "-", j.kelas or "-")
@@ -345,7 +348,8 @@ def cetak_laporan_bulanan(
     for key in ordered_keys:
         dosen_nama_grp, kelas_grp = key
         jadwals_grp = groups_map[key]
-
+        
+        # ... (Logika penarikan mhs dan iterasi baris tetap SAMA) ...
         tanggal_list_grp = [j.tanggal[8:10] + "/" + j.tanggal[5:7] for j in jadwals_grp]
 
         mhs_set = {}
@@ -362,7 +366,7 @@ def cetak_laporan_bulanan(
         mhs_list_grp = sorted(mhs_set.values(), key=lambda m: m.nama)
 
         if not mhs_list_grp:
-            continue  # lewati kelompok tanpa mahasiswa
+            continue
 
         jadwal_ids_grp = [j.id for j in jadwals_grp]
         absensi_rows_grp = db.query(Absensi).filter(Absensi.jadwal_id.in_(jadwal_ids_grp)).all()
@@ -384,7 +388,8 @@ def cetak_laporan_bulanan(
                 User.nama == dosen_nama_grp, User.role == "dosen"
             ).first()
 
-        chunks = [rows_grp[i:i + 30] for i in range(0, len(rows_grp), 30)] or [[]]
+        # ── PERUBAHAN: Gunakan variabel limit_baris alih-alih hardcode 25 ──
+        chunks = [rows_grp[i:i + limit_baris] for i in range(0, len(rows_grp), limit_baris)] or [[]]
 
         for ci, chunk in enumerate(chunks):
             print_pages.append({
@@ -399,23 +404,16 @@ def cetak_laporan_bulanan(
     for idx, p in enumerate(print_pages):
         p["is_last_page"] = (idx == len(print_pages) - 1)
 
+    # ... (Validasi dan query ketua jurusan tetap SAMA) ...
     if not print_pages:
         raise HTTPException(
             400,
-            "Belum ada mahasiswa terdaftar pada jadwal-jadwal di periode ini — "
-            "laporan tidak dapat dibuat"
+            "Belum ada mahasiswa terdaftar pada jadwal-jadwal di periode ini — laporan tidak dapat dibuat"
         )
 
-    # Cari Ketua Jurusan — Dr. Slamet Widodo (NIP konsisten di seed)
-    ketua_jurusan = db.query(User).filter(
-        User.nim_nip == "197305162002121001"
-    ).first()
-    
-    # Kalau tidak ketemu fallback ke admin pertama
+    ketua_jurusan = db.query(User).filter(User.nim_nip == "197305162002121001").first()
     if not ketua_jurusan:
-        ketua_jurusan = db.query(User).filter(
-            User.role == "admin"
-        ).first()
+        ketua_jurusan = db.query(User).filter(User.role == "admin").first()
 
     return templates.TemplateResponse(
         request=request,
@@ -426,6 +424,7 @@ def cetak_laporan_bulanan(
             "print_pages":   print_pages,
             "ketua_jurusan": ketua_jurusan.nama if ketua_jurusan else "Ketua Jurusan",
             "ketua_nip":     ketua_jurusan.nim_nip if ketua_jurusan else "",
+            "kertas":        kertas,  # <-- TAMBAHAN: Kirim status kertas kembali ke template
         }
     )
 
