@@ -2,6 +2,45 @@
 {% block title %}Absensi{% endblock %}
 {% block page_title %}Absensi{% endblock %}
 
+{% block extra_head %}
+<style>
+@media (max-width: 767px) {
+  /* Stat cards — 2 kolom di mobile */
+  #absensiStats .stat-card {
+    padding: 10px 12px;
+  }
+  #absensiStats .stat-card .val {
+    font-size: 1.4rem;
+  }
+  #absensiStats .stat-card .lbl {
+    font-size: .7rem;
+  }
+  /* Filter bar lebih compact */
+  #filterBulan {
+    font-size: .82rem;
+  }
+  /* Card mobile absensi — lebih padat */
+  #rekapMobile .section-card {
+    padding: 10px 12px !important;
+    border-radius: 10px;
+  }
+  /* Badge stat di card mobile */
+  .absensi-stat-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .absensi-stat-chip {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: .72rem;
+    font-weight: 600;
+  }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="section-card p-3 mb-3">
@@ -413,44 +452,65 @@ function renderRekap(data) {
     </tr>`).join('');
 
   mobile.innerHTML = data.map((j, i) => `
-    <div class="section-card p-3">
-      <div class="d-flex justify-content-between align-items-start mb-2">
-        <div class="d-flex gap-2">
-          <input type="checkbox" class="form-check-input jadwal-check mt-1" value="${j.jadwal_id}">
-          <div>
-            <div class="fw-bold" style="font-size:.87rem;">
+    <div class="section-card" style="border-radius:12px;overflow:hidden;">
+      <!-- Header card -->
+      <div style="background:#1F3864;padding:10px 12px;color:#fff;">
+        <div class="d-flex justify-content-between align-items-start">
+          <div style="flex:1;">
+            <div class="fw-bold" style="font-size:.85rem;line-height:1.3;">
               ${j.nama_kegiatan}
-              ${j.kelas
-                ? `<span style="background:#eff6ff;color:#1d4ed8;
-                                padding:1px 6px;border-radius:10px;
-                                font-size:.67rem;font-weight:600;
-                                margin-left:4px;">${j.kelas}</span>`
-                : ''}
             </div>
-            <div style="font-size:.74rem;color:#64748b;">
-              ${j.tanggal} · ${j.jam_mulai}–${j.jam_selesai}
+            <div style="font-size:.72rem;opacity:.8;margin-top:2px;">
+              ${j.tanggal} &nbsp;·&nbsp; ${j.jam_mulai}–${j.jam_selesai}
             </div>
           </div>
+          ${j.kelas
+            ? `<span style="background:rgba(255,255,255,.2);padding:2px 8px;
+                            border-radius:10px;font-size:.68rem;font-weight:600;
+                            flex-shrink:0;margin-left:8px;">${j.kelas}</span>`
+            : ''}
         </div>
-        <div class="d-flex gap-1">
-          <button class="btn btn-outline-primary btn-sm"
-                  onclick="lihatDetail(${j.jadwal_id})">
-            <i class="bi bi-eye"></i>
-          </button>
-          ${isAdmin ? `
-            <button class="btn btn-outline-danger btn-sm"
-                    onclick="hapusAbsensiJadwal(${j.jadwal_id})">
-              <i class="bi bi-trash"></i>
-            </button>` : ''}
-        </div>
+        ${j.dosen
+          ? `<div style="font-size:.72rem;opacity:.7;margin-top:4px;">
+               <i class="bi bi-person me-1"></i>${j.dosen}
+             </div>`
+          : ''}
       </div>
-      <div class="d-flex gap-2 ms-4" style="font-size:.77rem;">
-        <span class="badge-ok"><i class="bi bi-check-circle-fill me-1"></i>${j.hadir}</span>
-        <span style="background:#fef9c3;color:#a16207;padding:3px 8px;
-                     border-radius:20px;font-size:.73rem;font-weight:600;">
-          <i class="bi bi-exclamation-triangle-fill me-1"></i>${j.terlambat}
-        </span>
-        <span class="badge-no"><i class="bi bi-x-circle-fill me-1"></i>${j.tidak_hadir}</span>
+      <!-- Body card -->
+      <div style="padding:10px 12px;">
+        <!-- Stat chips -->
+        <div class="absensi-stat-row mb-3">
+          <span class="absensi-stat-chip" style="background:#dcfce7;color:#15803d;">
+            <i class="bi bi-check-circle-fill me-1"></i> Hadir: ${j.hadir}
+          </span>
+          <span class="absensi-stat-chip" style="background:#fef9c3;color:#a16207;">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Terlambat: ${j.terlambat}
+          </span>
+          <span class="absensi-stat-chip" style="background:#fee2e2;color:#b91c1c;">
+            <i class="bi bi-x-circle-fill me-1"></i> Absen: ${j.tidak_hadir}
+          </span>
+          ${j.izin ? `
+          <span class="absensi-stat-chip" style="background:#eff6ff;color:#1d4ed8;">
+            <i class="bi bi-clipboard-fill me-1"></i> Izin: ${j.izin}
+          </span>` : ''}
+        </div>
+        <!-- Tombol aksi -->
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-sm btn-outline-primary flex-fill"
+                  onclick="lihatDetail(${j.jadwal_id})">
+            <i class="bi bi-eye me-1"></i>Detail
+          </button>
+          <a class="btn btn-sm btn-outline-success flex-fill"
+             href="/absensi/export/excel/${j.jadwal_id}" target="_blank">
+            <i class="bi bi-file-earmark-excel me-1"></i>Excel
+          </a>
+          ${isAdmin ? `
+          <button class="btn btn-sm btn-outline-danger"
+                  onclick="hapusAbsensiJadwal(${j.jadwal_id})"
+                  title="Hapus absensi">
+            <i class="bi bi-trash"></i>
+          </button>` : ''}
+        </div>
       </div>
     </div>`).join('');
 }

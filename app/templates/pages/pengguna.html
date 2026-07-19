@@ -16,7 +16,7 @@
   <div class="input-group" style="max-width:320px;">
     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
     <input type="text" class="form-control" id="searchPengguna"
-           placeholder="Cari nama, NIM/NIP, atau kelas...">
+          placeholder="Cari nama, NIM/NIP, atau kelas...">
   </div>
   {% if user.role == 'admin' %}
   <div class="form-check">
@@ -30,9 +30,7 @@
 
 <div class="tbl-wrap d-none d-md-block">
   <div style="overflow-x:auto;">
-    <!-- Tambahkan table-bordered dan align-middle di sini -->
     <table class="table table-hover table-bordered align-middle mb-0" style="min-width:680px;">
-      <!-- Tambahkan table-light (opsional) agar header ada background pembeda -->
       <thead class="table-light">
         <tr>
           <th class="text-center">No</th>
@@ -52,10 +50,14 @@
   </div>
 </div>
 
-<div id="userBodyMobile" class="d-md-none d-flex flex-column gap-2">
+<div id="userBodyMobile" class="d-md-none d-flex flex-column gap-2 mb-3">
   <div class="text-center text-muted py-4">Memuat...</div>
 </div>
 
+<!-- Container Pagination -->
+<div id="paginasiPengguna" class="bg-white rounded border" style="overflow:hidden;"></div>
+
+<!-- Modal Tambah/Edit -->
 <div class="modal fade" id="modalUser" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -116,9 +118,9 @@
           </label>
           <div class="input-group">
             <input type="password" class="form-control" id="inputPassword"
-                   placeholder="Minimal 6 karakter">
+                  placeholder="Minimal 6 karakter">
             <button class="btn btn-outline-secondary" type="button"
-                    onclick="togglePw('inputPassword','eyePw')">
+                  onclick="togglePw('inputPassword','eyePw')">
               <i class="bi bi-eye" id="eyePw"></i>
             </button>
           </div>
@@ -138,6 +140,7 @@
   </div>
 </div>
 
+<!-- Modal Reset Password -->
 <div class="modal fade" id="modalResetPw" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
@@ -155,9 +158,9 @@
           <label class="form-label fw-bold" style="font-size:.85rem;">Password Baru</label>
           <div class="input-group">
             <input type="password" class="form-control" id="resetPwInput"
-                   placeholder="Minimal 6 karakter">
+                  placeholder="Minimal 6 karakter">
             <button class="btn btn-outline-secondary" type="button"
-                    onclick="togglePw('resetPwInput','eyeReset')">
+                  onclick="togglePw('resetPwInput','eyeReset')">
               <i class="bi bi-eye" id="eyeReset"></i>
             </button>
           </div>
@@ -187,6 +190,9 @@ const roleBadge = {
 
 let editMode = false;
 let allUsers = [];
+let currentPageUsers = 1;
+const USER_LIMIT = 50;
+
 const myRole = "{{ user.role }}";
 const ROLE_MODIFY_PERMISSION = {
   admin:   ["admin", "teknisi", "dosen", "mahasiswa"],
@@ -316,7 +322,10 @@ async function simpanUser() {
       <div class="alert alert-success py-2">
         ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}
       </div>`;
-    loadUsers();
+      
+    // Refresh table (remain on same page on edit, back to 1 on add)
+    loadUsers(editMode ? currentPageUsers : 1);
+    
     setTimeout(() => {
       bootstrap.Modal.getInstance(document.getElementById('modalUser')).hide();
       alertEl.innerHTML = '';
@@ -356,7 +365,7 @@ async function doResetPassword() {
 
 async function toggleAktif(userId) {
   await fetch(`/users/${userId}/toggle-aktif`, { method: 'PATCH' });
-  await loadUsers();
+  await loadUsers(currentPageUsers);
 }
 
 async function hapusUserPermanen(userId, nama) {
@@ -374,38 +383,99 @@ async function hapusUserPermanen(userId, nama) {
   }
 
   if (res.ok) {
-    await loadUsers();
+    await loadUsers(currentPageUsers);
   } else {
     const err = await res.json().catch(() => ({ detail: `Gagal menghapus pengguna (status ${res.status}).` }));
     alert(err.detail);
   }
 }
 
-async function loadUsers() {
+async function loadUsers(page = 1) {
+  currentPageUsers = page;
   const showInactive = document.getElementById('showInactive')?.checked || false;
-  const url = `/users/?include_inactive=${showInactive}`;
-  const res = await fetch(url);
-  allUsers = await res.json();
-  renderUsers();
+  const keyword      = (document.getElementById('searchPengguna')?.value || '').trim();
+  
+  let url = `/users/?limit=${USER_LIMIT}&page=${page}&include_inactive=${showInactive}`;
+  if (keyword) url += `&search=${encodeURIComponent(keyword)}`;
+  
+  try {
+    const res  = await fetch(url);
+    const json = await res.json();
+    allUsers   = json.data || [];
+    const pg   = json.pagination || {};
+    renderUsers();
+    renderPaginasiPengguna(pg);
+  } catch(e) {
+    console.error("Gagal load users:", e);
+  }
+}
+
+function renderPaginasiPengguna(pg) {
+  const wrap = document.getElementById('paginasiPengguna');
+  if (!wrap) return;
+  const { total, page, limit, total_pages, has_prev, has_next } = pg;
+  
+  if (!total) { wrap.innerHTML = ''; return; }
+  
+  const start  = (page - 1) * limit + 1;
+  const end    = Math.min(page * limit, total);
+  const delta  = 2;
+  const pages  = [];
+  
+  for (let i = Math.max(1, page - delta); i <= Math.min(total_pages, page + delta); i++) {
+    pages.push(i);
+  }
+  
+  wrap.innerHTML = `
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 
+                px-3 py-2" style="font-size:.8rem;color:#64748b;">
+      <div>
+        Menampilkan <strong>${start}–${end}</strong> dari 
+        <strong>${total}</strong> pengguna
+      </div>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item ${!has_prev ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadUsers(1)">«</button>
+          </li>
+          <li class="page-item ${!has_prev ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadUsers(${page-1})">‹</button>
+          </li>
+          ${pages.map(p => `
+            <li class="page-item ${p === page ? 'active' : ''}">
+              <button class="page-link" onclick="loadUsers(${p})">${p}</button>
+            </li>`).join('')}
+          <li class="page-item ${!has_next ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadUsers(${page+1})">›</button>
+          </li>
+          <li class="page-item ${!has_next ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadUsers(${total_pages})">»</button>
+          </li>
+        </ul>
+      </nav>
+    </div>`;
 }
 
 function renderUsers() {
-  const keyword = (document.getElementById('searchPengguna')?.value || '').toLowerCase();
-  const filtered = allUsers.filter(u => {
-    const target = `${u.nama} ${u.nim_nip||''} ${u.kelas||''}`.toLowerCase();
-    return target.includes(keyword);
-  });
-
   const desktop = document.getElementById('userBodyDesktop');
   const mobile  = document.getElementById('userBodyMobile');
+  
+  const startIndex = (currentPageUsers - 1) * USER_LIMIT;
 
-  if (!filtered.length) {
+  const filteredUsers = allUsers.filter(u => {
+    if (myRole === 'dosen' && u.role === 'admin') return false;
+    if (myRole === 'teknisi' && u.role === 'admin') return false;
+    return true;
+  });
+
+  if (!filteredUsers.length) {
     desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Data tidak ditemukan</td></tr>';
     mobile.innerHTML  = '<div class="text-center text-muted py-4">Data tidak ditemukan</div>';
     return;
   }
 
-  desktop.innerHTML = filtered.map((u, i) => {
+  // === RENDER DESKTOP (TABEL) ===
+  desktop.innerHTML = filteredUsers.map((u, i) => {
     const editable = bisaModifikasi(u.role);
     const statusBadge = u.aktif
       ? '<span class="badge-ok">Aktif</span>'
@@ -413,26 +483,31 @@ function renderUsers() {
 
     return `
     <tr style="${!u.aktif ? 'opacity:.55;' : ''}">
-      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td class="text-center text-muted" style="font-size:.75rem;">${startIndex + i + 1}</td>
       <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
       <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
       <td>${u.kelas || '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
       <td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>
       <td>  ${u.id_perangkat
-          ? `<code style="font-size:.75rem;">#${u.id_perangkat}</code>`
-          : '<span class="text-muted" style="font-size:.75rem;">Belum diset</span>'}</td>
+        ? `<code style="font-size:.75rem;">#${u.id_perangkat}</code>`
+        : '<span class="text-muted" style="font-size:.75rem;">Belum diset</span>'}</td>
       <td>${statusBadge}</td>
       <td>
         <div class="d-flex gap-1 justify-content-center">
           ${editable ? `
             <button class="btn btn-outline-primary btn-sm" title="Edit"
-                    onclick='openEdit(${JSON.stringify(u)})'>
+                  onclick='openEdit(${JSON.stringify(u)})'>
               <i class="bi bi-pencil"></i>
             </button>
+
+            <!-- MENYEMBUNYIKAN TOMBOL RESET PASSWORD JIKA ROLE = MAHASISWA -->
+            ${u.role !== 'mahasiswa' ? `
             <button class="btn btn-outline-warning btn-sm" title="Reset Password"
-                    onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
+                  onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
               <i class="bi bi-key"></i>
             </button>
+            ` : ''}
+
             ${myRole === 'admin' ? `
               <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
                       onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
@@ -450,7 +525,8 @@ function renderUsers() {
     </tr>`;
   }).join('');
 
-  mobile.innerHTML = filtered.map((u, i) => {
+  // === RENDER MOBILE (CARD) ===
+  mobile.innerHTML = filteredUsers.map((u, i) => {
     const editable = bisaModifikasi(u.role);
     const statusBadge = u.aktif
       ? '<span class="badge-ok" style="font-size:.7rem;">Aktif</span>'
@@ -461,7 +537,7 @@ function renderUsers() {
       <div class="d-flex justify-content-between align-items-start mb-2">
         <div>
           <div class="fw-bold" style="font-size:.88rem;">
-            <span style="color:#94a3b8;font-size:.75rem;margin-right:4px;">${i+1}.</span>
+            <span style="color:#94a3b8;font-size:.75rem;margin-right:4px;">${startIndex + i + 1}.</span>
             ${u.nama}
           </div>
           <code style="font-size:.74rem;color:#64748b;">${u.nim_nip}</code>
@@ -482,10 +558,15 @@ function renderUsers() {
                   onclick='openEdit(${JSON.stringify(u)})'>
             <i class="bi bi-pencil me-1"></i>Edit
           </button>
+
+          <!-- MENYEMBUNYIKAN TOMBOL RESET PASSWORD JIKA ROLE = MAHASISWA -->
+          ${u.role !== 'mahasiswa' ? `
           <button class="btn btn-outline-warning btn-sm flex-fill"
                   onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
             <i class="bi bi-key me-1"></i>Reset PW
           </button>
+          ` : ''}
+
           ${myRole === 'admin' ? `
             <button class="btn btn-outline-danger btn-sm"
                     onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
@@ -505,9 +586,9 @@ function renderUsers() {
 
 document.addEventListener('DOMContentLoaded', () => {
   toggleKelasField();
-  document.getElementById('searchPengguna')?.addEventListener('input', renderUsers);
-  document.getElementById('showInactive')?.addEventListener('change', loadUsers);
-  loadUsers();
+  document.getElementById('searchPengguna')?.addEventListener('input', () => loadUsers(1));
+  document.getElementById('showInactive')?.addEventListener('change', () => loadUsers(1));
+  loadUsers(1);
 });
 </script>
 {% endblock %}

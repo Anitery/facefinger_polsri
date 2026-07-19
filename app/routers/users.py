@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import json
 from app.database import get_db
 from app.models.models import User
@@ -101,21 +101,78 @@ def update_fingerprint(user_id: int, fingerprint_id: int, db: Session = Depends(
     return {"pesan": f"Fingerprint ID {fingerprint_id} disimpan untuk {user.nama}"}
 
 # --- Read Endpoints ---
-@router.get("/", response_model=List[UserOut])
-def get_users(include_inactive: bool = False, db: Session = Depends(get_db)):
+@router.get("/")
+def get_users(
+    request: Request,  # <-- Tambahkan parameter request di sini
+    include_inactive: bool = False,
+    role:             Optional[str] = None,
+    search:           Optional[str] = None,
+    limit:            int = Query(50, ge=1, le=200),
+    page:             int = Query(1,  ge=1),
+    db: Session = Depends(get_db)
+):
     q = db.query(User)
     if not include_inactive:
         q = q.filter(User.aktif == True)
-    users = q.all()
+    if role:
+        q = q.filter(User.role == role)
+    if search:
+        q = q.filter(
+            User.nama.ilike(f"%{search}%") |
+            User.nim_nip.ilike(f"%{search}%") |
+            User.kelas.ilike(f"%{search}%")
+        )
 
-    def sort_key(u):
-        role_rank = ROLE_ORDER.get(u.role, 99)
-        if u.role == "mahasiswa":
-            return (role_rank, u.kelas or "", u.nama or "", u.nim_nip or "")
-        return (role_rank, u.nama or "")
+    # --- FIX 4: Sembunyikan Role Admin dari Dosen dan Teknisi ---
+    try:
+        from app.services.auth_service import decode_session_token
+        token = request.cookies.get("session_token")
+        session = decode_session_token(token) if token else None
+        # Jika tidak ada sesi/gagal baca, default sebagai admin agar 
+        # tidak sengaja ter-filter jika endpoint diakses secara internal
+        viewer_role = session.get("role") if session else "admin"
+    except Exception:
+        viewer_role = "admin"
 
-    users.sort(key=sort_key)
-    return users
+    # Filter query database agar admin tidak di-load sama sekali
+    if viewer_role in ("dosen", "teknisi"):
+        q = q.filter(User.role != "admin")
+    # -------------------------------------------------------------
+        
+    ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "mahasiswa": 3}
+    all_users = q.all()
+    all_users.sort(key=lambda u: (
+        ROLE_ORDER.get(u.role, 99),
+        u.kelas or "",
+        u.nama or ""
+    ))
+    
+    total  = len(all_users)
+    offset = (page - 1) * limit
+    users  = all_users[offset: offset + limit]
+    
+    return {
+        "data": [
+            {
+                "id":           u.id,
+                "nama":         u.nama,
+                "nim_nip":      u.nim_nip,
+                "role":         u.role,
+                "kelas":        u.kelas,
+                "aktif":        u.aktif,
+                "id_perangkat": u.id_perangkat,
+            }
+            for u in users
+        ],
+        "pagination": {
+            "total":       total,
+            "page":        page,
+            "limit":       limit,
+            "total_pages": (total + limit - 1) // limit,
+            "has_prev":    page > 1,
+            "has_next":    page * limit < total,
+        }
+    }
 
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(user_id: int, db: Session = Depends(get_db)):
