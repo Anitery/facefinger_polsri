@@ -21,11 +21,11 @@
     </div>
     {% endif %}
 
-    {% if user.role in ['admin', 'dosen'] %}
-    <button class="btn btn-outline-primary btn-sm"
-            onclick="safeShowModal('modalJadwalSemester')">
-      <i class="bi bi-calendar2-range me-1"></i>Jadwal Semester
-    </button>
+    {% if user.role == 'admin' %}
+      <button class="btn btn-outline-primary btn-sm"
+              onclick="safeShowModal('modalJadwalSemester')">
+        <i class="bi bi-calendar2-range me-1"></i>Jadwal Semester
+      </button>
     {% endif %}
 
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalJadwal">
