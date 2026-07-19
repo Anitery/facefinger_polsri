@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Absensi{% endblock %}
-{% block page_title %}Absensi{% endblock %}
+{% block title %}Presensi{% endblock %}
+{% block page_title %}Presensi{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -151,7 +151,7 @@
     <div class="modal-content" style="border-radius:14px;overflow:hidden;">
       <div class="modal-header" style="background:#1F3864;color:#fff;">
         <h5 class="modal-title" style="font-size:.9rem;" id="absensiTitle">
-          <i class="bi bi-clipboard-check me-2"></i>Detail Absensi
+          <i class="bi bi-clipboard-check me-2"></i>Detail Presensi
         </h5>
         <button type="button" class="btn-close btn-close-white"
                 data-bs-dismiss="modal"></button>
@@ -233,7 +233,7 @@
       <div class="modal-footer px-4 d-flex justify-content-between">
         <button class="btn btn-sm btn-warning"
                 id="btnTutupAbsensi" onclick="tutupAbsensiManual()">
-          <i class="bi bi-lock me-1"></i>Tutup Absensi
+          <i class="bi bi-lock me-1"></i>Tutup Presensi
         </button>
         <div class="d-flex gap-2">
           <a class="btn btn-sm btn-success" id="btnExportAbsensi"
@@ -253,7 +253,7 @@
     <div class="modal-content" style="border-radius:14px;overflow:hidden;">
       <div class="modal-header" style="background:#1F3864;color:#fff;">
         <h5 class="modal-title" style="font-size:.88rem;">
-          Ubah Status Absensi
+          Ubah Status Presensi
         </h5>
         <button type="button" class="btn-close btn-close-white"
                 data-bs-dismiss="modal"></button>
@@ -541,7 +541,7 @@ async function lihatDetail(jadwalId) {
 
   if (!data.detail?.length) {
     document.getElementById('detailBody').innerHTML =
-      '<tr><td colspan="6" class="text-center py-3 text-muted">Belum ada data absensi</td></tr>';
+      '<tr><td colspan="6" class="text-center py-3 text-muted">Belum ada data Presensi</td></tr>';
   } else {
     document.getElementById('detailBody').innerHTML =
       data.detail.map((d, i) => `
@@ -601,7 +601,7 @@ async function tutupAbsensiManual() {
 
 // ── Hapus seluruh absensi jadwal ─────────────────────────
 async function hapusAbsensiJadwal(jadwalId) {
-  if (!confirm('Hapus SELURUH data absensi pada jadwal ini? Tindakan ini tidak dapat dibatalkan.')) return;
+  if (!confirm('Hapus SELURUH data Presensi pada jadwal ini? Tindakan ini tidak dapat dibatalkan.')) return;
   try {
     const res = await fetch(`/absensi/jadwal/${jadwalId}`, { method: 'DELETE' });
     if (res.ok) {
@@ -628,7 +628,7 @@ async function bukaUbahStatus(userId, nama, jadwalId) {
   const ab   = data.detail?.find(d => d.user_id === userId);
 
   if (!ab) {
-    alert('Data absensi tidak ditemukan. Mungkin belum ada scan.');
+    alert('Data Presensi tidak ditemukan. Mungkin belum ada scan.');
     return;
   }
 
