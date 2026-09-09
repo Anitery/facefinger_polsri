@@ -104,7 +104,7 @@
         <div class="mb-3" id="sectionFp">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             ID Perangkat  <small class="text-muted fw-normal">
-              (PIN yang didaftarkan ke X606-S saat sinkronisasi)
+              (PIN yang didaftarkan ke X606-S saat sinkronisasi — khusus mahasiswa diisi otomatis dari 4 digit terakhir NIM)
             </small>
           </label>
           <input class="form-control" id="pIdPerangkat" type="number" placeholder="Contoh: 20">
@@ -206,8 +206,13 @@ function bisaModifikasi(targetRole) {
 
 function toggleKelasField() {
   const role = document.getElementById('inputRole').value;
-  document.getElementById('kelasFieldWrap').style.display = 
-    role === 'mahasiswa' ? 'block' : 'none';
+  const isMahasiswa = role === 'mahasiswa';
+  document.getElementById('kelasFieldWrap').style.display = isMahasiswa ? 'block' : 'none';
+
+  // Mahasiswa: ID Perangkat diambil OTOMATIS dari 4 digit terakhir NIM/NPM,
+  // jadi field manualnya disembunyikan. Role lain (admin/teknisi/dosen)
+  // tetap isi manual karena tidak semua NIP formatnya konsisten.
+  document.getElementById('sectionFp').style.display = isMahasiswa ? 'none' : 'block';
 }
 
 function togglePw(inputId, iconId) {
@@ -262,13 +267,28 @@ function openEdit(u) {
 
 async function simpanUser() {
   const id       = document.getElementById('editUserId').value;
-  const fpId     = document.getElementById('pIdPerangkat').value;
+  const role     = document.getElementById('inputRole').value;
+  const nimNip   = document.getElementById('inputNimNip').value.trim();
   const alertEl  = document.getElementById('alertModal');
+
+  // Mahasiswa: ID Perangkat = 4 digit terakhir NIM/NPM (otomatis).
+  // Role lain: pakai nilai yang diisi manual di field ID Perangkat.
+  let fpId;
+  if (role === 'mahasiswa') {
+    const digitsOnly = nimNip.replace(/\D/g, '');
+    fpId = digitsOnly.length >= 4 ? digitsOnly.slice(-4) : digitsOnly;
+    if (!fpId) {
+      alertEl.innerHTML = '<div class="alert alert-danger py-2">NIM/NPM mahasiswa harus mengandung angka untuk menghasilkan ID Perangkat otomatis.</div>';
+      return;
+    }
+  } else {
+    fpId = document.getElementById('pIdPerangkat').value;
+  }
 
   const body = {
     nama: document.getElementById('inputNama').value.trim(),
-    nim_nip: document.getElementById('inputNimNip').value.trim(),
-    role: document.getElementById('inputRole').value,
+    nim_nip: nimNip,
+    role: role,
     kelas: document.getElementById('inputKelas').value.trim() || null,
     password: document.getElementById('inputPassword').value || null,
   };

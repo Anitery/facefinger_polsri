@@ -667,18 +667,20 @@ async function loadHariLibur() {
   }
 
   try {
-    // FIX: Arahkan ke endpoint /api dan lemparkan parameter tahun aktif
-    const res  = await fetch(`https://libur.deno.dev/api?year=${curYear}`);
-    
-    if (!res.ok) throw new Error("Gagal fetch API libur.deno.dev");
-    
-    const data = await res.json();
+    // Sumber: api-hari-libur.vercel.app (menggantikan libur.deno.dev yang
+    // sudah down dan api-harilibur.vercel.app yang di-pause).
+    const res  = await fetch(`https://api-hari-libur.vercel.app/api?year=${curYear}`);
+
+    if (!res.ok) throw new Error("Gagal fetch API hari libur");
+
+    const body = await res.json();
+    const data = body.data || [];
     hariLibur  = {};
-    
-    // Parsing property dari dokumentasi: 'date' dan 'name'
-    data.forEach(h => { 
-      if (h.date && h.name) {
-        hariLibur[h.date] = h.name; 
+
+    // Parsing property sesuai dokumentasi api-hari-libur: 'date' dan 'description'
+    data.forEach(h => {
+      if (h.date && h.description) {
+        hariLibur[h.date] = h.description;
       }
     });
 
@@ -1044,9 +1046,17 @@ window.addEventListener('ruanganChanged', (e) => {
 let allMahasiswa = [];
 
 async function loadMahasiswaList() {
-  const res  = await fetch('/users/');
-  const data = await res.json();
-  allMahasiswa = data.filter(u => u.role === 'mahasiswa' && u.aktif);
+  try {
+    const res  = await fetch('/users/?limit=200');
+    const data = await res.json();
+    // Endpoint /users/ mengembalikan bentuk paginated {data: [...], pagination: {...}},
+    // bukan array langsung — tangani juga kalau suatu saat berubah jadi array polos.
+    const list = Array.isArray(data) ? data : (data.data || data.items || []);
+    allMahasiswa = list.filter(u => u.role === 'mahasiswa' && u.aktif);
+  } catch (e) {
+    console.error('Gagal memuat daftar mahasiswa:', e);
+    allMahasiswa = [];
+  }
 }
 
 let allKelas = [];

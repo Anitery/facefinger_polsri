@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Pengaturan Sistem{% endblock %}
+{% block page_title %}Pengaturan Sistem{% endblock %}
+
+{% block content %}
+
+<div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-calendar-x me-2 text-primary"></i>Validasi Jadwal</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Saat aktif, mahasiswa hanya bisa akses saat ada jadwal KBM yang sesuai. Saat dimatikan,
+    semua scan biometrik (mahasiswa/dosen) langsung <strong>berhasil</strong> tanpa cek jadwal —
+    dan presensi otomatis <strong>tidak akan tercatat</strong> karena tidak ada jadwal untuk diacu.
+  </p>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="swWajibJadwal" style="width:2.5em;height:1.4em;">
+    <label class="form-check-label ms-2 fw-bold" for="swWajibJadwal" style="font-size:.85rem;">Wajibkan jadwal aktif untuk akses</label>
+  </div>
+  <div id="warnJadwal" class="alert alert-warning py-2 mt-2 mb-0" style="display:none;font-size:.8rem;">
+    <i class="bi bi-exclamation-triangle me-1"></i>Nonaktif berarti siapa saja bisa akses kapan saja tanpa jadwal. Presensi otomatis juga berhenti tercatat.
+  </div>
+</div>
+
+<div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-eye-slash me-2 text-primary"></i>Privasi Alamat IP Perangkat</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Saat aktif, IP address perangkat X606-S disembunyikan di dashboard untuk role selain admin/teknisi
+    (diganti jadi status "Terhubung"/"—"). Admin dan teknisi tetap melihat IP asli untuk keperluan troubleshooting.
+  </p>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="swSembunyikanIp" style="width:2.5em;height:1.4em;">
+    <label class="form-check-label ms-2 fw-bold" for="swSembunyikanIp" style="font-size:.85rem;">Sembunyikan IP perangkat dari dosen/pengguna lain</label>
+  </div>
+</div>
+
+<div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-tools me-2 text-danger"></i>Mode Pemeliharaan</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Saat aktif, semua akses biometrik ditolak <strong>kecuali admin &amp; teknisi</strong> —
+    berguna saat kalibrasi ulang device atau perbaikan sistem tanpa mengunci diri sendiri keluar.
+  </p>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="swPemeliharaan" style="width:2.5em;height:1.4em;">
+    <label class="form-check-label ms-2 fw-bold" for="swPemeliharaan" style="font-size:.85rem;">Aktifkan mode pemeliharaan</label>
+  </div>
+  <div id="warnPemeliharaan" class="alert alert-danger py-2 mt-2 mb-0" style="display:none;font-size:.8rem;">
+    <i class="bi bi-exclamation-triangle me-1"></i>Semua mahasiswa dan dosen akan ditolak aksesnya selama mode ini aktif.
+  </div>
+</div>
+
+<div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-clock-history me-2 text-primary"></i>Toleransi Keterlambatan Presensi</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Berapa menit setelah jam mulai jadwal, mahasiswa masih dianggap "hadir" (bukan "terlambat")?
+  </p>
+  <div class="d-flex align-items-center gap-2">
+    <input type="number" min="0" class="form-control" id="inToleransi" style="width:100px;">
+    <span class="text-muted" style="font-size:.85rem;">menit</span>
+  </div>
+</div>
+
+<div id="alertPengaturan" class="mb-3"></div>
+<button class="btn btn-primary" onclick="simpanPengaturan()">
+  <i class="bi bi-check-lg me-1"></i>Simpan Pengaturan
+</button>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadPengaturan() {
+  const res = await fetch('/pengaturan/');
+  const p = await res.json();
+  document.getElementById('swWajibJadwal').checked = p.wajib_jadwal;
+  document.getElementById('swSembunyikanIp').checked = p.sembunyikan_ip;
+  document.getElementById('swPemeliharaan').checked = p.mode_pemeliharaan;
+  document.getElementById('inToleransi').value = p.toleransi_keterlambatan_menit;
+  toggleWarnings();
+}
+
+function toggleWarnings() {
+  document.getElementById('warnJadwal').style.display = document.getElementById('swWajibJadwal').checked ? 'none' : 'block';
+  document.getElementById('warnPemeliharaan').style.display = document.getElementById('swPemeliharaan').checked ? 'block' : 'none';
+}
+
+document.getElementById('swWajibJadwal').addEventListener('change', toggleWarnings);
+document.getElementById('swPemeliharaan').addEventListener('change', toggleWarnings);
+
+async function simpanPengaturan() {
+  const alertEl = document.getElementById('alertPengaturan');
+  const body = {
+    wajib_jadwal: document.getElementById('swWajibJadwal').checked,
+    sembunyikan_ip: document.getElementById('swSembunyikanIp').checked,
+    mode_pemeliharaan: document.getElementById('swPemeliharaan').checked,
+    toleransi_keterlambatan_menit: parseInt(document.getElementById('inToleransi').value) || 0,
+  };
+
+  if (body.mode_pemeliharaan && !confirm('Aktifkan mode pemeliharaan? Semua mahasiswa & dosen akan ditolak aksesnya sampai dimatikan lagi.')) {
+    document.getElementById('swPemeliharaan').checked = false;
+    toggleWarnings();
+    return;
+  }
+  if (!body.wajib_jadwal && !confirm('Matikan validasi jadwal? Semua orang bisa akses kapan saja tanpa jadwal, dan presensi otomatis berhenti tercatat.')) {
+    document.getElementById('swWajibJadwal').checked = true;
+    toggleWarnings();
+    return;
+  }
+
+  const res = await fetch('/pengaturan/', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Pengaturan tersimpan!</div>';
+    setTimeout(() => alertEl.innerHTML = '', 2000);
+  } else {
+    const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+loadPengaturan();
+</script>
+{% endblock %}

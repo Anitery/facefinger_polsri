@@ -17,26 +17,30 @@ def h(pw):
     return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
 def get_or_create_user(nim_nip, nama, role="mahasiswa",
-                       fp_id=None, password=None):
+                       fp_id=None, password=None, kelas=None):
     u = db.query(User).filter(User.nim_nip == nim_nip).first()
     if not u:
         u = User(
             nama           = nama,
             nim_nip        = nim_nip,
             role           = role,
+            kelas          = kelas,
             ruangan_id     = None,
             aktif          = True,
-            fingerprint_id = fp_id,
+            id_perangkat   = fp_id,
             password_hash  = h(password) if password else None,
         )
         db.add(u)
         db.flush()
         print(f"  + [{role:10}] {nama} ({nim_nip})"
-              + (f" FP:{fp_id}" if fp_id else ""))
+              + (f" FP:{fp_id}" if fp_id else "")
+              + (f" Kelas:{kelas}" if kelas else ""))
     else:
-        # Update fingerprint_id jika belum ada
-        if fp_id and not u.fingerprint_id:
-            u.fingerprint_id = fp_id
+        # Update id_perangkat / kelas jika belum ada
+        if fp_id and not u.id_perangkat:
+            u.id_perangkat = fp_id
+        if kelas and not u.kelas:
+            u.kelas = kelas
         print(f"  ~ [{role:10}] {nama} — sudah ada")
     return u
 
@@ -76,7 +80,7 @@ print(f"\n✓ Ruangan : {ruangan.nama} (id={ruangan.id})")
 
 # ═══════════════════════════════════════════════════════════
 # 2. DOSEN
-# fingerprint_id 5 = Chairil, 6 = Adi Sutrisman
+# id_perangkat 5 = Chairil, 6 = Adi Sutrisman
 # ═══════════════════════════════════════════════════════════
 print("\n── Dosen ──────────────────────────────────────────")
 
@@ -100,8 +104,8 @@ db.commit()
 
 # ═══════════════════════════════════════════════════════════
 # 3. MAHASISWA 6CC
-# fingerprint_id 10–32 (23 mahasiswa)
-# PIN di device akan diisi saat daftar fingerprint
+# id_perangkat 10–32 (23 mahasiswa)
+# PIN di device akan diisi saat daftar fingerprint/wajah
 # ═══════════════════════════════════════════════════════════
 print("\n── Mahasiswa 6CC ──────────────────────────────────")
 
@@ -133,7 +137,7 @@ data_6cc = [
 
 users_6cc = []
 for i, (npm, nama) in enumerate(data_6cc):
-    u = get_or_create_user(npm, nama, fp_id=10 + i)
+    u = get_or_create_user(npm, nama, fp_id=10 + i, kelas="6CC")
     users_6cc.append(u)
 
 db.commit()
@@ -141,7 +145,7 @@ print(f"  ✓ Total 6CC: {len(users_6cc)} mahasiswa")
 
 # ═══════════════════════════════════════════════════════════
 # 4. MAHASISWA 6CM
-# fingerprint_id 33–52 (20 mahasiswa)
+# id_perangkat 33–52 (20 mahasiswa)
 # ═══════════════════════════════════════════════════════════
 print("\n── Mahasiswa 6CM ──────────────────────────────────")
 
@@ -170,7 +174,7 @@ data_6cm = [
 
 users_6cm = []
 for i, (nim, nama) in enumerate(data_6cm):
-    u = get_or_create_user(nim, nama, fp_id=33 + i)
+    u = get_or_create_user(nim, nama, fp_id=33 + i, kelas="6CM")
     users_6cm.append(u)
 
 db.commit()
@@ -268,23 +272,22 @@ print("\n" + "="*55)
 print("  ✅ Seed Data Real Selesai!")
 print("="*55)
 print(f"\n  Ruangan    : {ruangan.nama} (id={ruangan.id})")
-print(f"  Dosen      : 2 (Chairil FP:5, Adi FP:6)")
+print(f"  Dosen      : 2 (Chairil FP:5, Adi S. FP:6)")
 print(f"  Mahasiswa  : 23 (6CC, FP:10-32) + 20 (6CM, FP:33-52)")
 print(f"  Jadwal     : {len(jadwal_6cc)+len(jadwal_6cm)} pertemuan")
 print(f"               6CC: {len(jadwal_6cc)}x Rabu 07:00-09:30")
 print(f"               6CM: {len(jadwal_6cm)}x Jumat 18:30-20:30")
 
-print("\n  ⚠ Fingerprint ID yang disiapkan:")
-print("  Admin     : FP 1  | Teknisi  : FP 2")
-print("  Slamet    : FP 3  | Fatah    : FP 4")
+print("\n  ⚠ id_perangkat (PIN device) yang disiapkan di sini:")
 print("  Chairil   : FP 5  | Adi S.   : FP 6")
 print("  6CC       : FP 10-32 (sesuai urutan daftar)")
 print("  6CM       : FP 33-52 (sesuai urutan daftar)")
+print("  (Admin/Teknisi/user dasar lain diasumsikan sudah dibuat oleh seed.py)")
 
 print("\n  Langkah selanjutnya:")
-print("  1. Daftarkan fingerprint mahasiswa di alat X606-S")
-print("     sesuai urutan FP ID di atas")
-print("  2. Atau edit FP ID via dashboard → Pengguna")
+print("  1. Daftarkan wajah/fingerprint mahasiswa di alat X606-S")
+print("     sesuai urutan id_perangkat di atas")
+print("  2. Atau edit id_perangkat via dashboard → Pengguna")
 print("     setelah mahasiswa mendaftar di alat")
 print("  3. Jalankan bridge: python x606_bridge.py")
 print("="*55 + "\n")

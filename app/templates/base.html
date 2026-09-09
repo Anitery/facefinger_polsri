@@ -342,7 +342,19 @@
       </a>
       {% endif %}
 
+      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      <div class="nav-section mt-3">Inventaris Gudang</div>
+      <a href="/dashboard/gudang" class="nav-link {% if active=='gudang' %}active{% endif %}">
+        <i class="bi bi-boxes"></i> Kelola Gudang
+      </a>
+      {% endif %}
+
       <div class="nav-section mt-3">Akun &amp; Sistem</div>
+      {% if user and user.role == 'admin' %}
+      <a href="/dashboard/pengaturan" class="nav-link {% if active=='pengaturan' %}active{% endif %}">
+        <i class="bi bi-sliders"></i> Pengaturan Sistem
+      </a>
+      {% endif %}
       <a href="/dashboard/profil" class="nav-link {% if active=='profil' %}active{% endif %}">
         <i class="bi bi-person-circle"></i> Profil Saya
       </a>

@@ -16,7 +16,9 @@ from app.routers import (
     auth, users, logs, inventaris, ruangan, jadwal,
     login as login_router, kamera as kamera_router,
     setup, stream as stream_router,
-    absensi as absensi_router
+    absensi as absensi_router,
+    gudang,
+    pengaturan as pengaturan_router,
 )
 from app.routers import device_bridge as device_bridge_router
 
@@ -68,6 +70,9 @@ app.include_router(setup.router)
 app.include_router(stream_router.router)
 app.include_router(absensi_router.router)
 app.include_router(device_bridge_router.router)
+app.include_router(pengaturan_router.router)
+for r in gudang.routers:
+    app.include_router(r)
 
 
 # ── Helper Functions ────────────────────────────────────────────────────
@@ -436,6 +441,32 @@ def dashboard_status_lab(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request=request, name="pages/status_lab.html",
         context={"active": "status_lab", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+# ── Inventaris Gudang (modul terpisah dari InventarisAlat quick-scan) ─────
+
+@app.get("/dashboard/gudang")
+def dashboard_gudang(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/gudang.html",
+        context={"active": "gudang", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/pengaturan")
+def dashboard_pengaturan(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user["role"] != "admin":
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/pengaturan.html",
+        context={"active": "pengaturan", "user": user,
                  "ruangan_list": get_ruangan_list(db)}
     )
 

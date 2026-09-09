@@ -96,9 +96,9 @@ def update_fingerprint(user_id: int, fingerprint_id: int, db: Session = Depends(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    user.fingerprint_id = fingerprint_id
+    user.id_perangkat = fingerprint_id
     db.commit()
-    return {"pesan": f"Fingerprint ID {fingerprint_id} disimpan untuk {user.nama}"}
+    return {"pesan": f"ID Perangkat {fingerprint_id} disimpan untuk {user.nama}"}
 
 # --- Read Endpoints ---
 @router.get("/")

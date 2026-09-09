@@ -32,7 +32,7 @@ function timeAgo(dateStr) {
 
 async function loadStatus() {
   try {
-    const res  = await fetch('/device-bridge/status-semua-ruangan');
+    const res  = await fetch(`/device-bridge/status-semua-ruangan?role={{ user.role }}`);
     const data = await res.json();
 
     let online = 0, offline = 0;

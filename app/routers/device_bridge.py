@@ -28,8 +28,10 @@ from app.models.models import (
     JadwalRuangan,
     Absensi,
     BridgeHeartbeat,
-    Ruangan
+    Ruangan,
+    PengaturanSistem,
 )
+from app.routers.pengaturan import get_pengaturan
 
 router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 
@@ -75,8 +77,21 @@ def cek_akses_device(
     ruangan_id: int, user_id: int,
     role: str, waktu: datetime, db: Session
 ):
+    pengaturan = get_pengaturan(db)
+
+    # Mode pemeliharaan: tolak semua akses KECUALI admin/teknisi,
+    # supaya mereka tetap bisa masuk untuk perbaikan.
+    if pengaturan.mode_pemeliharaan and role not in ROLE_BEBAS:
+        return False, "Sistem sedang dalam mode pemeliharaan", None
+
     if role in ROLE_BEBAS:
         return True, f"Akses bebas ({role})", None
+
+    # Jadwal dinonaktifkan sepenuhnya — semua scan langsung berhasil
+    # tanpa validasi jadwal KBM (tidak ada pencatatan presensi otomatis
+    # karena tidak ada jadwal_id untuk diacu).
+    if not pengaturan.wajib_jadwal:
+        return True, "Akses berhasil (mode jadwal dinonaktifkan)", None
 
     today    = waktu.strftime("%Y-%m-%d")
     now_time = waktu.strftime("%H:%M")
@@ -125,9 +140,10 @@ def catat_absensi_device(
         f"{today} {jam_mulai}",
         "%Y-%m-%d %H:%M"
     ).replace(tzinfo=WIB)
-    
+
+    toleransi = get_pengaturan(db).toleransi_keterlambatan_menit
     selisih = (waktu_scan - jam_dt).total_seconds() / 60
-    status  = "hadir" if selisih <= 15 else "terlambat"
+    status  = "hadir" if selisih <= toleransi else "terlambat"
 
     if existing:
         if existing.status == "tidak_hadir":
@@ -583,9 +599,11 @@ def bridge_status_public(
         total_user  = hb.total_user or 0
         last_bridge = last_seen_utc.astimezone(WIB).strftime("%d/%m %H:%M:%S")
 
-    # Sensor IP jika diakses oleh aktor luar / dosen
+    # Sensor IP disembunyikan jika diaktifkan di Pengaturan Sistem —
+    # admin/teknisi tetap melihat IP asli untuk keperluan troubleshooting.
+    pengaturan = get_pengaturan(db)
     device_ip_display = device_ip
-    if role == "dosen":
+    if pengaturan.sembunyikan_ip and role not in ROLE_BEBAS:
         device_ip_display = "Terhubung" if bridge_aktif else "—"
 
     # ── Identitas Ruangan & Penanggung Jawab ─────────────────
@@ -677,8 +695,11 @@ def debug_recent_logs(
 
 
 @router.get("/status-semua-ruangan")
-def status_semua_ruangan(db: Session = Depends(get_db)):
+def status_semua_ruangan(role: Optional[str] = None, db: Session = Depends(get_db)):
     """Memantau detak online/offline semua ruangan sekaligus (Bulk Query)."""
+    pengaturan = get_pengaturan(db)
+    sembunyikan = pengaturan.sembunyikan_ip and role not in ROLE_BEBAS
+
     ruangans = db.query(Ruangan).filter(
         Ruangan.aktif == True
     ).order_by(Ruangan.id).all()
@@ -728,7 +749,7 @@ def status_semua_ruangan(db: Session = Depends(get_db)):
             "lokasi":       r.lokasi or "—",
             "bridge_aktif": bridge_aktif,
             "last_bridge":  last_bridge,
-            "device_ip":    device_ip,
+            "device_ip":    ("Terhubung" if bridge_aktif else "—") if sembunyikan else device_ip,
             "device_sn":    device_sn,
             "device_time":  device_time,
         })

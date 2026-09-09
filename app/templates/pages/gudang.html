@@ -1,0 +1,984 @@
+{% extends "base.html" %}
+{% block title %}Inventaris Gudang{% endblock %}
+{% block page_title %}Inventaris Gudang{% endblock %}
+
+{% block content %}
+
+<ul class="nav nav-tabs mb-3" id="gudangTabs" role="tablist" style="border-bottom:2px solid #e2e8f0;">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabBarang" type="button">
+      <i class="bi bi-box-seam me-1"></i>Barang
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPeminjaman" type="button">
+      <i class="bi bi-box-arrow-right me-1"></i>Peminjaman
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPengembalian" type="button">
+      <i class="bi bi-box-arrow-in-left me-1"></i>Pengembalian
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabMutasi" type="button">
+      <i class="bi bi-arrow-left-right me-1"></i>Mutasi Lokasi
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- ══════════════════════ TAB: BARANG ══════════════════════ -->
+  <div class="tab-pane fade show active" id="tabBarang">
+    <div class="section-card p-3 mb-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+            <input type="text" class="form-control" id="fSearchBarang" placeholder="Cari nama / kode / NUP...">
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <select class="form-select form-select-sm" id="fStatusBarang">
+            <option value="">Semua Status</option>
+            <option value="tersedia">Tersedia</option>
+            <option value="dipinjam">Dipinjam</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <select class="form-select form-select-sm" id="fKondisiBarang">
+            <option value="">Semua Kondisi</option>
+            <option value="baik">Baik</option>
+            <option value="rusak">Rusak</option>
+            <option value="hilang">Hilang</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <select class="form-select form-select-sm" id="fKategoriBarang">
+            <option value="">Semua Kategori</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-auto d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm" onclick="openModalKategori()" title="Kelola Kategori">
+            <i class="bi bi-tags"></i>
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openModalBarang()">
+            <i class="bi bi-plus-lg me-1"></i>Tambah
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap d-none d-md-block">
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0" style="min-width:900px;">
+          <thead>
+            <tr>
+              <th style="width:40px;">No</th><th>Kode / NUP</th><th>Nama Barang</th><th>Kategori</th>
+              <th>Lokasi</th><th>Kondisi</th><th>Status</th><th style="text-align:center;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="brgBodyDesktop"><tr><td colspan="8" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="brgBodyMobile" class="d-md-none d-flex flex-column gap-2">
+      <div class="text-center text-muted py-4">Memuat...</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ TAB: PEMINJAMAN ══════════════════════ -->
+  <div class="tab-pane fade" id="tabPeminjaman">
+    <div class="section-card p-3 mb-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+            <input type="text" class="form-control" id="fSearchPinjam" placeholder="Cari nama peminjam...">
+          </div>
+        </div>
+        <div class="col-8 col-md-3">
+          <select class="form-select form-select-sm" id="fStatusPinjam">
+            <option value="">Semua Status</option>
+            <option value="dipinjam">Dipinjam</option>
+            <option value="dikembalikan">Dikembalikan</option>
+            <option value="dibatalkan">Dibatalkan</option>
+          </select>
+        </div>
+        <div class="col-4 col-md-auto">
+          <button class="btn btn-primary btn-sm w-100" onclick="openModalPinjam()">
+            <i class="bi bi-plus-lg me-1"></i>Pinjam
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap d-none d-md-block">
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0" style="min-width:800px;">
+          <thead>
+            <tr>
+              <th style="width:40px;">No</th><th>Peminjam</th><th>Lokasi Pemakaian</th><th>Tgl Pinjam</th>
+              <th>Rencana Kembali</th><th>Barang</th><th>Status</th><th style="text-align:center;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="pjBodyDesktop"><tr><td colspan="8" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="pjBodyMobile" class="d-md-none d-flex flex-column gap-2">
+      <div class="text-center text-muted py-4">Memuat...</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ TAB: PENGEMBALIAN ══════════════════════ -->
+  <div class="tab-pane fade" id="tabPengembalian">
+    <div class="section-card p-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="flex-grow-1" style="min-width:200px;">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+          <input type="text" class="form-control" id="fSearchKembali" placeholder="Cari nama peminjam...">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModalKembali()">
+        <i class="bi bi-box-arrow-in-left me-1"></i>Proses Pengembalian
+      </button>
+    </div>
+
+    <div class="tbl-wrap d-none d-md-block">
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0" style="min-width:750px;">
+          <thead>
+            <tr><th style="width:40px;">No</th><th>Peminjam</th><th>Lokasi Pemakaian</th><th>Tgl Kembali</th><th>Barang</th><th>Keterangan</th></tr>
+          </thead>
+          <tbody id="pgBodyDesktop"><tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="pgBodyMobile" class="d-md-none d-flex flex-column gap-2">
+      <div class="text-center text-muted py-4">Memuat...</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ TAB: MUTASI ══════════════════════ -->
+  <div class="tab-pane fade" id="tabMutasi">
+    <div class="section-card p-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="flex-grow-1" style="min-width:200px;">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+          <input type="text" class="form-control" id="fSearchMutasi" placeholder="Cari nama/kode barang...">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModalMutasi()">
+        <i class="bi bi-arrow-left-right me-1"></i>Catat Mutasi
+      </button>
+    </div>
+
+    <div class="tbl-wrap d-none d-md-block">
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0" style="min-width:750px;">
+          <thead>
+            <tr><th style="width:40px;">No</th><th>Barang</th><th>Dari</th><th>Ke</th><th>Tanggal</th><th>Alasan</th></tr>
+          </thead>
+          <tbody id="mtBodyDesktop"><tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="mtBodyMobile" class="d-md-none d-flex flex-column gap-2">
+      <div class="text-center text-muted py-4">Memuat...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════ MODAL: Kelola Kategori ══════════════════════ -->
+<div class="modal fade" id="modalKategori" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;"><i class="bi bi-tags me-2"></i>Kelola Kategori Barang</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="editKategoriId">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-5"><input class="form-control form-control-sm" id="kNama" placeholder="Nama kategori"></div>
+          <div class="col-5"><input class="form-control form-control-sm" id="kJenis" placeholder="Jenis (opsional)"></div>
+          <div class="col-2">
+            <button class="btn btn-primary btn-sm w-100" id="btnSimpanKategori" onclick="simpanKategori()">
+              <i class="bi bi-check-lg"></i>
+            </button>
+          </div>
+        </div>
+        <div id="alertKategori" class="mb-2"></div>
+        <div style="max-height:260px;overflow-y:auto;">
+          <table class="table table-sm mb-0">
+            <tbody id="katBody"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Tambah/Edit Barang ══════════════════════ -->
+<div class="modal fade" id="modalBarang" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;" id="modalBarangTitle"><i class="bi bi-box-seam me-2"></i>Tambah Barang</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="editBarangId">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Kode Barang</label><input class="form-control" id="bKode" placeholder="BRG-001"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">NUP (opsional)</label><input class="form-control" id="bNup" placeholder="Nomor Urut Pendaftaran"></div>
+          <div class="col-12"><label class="form-label fw-bold" style="font-size:.85rem;">Nama Barang</label><input class="form-control" id="bNama" placeholder="Proyektor Epson EB-X05"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Merk / Tipe</label><input class="form-control" id="bMerk" placeholder="opsional"></div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Kategori</label>
+            <select class="form-select" id="bKategori"><option value="">— Tanpa kategori —</option></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Kondisi</label>
+            <select class="form-select" id="bKondisi"><option value="baik">Baik</option><option value="rusak">Rusak</option><option value="hilang">Hilang</option></select>
+          </div>
+          <div class="col-md-4"><label class="form-label fw-bold" style="font-size:.85rem;">Lantai</label><input class="form-control" id="bLantai" placeholder="Lantai 2"></div>
+          <div class="col-md-4"><label class="form-label fw-bold" style="font-size:.85rem;">Ruangan</label><input class="form-control" id="bRuangan" placeholder="Gudang"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Tahun Perolehan</label><input type="number" class="form-control" id="bTahun" placeholder="2024"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Penguasaan</label><input class="form-control" id="bPenguasaan" placeholder="unit/pihak yang menguasai"></div>
+          <div class="col-12"><label class="form-label fw-bold" style="font-size:.85rem;">Keterangan</label><textarea class="form-control" id="bKet" rows="2" placeholder="opsional"></textarea></div>
+        </div>
+        <div id="alertBarang" class="mt-3"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="simpanBarang()"><i class="bi bi-check-lg me-1"></i>Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Upload Foto ══════════════════════ -->
+<div class="modal fade" id="modalFoto" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;"><i class="bi bi-image me-2"></i>Foto Barang</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="fotoBarangId">
+        <input type="file" class="form-control" id="fotoInput" accept="image/*">
+        <div id="alertFoto" class="mt-2"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="uploadFoto()"><i class="bi bi-upload me-1"></i>Upload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Buat Peminjaman ══════════════════════ -->
+<div class="modal fade" id="modalPinjam" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;"><i class="bi bi-box-arrow-right me-2"></i>Catat Peminjaman</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Peminjam</label><select class="form-select" id="pUser"><option value="">Memuat...</option></select></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Lokasi Pemakaian</label><input class="form-control" id="pLokasi" placeholder="Lab Sensor & Wireless"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Dosen / Mata Kuliah (opsional)</label><input class="form-control" id="pDosenMatkul" placeholder="opsional"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Kelas (opsional)</label><input class="form-control" id="pKelas" placeholder="opsional"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Tanggal Pinjam</label><input type="date" class="form-control" id="pTglPinjam"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Rencana Kembali</label><input type="date" class="form-control" id="pTglKembali"></div>
+          <div class="col-12">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Pilih Barang (kondisi baik & tersedia)</label>
+            <div id="pBarangList" class="border rounded p-2" style="max-height:220px;overflow-y:auto;font-size:.85rem;">Memuat daftar barang...</div>
+          </div>
+          <div class="col-12"><label class="form-label fw-bold" style="font-size:.85rem;">Keterangan</label><textarea class="form-control" id="pKet" rows="2" placeholder="opsional"></textarea></div>
+        </div>
+        <div id="alertPinjam" class="mt-3"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="simpanPinjam()"><i class="bi bi-check-lg me-1"></i>Catat Peminjaman</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Detail Peminjaman ══════════════════════ -->
+<div class="modal fade" id="modalDetailPinjam" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;"><i class="bi bi-info-circle me-2"></i>Detail Peminjaman</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="detailPinjamBody" style="font-size:.85rem;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Proses Pengembalian ══════════════════════ -->
+<div class="modal fade" id="modalKembali" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;"><i class="bi bi-box-arrow-in-left me-2"></i>Proses Pengembalian</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Pilih Peminjaman Aktif</label>
+          <select class="form-select" id="kPeminjaman" onchange="renderItemKembali()"><option value="">Memuat...</option></select>
+        </div>
+        <div class="mb-3"><label class="form-label fw-bold" style="font-size:.85rem;">Tanggal Kembali</label><input type="date" class="form-control" id="kTanggal"></div>
+        <div id="kItemWrap" class="mb-3" style="display:none;">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Kondisi Tiap Barang</label>
+          <div id="kItemList" class="border rounded p-2" style="font-size:.85rem;"></div>
+        </div>
+        <div class="mb-3"><label class="form-label fw-bold" style="font-size:.85rem;">Keterangan</label><textarea class="form-control" id="kKet" rows="2" placeholder="opsional"></textarea></div>
+        <div id="alertKembali"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="simpanKembali()"><i class="bi bi-check-lg me-1"></i>Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Catat Mutasi ══════════════════════ -->
+<div class="modal fade" id="modalMutasi" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.95rem;"><i class="bi bi-arrow-left-right me-2"></i>Catat Mutasi Lokasi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Barang</label>
+            <select class="form-select" id="mBarang" onchange="tampilkanLokasiAsal()"><option value="">Memuat...</option></select>
+            <small class="text-muted" id="mLokasiAsalInfo"></small>
+          </div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Lantai Tujuan</label><input class="form-control" id="mLantaiTujuan" placeholder="Lantai 1"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Ruangan Tujuan</label><input class="form-control" id="mRuanganTujuan" placeholder="Lab Sensor & Wireless"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Tanggal Mutasi</label><input type="date" class="form-control" id="mTanggal"></div>
+          <div class="col-md-6"><label class="form-label fw-bold" style="font-size:.85rem;">Alasan</label><input class="form-control" id="mAlasan" placeholder="opsional"></div>
+          <div class="col-12"><label class="form-label fw-bold" style="font-size:.85rem;">Keterangan</label><textarea class="form-control" id="mKet" rows="2" placeholder="opsional"></textarea></div>
+        </div>
+        <div id="alertMutasi" class="mt-3"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" onclick="simpanMutasi()"><i class="bi bi-check-lg me-1"></i>Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ═══════════════════ KATEGORI ═══════════════════ */
+let editKategoriMode = false;
+
+function openModalKategori() {
+  editKategoriMode = false;
+  document.getElementById('editKategoriId').value = '';
+  document.getElementById('kNama').value = '';
+  document.getElementById('kJenis').value = '';
+  document.getElementById('alertKategori').innerHTML = '';
+  loadKategori();
+  new bootstrap.Modal(document.getElementById('modalKategori')).show();
+}
+
+function openEditKategori(k) {
+  editKategoriMode = true;
+  document.getElementById('editKategoriId').value = k.id;
+  document.getElementById('kNama').value = k.nama_kategori;
+  document.getElementById('kJenis').value = k.jenis || '';
+}
+
+async function simpanKategori() {
+  const id = document.getElementById('editKategoriId').value;
+  const alertEl = document.getElementById('alertKategori');
+  const body = { nama_kategori: document.getElementById('kNama').value.trim(), jenis: document.getElementById('kJenis').value.trim() || null };
+  if (!body.nama_kategori) { alertEl.innerHTML = '<div class="alert alert-danger py-2 mb-2">Nama kategori wajib diisi.</div>'; return; }
+
+  const res = editKategoriMode
+    ? await fetch(`/kategori-barang/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    : await fetch('/kategori-barang/', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+
+  if (res.ok) {
+    editKategoriMode = false;
+    document.getElementById('editKategoriId').value = '';
+    document.getElementById('kNama').value = '';
+    document.getElementById('kJenis').value = '';
+    alertEl.innerHTML = '';
+    loadKategori();
+    loadKategoriDropdowns();
+  } else {
+    const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
+    alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-2">${err.detail}</div>`;
+  }
+}
+
+async function hapusKategori(id, nama) {
+  if (!confirm(`Hapus kategori "${nama}"?`)) return;
+  const res = await fetch(`/kategori-barang/${id}`, { method: 'DELETE' });
+  if (res.ok) { loadKategori(); loadKategoriDropdowns(); }
+  else { const err = await res.json().catch(() => ({detail: 'Gagal menghapus.'})); alert(err.detail); }
+}
+
+async function loadKategori() {
+  const res = await fetch('/kategori-barang/');
+  const data = await res.json();
+  const body = document.getElementById('katBody');
+  if (!data.length) { body.innerHTML = '<tr><td class="text-center py-3 text-muted">Belum ada kategori</td></tr>'; return; }
+  body.innerHTML = data.map(k => `
+    <tr>
+      <td style="font-size:.82rem;"><strong>${k.nama_kategori}</strong>${k.jenis ? ` <span class="text-muted">— ${k.jenis}</span>` : ''}</td>
+      <td style="width:70px;">
+        <div class="d-flex gap-1 justify-content-end">
+          <button class="btn btn-outline-primary btn-sm" onclick='openEditKategori(${JSON.stringify(k)})'><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-outline-danger btn-sm" onclick="hapusKategori(${k.id}, '${k.nama_kategori.replace("'", "\\'")}')"><i class="bi bi-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+/* ═══════════════════ BARANG ═══════════════════ */
+let editBarangMode = false;
+let kategoriList = [];
+
+function statusStyle(s) { return s === 'tersedia' ? 'background:#dcfce7;color:#15803d' : 'background:#fef9c3;color:#a16207'; }
+function kondisiStyle(k) {
+  if (k === 'baik') return 'background:#dcfce7;color:#15803d';
+  if (k === 'rusak') return 'background:#fed7aa;color:#9a3412';
+  return 'background:#fee2e2;color:#b91c1c';
+}
+
+async function loadKategoriDropdowns() {
+  const res = await fetch('/kategori-barang/');
+  kategoriList = await res.json();
+  const opts = kategoriList.map(k => `<option value="${k.id}">${k.nama_kategori}</option>`).join('');
+  document.getElementById('bKategori').innerHTML = '<option value="">— Tanpa kategori —</option>' + opts;
+  document.getElementById('fKategoriBarang').innerHTML = '<option value="">Semua Kategori</option>' + opts;
+}
+
+function openModalBarang() {
+  editBarangMode = false;
+  ['editBarangId','bKode','bNup','bNama','bMerk','bLantai','bRuangan','bTahun','bPenguasaan','bKet'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('bKategori').value = '';
+  document.getElementById('bKondisi').value = 'baik';
+  document.getElementById('alertBarang').innerHTML = '';
+  document.getElementById('modalBarangTitle').innerHTML = '<i class="bi bi-box-seam me-2"></i>Tambah Barang';
+  new bootstrap.Modal(document.getElementById('modalBarang')).show();
+}
+
+function openEditBarang(b) {
+  editBarangMode = true;
+  document.getElementById('editBarangId').value = b.id;
+  document.getElementById('bKode').value = b.kode_barang;
+  document.getElementById('bNup').value = b.nup || '';
+  document.getElementById('bNama').value = b.nama_barang;
+  document.getElementById('bMerk').value = b.merk_type || '';
+  document.getElementById('bKategori').value = b.id_kategori || '';
+  document.getElementById('bKondisi').value = b.kondisi;
+  document.getElementById('bLantai').value = b.lantai || '';
+  document.getElementById('bRuangan').value = b.ruangan || '';
+  document.getElementById('bTahun').value = b.tahun_perolehan || '';
+  document.getElementById('bPenguasaan').value = b.penguasaan || '';
+  document.getElementById('bKet').value = b.keterangan || '';
+  document.getElementById('alertBarang').innerHTML = '';
+  document.getElementById('modalBarangTitle').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Barang';
+  new bootstrap.Modal(document.getElementById('modalBarang')).show();
+}
+
+async function simpanBarang() {
+  const id = document.getElementById('editBarangId').value;
+  const alertEl = document.getElementById('alertBarang');
+  const body = {
+    kode_barang: document.getElementById('bKode').value.trim(),
+    nup: document.getElementById('bNup').value.trim() || null,
+    nama_barang: document.getElementById('bNama').value.trim(),
+    merk_type: document.getElementById('bMerk').value.trim() || null,
+    id_kategori: document.getElementById('bKategori').value ? parseInt(document.getElementById('bKategori').value) : null,
+    kondisi: document.getElementById('bKondisi').value,
+    lantai: document.getElementById('bLantai').value.trim() || null,
+    ruangan: document.getElementById('bRuangan').value.trim() || null,
+    tahun_perolehan: document.getElementById('bTahun').value ? parseInt(document.getElementById('bTahun').value) : null,
+    penguasaan: document.getElementById('bPenguasaan').value.trim() || null,
+    keterangan: document.getElementById('bKet').value.trim() || null,
+  };
+  if (!body.kode_barang || !body.nama_barang) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Kode dan nama barang wajib diisi.</div>'; return; }
+
+  const res = editBarangMode
+    ? await fetch(`/barang/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    : await fetch('/barang/', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+
+  if (res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${editBarangMode ? 'Diperbarui' : 'Ditambahkan'}!</div>`;
+    loadBarang();
+    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('modalBarang')).hide(); alertEl.innerHTML = ''; }, 900);
+  } else {
+    const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+function openModalFoto(id) {
+  document.getElementById('fotoBarangId').value = id;
+  document.getElementById('fotoInput').value = '';
+  document.getElementById('alertFoto').innerHTML = '';
+  new bootstrap.Modal(document.getElementById('modalFoto')).show();
+}
+
+async function uploadFoto() {
+  const id = document.getElementById('fotoBarangId').value;
+  const fileInput = document.getElementById('fotoInput');
+  const alertEl = document.getElementById('alertFoto');
+  if (!fileInput.files.length) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih file dulu.</div>'; return; }
+  const fd = new FormData();
+  fd.append('foto', fileInput.files[0]);
+  const res = await fetch(`/barang/${id}/foto`, { method: 'POST', body: fd });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Foto tersimpan!</div>';
+    loadBarang();
+    setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('modalFoto')).hide(), 900);
+  } else { alertEl.innerHTML = '<div class="alert alert-danger py-2">Upload gagal.</div>'; }
+}
+
+async function hapusBarang(id, nama) {
+  if (!confirm(`Hapus barang "${nama}"? Tindakan ini tidak dapat dibatalkan.`)) return;
+  const res = await fetch(`/barang/${id}`, { method: 'DELETE' });
+  if (res.ok) loadBarang();
+  else { const err = await res.json().catch(() => ({detail: 'Gagal menghapus.'})); alert(err.detail); }
+}
+
+async function loadBarang() {
+  const params = new URLSearchParams();
+  const search = document.getElementById('fSearchBarang').value.trim();
+  const status = document.getElementById('fStatusBarang').value;
+  const kondisi = document.getElementById('fKondisiBarang').value;
+  const kat = document.getElementById('fKategoriBarang').value;
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+  if (kondisi) params.set('kondisi', kondisi);
+  if (kat) params.set('id_kategori', kat);
+
+  const res = await fetch(`/barang/?${params.toString()}`);
+  const data = await res.json();
+  const desktop = document.getElementById('brgBodyDesktop');
+  const mobile = document.getElementById('brgBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada data</td></tr>';
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Belum ada data barang</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map((b, i) => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td><code style="font-size:.78rem;">${b.kode_barang}</code>${b.nup ? `<br><small class="text-muted">NUP: ${b.nup}</small>` : ''}</td>
+      <td><strong style="font-size:.85rem;">${b.nama_barang}</strong>${b.merk_type ? `<br><small class="text-muted">${b.merk_type}</small>` : ''}</td>
+      <td style="font-size:.82rem;">${b.kategori ? b.kategori.nama_kategori : '—'}</td>
+      <td style="font-size:.82rem;">${[b.lantai, b.ruangan].filter(Boolean).join(' / ') || '—'}</td>
+      <td><span style="${kondisiStyle(b.kondisi)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${b.kondisi}</span></td>
+      <td><span style="${statusStyle(b.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${b.status}</span></td>
+      <td>
+        <div class="d-flex gap-1 justify-content-center">
+          <button class="btn btn-outline-secondary btn-sm" title="Foto" onclick="openModalFoto(${b.id})"><i class="bi bi-camera"></i></button>
+          <button class="btn btn-outline-primary btn-sm" title="Edit" onclick='openEditBarang(${JSON.stringify(b)})'><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-outline-danger btn-sm" title="Hapus" onclick="hapusBarang(${b.id}, '${b.nama_barang.replace("'","\\'")}')"><i class="bi bi-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map((b, i) => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="min-w-0 flex-grow-1 me-2">
+          <div class="fw-bold" style="font-size:.88rem;"><span style="color:#94a3b8;font-size:.75rem;margin-right:4px;">${i+1}.</span>${b.nama_barang}</div>
+          <code style="font-size:.73rem;color:#64748b;">${b.kode_barang}</code>
+        </div>
+        <span style="${statusStyle(b.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;white-space:nowrap;">${b.status}</span>
+      </div>
+      <div class="mb-2" style="font-size:.78rem;color:#64748b;">
+        ${[b.lantai, b.ruangan].filter(Boolean).join(' / ') || 'Lokasi belum diisi'}
+        · <span style="${kondisiStyle(b.kondisi)};padding:2px 7px;border-radius:20px;font-size:.7rem;font-weight:600;">${b.kondisi}</span>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModalFoto(${b.id})"><i class="bi bi-camera"></i></button>
+        <button class="btn btn-outline-primary btn-sm flex-fill" onclick='openEditBarang(${JSON.stringify(b)})'><i class="bi bi-pencil me-1"></i>Edit</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="hapusBarang(${b.id}, '${b.nama_barang.replace("'","\\'")}')"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>`).join('');
+}
+
+['fSearchBarang','fStatusBarang','fKondisiBarang','fKategoriBarang'].forEach(id => {
+  document.getElementById(id).addEventListener('input', loadBarang);
+  document.getElementById(id).addEventListener('change', loadBarang);
+});
+
+/* ═══════════════════ PEMINJAMAN ═══════════════════ */
+function statusPjStyle(s) {
+  if (s === 'dipinjam') return 'background:#fef9c3;color:#a16207';
+  if (s === 'dikembalikan') return 'background:#dcfce7;color:#15803d';
+  return 'background:#e2e8f0;color:#475569';
+}
+
+async function loadPenggunaDropdown() {
+  const res = await fetch('/users/?limit=200');
+  const data = await res.json();
+  const list = Array.isArray(data) ? data : (data.data || data.items || []);
+  document.getElementById('pUser').innerHTML = list.map(u => `<option value="${u.id}">${u.nama}${u.nim_nip ? ' — ' + u.nim_nip : ''}</option>`).join('');
+}
+
+async function loadBarangCheckbox() {
+  const res = await fetch('/peminjaman/available-barang');
+  const data = await res.json();
+  const el = document.getElementById('pBarangList');
+  if (!data.length) { el.innerHTML = '<div class="text-muted">Tidak ada barang tersedia saat ini.</div>'; return; }
+  el.innerHTML = data.map(b => `
+    <div class="form-check">
+      <input class="form-check-input pinjam-item" type="checkbox" value="${b.id}" id="chk${b.id}">
+      <label class="form-check-label" for="chk${b.id}">${b.nama_barang} <small class="text-muted">(${b.kode_barang}${b.ruangan ? ' · ' + [b.lantai, b.ruangan].filter(Boolean).join('/') : ''})</small></label>
+    </div>`).join('');
+}
+
+function openModalPinjam() {
+  document.getElementById('pUser').value = '';
+  document.getElementById('pLokasi').value = '';
+  document.getElementById('pDosenMatkul').value = '';
+  document.getElementById('pKelas').value = '';
+  document.getElementById('pTglPinjam').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pTglKembali').value = '';
+  document.getElementById('pKet').value = '';
+  document.getElementById('alertPinjam').innerHTML = '';
+  loadBarangCheckbox();
+  new bootstrap.Modal(document.getElementById('modalPinjam')).show();
+}
+
+async function simpanPinjam() {
+  const alertEl = document.getElementById('alertPinjam');
+  const barangIds = [...document.querySelectorAll('.pinjam-item:checked')].map(el => ({barang_id: parseInt(el.value)}));
+  const body = {
+    user_id: document.getElementById('pUser').value ? parseInt(document.getElementById('pUser').value) : null,
+    nama_dosen_matkul: document.getElementById('pDosenMatkul').value.trim() || null,
+    kelas: document.getElementById('pKelas').value.trim() || null,
+    lokasi_pemakaian: document.getElementById('pLokasi').value.trim(),
+    tanggal_pinjam: document.getElementById('pTglPinjam').value,
+    tanggal_kembali_rencana: document.getElementById('pTglKembali').value,
+    keterangan: document.getElementById('pKet').value.trim() || null,
+    barang: barangIds,
+  };
+  if (!body.user_id) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih peminjam.</div>'; return; }
+  if (!body.lokasi_pemakaian) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Lokasi pemakaian wajib diisi.</div>'; return; }
+  if (!body.tanggal_pinjam || !body.tanggal_kembali_rencana) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Tanggal pinjam & rencana kembali wajib diisi.</div>'; return; }
+  if (!barangIds.length) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal satu barang.</div>'; return; }
+
+  const res = await fetch('/peminjaman/', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Peminjaman berhasil dicatat!</div>';
+    loadPeminjaman(); loadBarang();
+    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('modalPinjam')).hide(); alertEl.innerHTML = ''; }, 1000);
+  } else {
+    const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function batalkanPinjam(id) {
+  if (!confirm('Batalkan peminjaman ini? Barang akan dikembalikan ke lokasi asal.')) return;
+  const res = await fetch(`/peminjaman/${id}/batalkan`, { method: 'PATCH' });
+  if (res.ok) { loadPeminjaman(); loadBarang(); }
+  else { const err = await res.json().catch(() => ({detail: 'Gagal membatalkan.'})); alert(err.detail); }
+}
+
+function lihatDetailPinjam(p) {
+  const items = p.detail_peminjaman.map(d => `<li>${d.barang ? d.barang.nama_barang : 'Barang #' + d.barang_id} <span class="text-muted">(${d.status_item}${d.kondisi_item ? ', ' + d.kondisi_item : ''})</span></li>`).join('');
+  document.getElementById('detailPinjamBody').innerHTML = `
+    <p><strong>Peminjam:</strong> ${p.user ? p.user.nama : '-'}</p>
+    <p><strong>Lokasi Pemakaian:</strong> ${p.lokasi_pemakaian}</p>
+    <p><strong>Tanggal Pinjam:</strong> ${p.tanggal_pinjam} &rarr; <strong>Rencana Kembali:</strong> ${p.tanggal_kembali_rencana}</p>
+    ${p.tanggal_kembali_aktual ? `<p><strong>Kembali Aktual:</strong> ${p.tanggal_kembali_aktual}</p>` : ''}
+    ${p.keterangan ? `<p><strong>Keterangan:</strong> ${p.keterangan}</p>` : ''}
+    <p><strong>Barang:</strong></p><ul>${items}</ul>`;
+  new bootstrap.Modal(document.getElementById('modalDetailPinjam')).show();
+}
+
+async function loadPeminjaman() {
+  const params = new URLSearchParams();
+  const search = document.getElementById('fSearchPinjam').value.trim();
+  const status = document.getElementById('fStatusPinjam').value;
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+
+  const res = await fetch(`/peminjaman/?${params.toString()}`);
+  const data = await res.json();
+  const desktop = document.getElementById('pjBodyDesktop');
+  const mobile = document.getElementById('pjBodyMobile');
+  window._pjData = data;
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada data</td></tr>';
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Belum ada peminjaman</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map((p, i) => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td style="font-size:.85rem;">${p.user ? p.user.nama : '-'}</td>
+      <td style="font-size:.82rem;">${p.lokasi_pemakaian}</td>
+      <td style="font-size:.8rem;">${p.tanggal_pinjam}</td>
+      <td style="font-size:.8rem;">${p.tanggal_kembali_rencana}</td>
+      <td style="font-size:.8rem;">${p.detail_peminjaman.length} item</td>
+      <td><span style="${statusPjStyle(p.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${p.status}</span></td>
+      <td>
+        <div class="d-flex gap-1 justify-content-center">
+          <button class="btn btn-outline-secondary btn-sm" onclick="lihatDetailPinjam(window._pjData[${i}])"><i class="bi bi-eye"></i></button>
+          ${p.status === 'dipinjam' ? `<button class="btn btn-outline-danger btn-sm" onclick="batalkanPinjam(${p.id})"><i class="bi bi-x-lg"></i></button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map((p, i) => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="fw-bold" style="font-size:.88rem;">${p.user ? p.user.nama : '-'}</div>
+        <span style="${statusPjStyle(p.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${p.status}</span>
+      </div>
+      <div class="mb-2" style="font-size:.78rem;color:#64748b;">${p.lokasi_pemakaian} · ${p.detail_peminjaman.length} item<br>${p.tanggal_pinjam} &rarr; ${p.tanggal_kembali_rencana}</div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="lihatDetailPinjam(window._pjData[${i}])"><i class="bi bi-eye me-1"></i>Detail</button>
+        ${p.status === 'dipinjam' ? `<button class="btn btn-outline-danger btn-sm" onclick="batalkanPinjam(${p.id})"><i class="bi bi-x-lg"></i></button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+['fSearchPinjam','fStatusPinjam'].forEach(id => {
+  document.getElementById(id).addEventListener('input', loadPeminjaman);
+  document.getElementById(id).addEventListener('change', loadPeminjaman);
+});
+
+/* ═══════════════════ PENGEMBALIAN ═══════════════════ */
+let peminjamanAktifData = [];
+
+async function loadPeminjamanAktifDropdown() {
+  const res = await fetch('/pengembalian/peminjaman-aktif');
+  peminjamanAktifData = await res.json();
+  const el = document.getElementById('kPeminjaman');
+  if (!peminjamanAktifData.length) { el.innerHTML = '<option value="">Tidak ada peminjaman aktif</option>'; return; }
+  el.innerHTML = '<option value="">— Pilih —</option>' + peminjamanAktifData.map(p => `<option value="${p.id}">${p.peminjam} — ${p.lokasi_pemakaian} (${p.tanggal_pinjam})</option>`).join('');
+}
+
+function renderItemKembali() {
+  const id = document.getElementById('kPeminjaman').value;
+  const wrap = document.getElementById('kItemWrap');
+  const list = document.getElementById('kItemList');
+  if (!id) { wrap.style.display = 'none'; return; }
+  const p = peminjamanAktifData.find(x => x.id == id);
+  if (!p || !p.barang.length) { wrap.style.display = 'none'; return; }
+  list.innerHTML = p.barang.map(b => `
+    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+      <div>${b.nama_barang} <small class="text-muted">(${b.kode_barang})</small></div>
+      <select class="form-select form-select-sm kondisi-item" data-barang-id="${b.barang_id}" style="width:130px;">
+        <option value="baik">Baik</option><option value="rusak">Rusak</option><option value="hilang">Hilang</option>
+      </select>
+    </div>`).join('');
+  wrap.style.display = 'block';
+}
+
+function openModalKembali() {
+  document.getElementById('kPeminjaman').value = '';
+  document.getElementById('kTanggal').value = new Date().toISOString().slice(0,10);
+  document.getElementById('kKet').value = '';
+  document.getElementById('kItemWrap').style.display = 'none';
+  document.getElementById('alertKembali').innerHTML = '';
+  loadPeminjamanAktifDropdown();
+  new bootstrap.Modal(document.getElementById('modalKembali')).show();
+}
+
+async function simpanKembali() {
+  const alertEl = document.getElementById('alertKembali');
+  const peminjamanId = document.getElementById('kPeminjaman').value;
+  if (!peminjamanId) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih peminjaman dulu.</div>'; return; }
+  const kondisi = {};
+  document.querySelectorAll('.kondisi-item').forEach(el => { kondisi[el.dataset.barangId] = el.value; });
+  const body = {
+    peminjaman_id: parseInt(peminjamanId),
+    tanggal_kembali: document.getElementById('kTanggal').value,
+    kondisi: kondisi,
+    keterangan: document.getElementById('kKet').value.trim() || null,
+  };
+  if (!body.tanggal_kembali) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Tanggal kembali wajib diisi.</div>'; return; }
+
+  const res = await fetch('/pengembalian/', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Pengembalian tersimpan!</div>';
+    loadPengembalian(); loadPeminjaman(); loadBarang();
+    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('modalKembali')).hide(); alertEl.innerHTML = ''; }, 1000);
+  } else {
+    const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function loadPengembalian() {
+  const params = new URLSearchParams();
+  const search = document.getElementById('fSearchKembali').value.trim();
+  if (search) params.set('search', search);
+  const res = await fetch(`/pengembalian/?${params.toString()}`);
+  const data = await res.json();
+  const desktop = document.getElementById('pgBodyDesktop');
+  const mobile = document.getElementById('pgBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data</td></tr>';
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Belum ada riwayat pengembalian</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map((pg, i) => {
+    const p = pg.peminjaman;
+    const items = p ? p.detail_peminjaman.map(d => `${d.barang ? d.barang.nama_barang : ''} (${d.kondisi_item || '-'})`).join(', ') : '-';
+    return `<tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td style="font-size:.85rem;">${p && p.user ? p.user.nama : '-'}</td>
+      <td style="font-size:.82rem;">${p ? p.lokasi_pemakaian : '-'}</td>
+      <td style="font-size:.8rem;">${pg.tanggal_kembali}</td>
+      <td style="font-size:.78rem;">${items}</td>
+      <td style="font-size:.78rem;color:#64748b;">${pg.keterangan || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  mobile.innerHTML = data.map(pg => {
+    const p = pg.peminjaman;
+    const items = p ? p.detail_peminjaman.map(d => `${d.barang ? d.barang.nama_barang : ''} (${d.kondisi_item || '-'})`).join(', ') : '-';
+    return `<div class="section-card p-3">
+      <div class="fw-bold mb-1" style="font-size:.88rem;">${p && p.user ? p.user.nama : '-'}</div>
+      <div style="font-size:.78rem;color:#64748b;">${p ? p.lokasi_pemakaian : '-'} · Kembali ${pg.tanggal_kembali}<br>${items}</div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('fSearchKembali').addEventListener('input', loadPengembalian);
+
+/* ═══════════════════ MUTASI ═══════════════════ */
+let barangSemuaData = [];
+
+async function loadBarangDropdownMutasi() {
+  const res = await fetch('/barang/');
+  barangSemuaData = await res.json();
+  const el = document.getElementById('mBarang');
+  const bisaMutasi = barangSemuaData.filter(b => b.status !== 'dipinjam');
+  if (!bisaMutasi.length) { el.innerHTML = '<option value="">Tidak ada barang yang bisa dimutasi</option>'; return; }
+  el.innerHTML = '<option value="">— Pilih barang —</option>' + bisaMutasi.map(b => `<option value="${b.id}">${b.nama_barang} (${b.kode_barang})</option>`).join('');
+}
+
+function tampilkanLokasiAsal() {
+  const id = document.getElementById('mBarang').value;
+  const info = document.getElementById('mLokasiAsalInfo');
+  const b = barangSemuaData.find(x => x.id == id);
+  if (!b) { info.textContent = ''; return; }
+  info.textContent = `Lokasi saat ini: ${[b.lantai, b.ruangan].filter(Boolean).join(' / ') || 'belum diketahui'}`;
+}
+
+function openModalMutasi() {
+  document.getElementById('mBarang').value = '';
+  document.getElementById('mLantaiTujuan').value = '';
+  document.getElementById('mRuanganTujuan').value = '';
+  document.getElementById('mTanggal').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mAlasan').value = '';
+  document.getElementById('mKet').value = '';
+  document.getElementById('mLokasiAsalInfo').textContent = '';
+  document.getElementById('alertMutasi').innerHTML = '';
+  loadBarangDropdownMutasi();
+  new bootstrap.Modal(document.getElementById('modalMutasi')).show();
+}
+
+async function simpanMutasi() {
+  const alertEl = document.getElementById('alertMutasi');
+  const body = {
+    barang_id: document.getElementById('mBarang').value ? parseInt(document.getElementById('mBarang').value) : null,
+    lantai_tujuan: document.getElementById('mLantaiTujuan').value.trim(),
+    ruangan_tujuan: document.getElementById('mRuanganTujuan').value.trim(),
+    tanggal_mutasi: document.getElementById('mTanggal').value,
+    alasan: document.getElementById('mAlasan').value.trim() || null,
+    keterangan: document.getElementById('mKet').value.trim() || null,
+  };
+  if (!body.barang_id) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih barang.</div>'; return; }
+  if (!body.lantai_tujuan || !body.ruangan_tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Lantai & ruangan tujuan wajib diisi.</div>'; return; }
+  if (!body.tanggal_mutasi) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Tanggal mutasi wajib diisi.</div>'; return; }
+
+  const res = await fetch('/mutasi-barang/', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) {
+    alertEl.innerHTML = '<div class="alert alert-success py-2">Mutasi tersimpan!</div>';
+    loadMutasi(); loadBarang();
+    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('modalMutasi')).hide(); alertEl.innerHTML = ''; }, 1000);
+  } else {
+    const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+  }
+}
+
+async function loadMutasi() {
+  const params = new URLSearchParams();
+  const search = document.getElementById('fSearchMutasi').value.trim();
+  if (search) params.set('search', search);
+  const res = await fetch(`/mutasi-barang/?${params.toString()}`);
+  const data = await res.json();
+  const desktop = document.getElementById('mtBodyDesktop');
+  const mobile = document.getElementById('mtBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data</td></tr>';
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Belum ada riwayat mutasi</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map((m, i) => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td style="font-size:.85rem;">${m.barang ? m.barang.nama_barang : '-'}</td>
+      <td style="font-size:.8rem;">${[m.lantai_asal, m.ruangan_asal].filter(Boolean).join(' / ') || '—'}</td>
+      <td style="font-size:.8rem;">${[m.lantai_tujuan, m.ruangan_tujuan].filter(Boolean).join(' / ')}</td>
+      <td style="font-size:.8rem;">${m.tanggal_mutasi}</td>
+      <td style="font-size:.78rem;color:#64748b;">${m.alasan || '—'}</td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map(m => `
+    <div class="section-card p-3">
+      <div class="fw-bold mb-1" style="font-size:.88rem;">${m.barang ? m.barang.nama_barang : '-'}</div>
+      <div style="font-size:.78rem;color:#64748b;">
+        ${[m.lantai_asal, m.ruangan_asal].filter(Boolean).join('/') || '—'} <i class="bi bi-arrow-right mx-1"></i> ${[m.lantai_tujuan, m.ruangan_tujuan].filter(Boolean).join('/')}<br>
+        ${m.tanggal_mutasi}${m.alasan ? ' · ' + m.alasan : ''}
+      </div>
+    </div>`).join('');
+}
+
+document.getElementById('fSearchMutasi').addEventListener('input', loadMutasi);
+
+/* ═══════════════════ INIT ═══════════════════ */
+loadKategoriDropdowns().then(loadBarang);
+loadPenggunaDropdown();
+loadPeminjaman();
+loadPengembalian();
+loadMutasi();
+</script>
+{% endblock %}

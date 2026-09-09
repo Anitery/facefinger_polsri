@@ -13,6 +13,38 @@ cloudinary.config(
 )
 
 
+def upload_image(file_path: str, public_id: str, folder: str) -> dict:
+    """
+    Upload file gambar (foto) ke Cloudinary — dipakai untuk foto barang
+    inventaris gudang, dsb.
+    Returns: dict berisi url, public_id.
+    """
+    try:
+        result = cloudinary.uploader.upload(
+            file_path,
+            resource_type = "image",
+            public_id     = public_id,
+            folder         = folder,
+            overwrite      = True,
+        )
+        return {
+            "success":   True,
+            "url":       result.get("secure_url"),
+            "public_id": result.get("public_id"),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def delete_image(public_id: str) -> bool:
+    """Hapus gambar dari Cloudinary."""
+    try:
+        cloudinary.uploader.destroy(public_id, resource_type="image")
+        return True
+    except Exception:
+        return False
+
+
 def upload_video(file_path: str, public_id: str, ruangan_id: int) -> dict:
     """
     Upload file video ke Cloudinary.

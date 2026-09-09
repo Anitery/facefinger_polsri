@@ -1,4 +1,3 @@
-import httpx
 import requests as http_requests
 from functools import lru_cache
 from datetime import datetime
@@ -43,14 +42,20 @@ class JadwalOut(JadwalCreate):
 
 @lru_cache(maxsize=24)  # Cache per bulan agar tidak spam ke API eksternal
 def _fetch_hari_libur_cached(year: int, month: int):
+    """
+    Sumber: api-hari-libur.vercel.app (scraping tanggalans.com, update
+    otomatis harian). Menggantikan api-harilibur.vercel.app (paused) dan
+    libur.deno.dev (down).
+    """
     try:
         r = http_requests.get(
-            f"https://api-harilibur.vercel.app/api",
-            params={"month": month, "year": year},
+            "https://api-hari-libur.vercel.app/api",
+            params={"year": year, "month": month},
             timeout=5
         )
         if r.ok:
-            return r.json()
+            body = r.json()
+            return body.get("data", [])
     except Exception:
         pass
     return []
@@ -61,16 +66,10 @@ def is_hari_libur(tanggal: str) -> Tuple[bool, str]:
     Returns: (is_libur, nama_libur)
     """
     try:
-        year = tanggal[:4]
-        r = httpx.get(
-            f"https://libur.deno.dev/api",
-            params={"year": year},
-            timeout=5
-        )
-        if r.status_code == 200:
-            for h in r.json():
-                if h.get("date") == tanggal:
-                    return True, h.get("name", "Hari libur nasional")
+        year, month = int(tanggal[:4]), int(tanggal[5:7])
+        for h in _fetch_hari_libur_cached(year, month):
+            if h.get("date") == tanggal:
+                return True, h.get("description", "Hari libur nasional")
     except Exception:
         pass  # Kalau API gagal, jangan blokir (fail-open untuk ketersediaan)
     return False, ""
@@ -83,17 +82,17 @@ def get_hari_libur(
 ):
     """
     Ambil daftar hari libur nasional Indonesia untuk bulan tertentu.
-    Data dari api-harilibur.vercel.app (sumber: SKB Menteri).
+    Data dari api-hari-libur.vercel.app (scraping SKB dari tanggalans.com).
     """
     data = _fetch_hari_libur_cached(year, month)
     return [
         {
-            "tanggal": d.get("holiday_date"),
-            "nama":    d.get("holiday_name"),
-            "is_national_holiday": d.get("is_national_holiday", True),
+            "tanggal": d.get("date"),
+            "nama":    d.get("description"),
+            "is_national_holiday": True,
         }
         for d in data
-        if d.get("holiday_date")
+        if d.get("date")
     ]
 
 
@@ -118,6 +117,34 @@ def get_jadwal(
         q = q.filter(JadwalRuangan.tanggal.startswith(bulan))
         
     return q.order_by(JadwalRuangan.tanggal, JadwalRuangan.jam_mulai).all()
+
+
+@router.get("/hari-ini-semua-ruangan")
+def get_jadwal_hari_ini_semua_ruangan(db: Session = Depends(get_db)):
+    """
+    Jadwal aktif hari ini dari SEMUA ruangan sekaligus — dipakai dashboard
+    saat pilihan ruangan di sidebar/navbar di-set ke "Semua Ruangan".
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    rows = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.ruangan)
+    ).filter(
+        JadwalRuangan.tanggal == today,
+        JadwalRuangan.is_active == True,
+    ).order_by(JadwalRuangan.jam_mulai).all()
+
+    return [
+        {
+            "id": j.id,
+            "ruangan_id": j.ruangan_id,
+            "nama_ruangan": j.ruangan.nama if j.ruangan else "-",
+            "nama_kegiatan": j.nama_kegiatan,
+            "kelas": j.kelas,
+            "jam_mulai": j.jam_mulai,
+            "jam_selesai": j.jam_selesai,
+        }
+        for j in rows
+    ]
 
 
 @router.get("/dosen-list")

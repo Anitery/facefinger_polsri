@@ -174,3 +174,154 @@ class BridgeHeartbeat(Base):
     last_seen  = Column(DateTime,    nullable=True)
     total_user = Column(Integer,     nullable=True)
     extra_info = Column(Text,        nullable=True)
+
+
+class PengaturanSistem(Base):
+    """
+    Pengaturan sistem global — single-row table (selalu id=1).
+    Dibaca oleh device_bridge.py saat memvalidasi akses biometrik,
+    dan oleh dashboard status perangkat untuk menentukan apa yang
+    ditampilkan ke pengguna.
+    """
+    __tablename__ = "pengaturan_sistem"
+
+    id = Column(Integer, primary_key=True, default=1)
+
+    # a. Wajib jadwal aktif untuk validasi akses. Kalau False, semua
+    #    scan biometrik langsung "berhasil" tanpa cek jadwal KBM.
+    wajib_jadwal = Column(Boolean, default=True, nullable=False)
+
+    # b. Sembunyikan IP address perangkat di dashboard (untuk role
+    #    selain admin/teknisi — mereka tetap lihat IP asli untuk troubleshooting).
+    sembunyikan_ip = Column(Boolean, default=False, nullable=False)
+
+    # c. Mode pemeliharaan — semua akses ditolak KECUALI admin/teknisi,
+    #    supaya mereka tetap bisa masuk untuk perbaikan.
+    mode_pemeliharaan = Column(Boolean, default=False, nullable=False)
+
+    # d. Toleransi keterlambatan presensi (menit) sebelum status
+    #    berubah dari "hadir" jadi "terlambat". Sebelumnya di-hardcode 15.
+    toleransi_keterlambatan_menit = Column(Integer, default=15, nullable=False)
+
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ── Modul Inventaris Gudang ──────────────────────────────────────────────
+# Diadaptasi dari project "inventaris-lab" (Laravel) milik rekan satu
+# kelompok TA — device X606-S yang sama, ruangan Gudang.
+# Sengaja terpisah dari InventarisAlat (quick-scan per ruangan) di atas,
+# karena tujuannya beda: modul ini untuk manajemen aset lintas
+# lantai/ruangan dengan alur peminjaman & pengembalian formal.
+# Pengguna memakai tabel `users` yang sudah ada (bukan tabel terpisah),
+# supaya satu akun & satu database untuk seluruh sistem.
+# ═══════════════════════════════════════════════════════════════════════
+
+class KategoriBarang(Base):
+    __tablename__ = "kategori_barang"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    nama_kategori = Column(String(100), nullable=False)
+    jenis         = Column(String(50), nullable=True)  # contoh: elektronik, furnitur, dst
+    created_at    = Column(DateTime(timezone=True), server_default=func.now())
+
+    barang = relationship("Barang", back_populates="kategori")
+
+
+class Barang(Base):
+    __tablename__ = "barang_gudang"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    id_kategori      = Column(Integer, ForeignKey("kategori_barang.id"), nullable=True)
+    kode_barang      = Column(String(50), unique=True, index=True, nullable=False)
+    nup              = Column(String(20), nullable=True)  # Nomor Urut Pendaftaran (aset BMN)
+    sumber_kode      = Column(String(20), default="manual")  # barcode / manual
+    nama_barang      = Column(String(100), nullable=False)
+    merk_type        = Column(String(100), nullable=True)
+    kondisi          = Column(String(20), default="baik")     # baik / rusak / hilang
+    status           = Column(String(20), default="tersedia")  # tersedia / dipinjam
+    lantai           = Column(String(50), nullable=True)
+    ruangan          = Column(String(100), nullable=True)   # lokasi fisik saat ini (teks bebas)
+    tahun_perolehan  = Column(Integer, nullable=True)
+    foto_barang      = Column(String(255), nullable=True)
+    penguasaan       = Column(String(100), nullable=True)   # unit/pihak yang menguasai aset
+    keterangan       = Column(Text, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at       = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    kategori           = relationship("KategoriBarang", back_populates="barang")
+    detail_peminjaman  = relationship("DetailPeminjaman", back_populates="barang")
+    mutasi             = relationship("MutasiBarang", back_populates="barang")
+
+    def is_available(self) -> bool:
+        return self.status == "tersedia"
+
+
+class Peminjaman(Base):
+    __tablename__ = "peminjaman"
+
+    id                       = Column(Integer, primary_key=True, index=True)
+    user_id                  = Column(Integer, ForeignKey("users.id"), nullable=False)  # peminjam
+    nama_dosen_matkul        = Column(String(150), nullable=True)
+    kelas                    = Column(String(50), nullable=True)
+    lokasi_pemakaian         = Column(String(150), nullable=False)
+    tanggal_pinjam           = Column(String(20), nullable=False)   # format YYYY-MM-DD
+    tanggal_kembali_rencana  = Column(String(20), nullable=False)
+    tanggal_kembali_aktual   = Column(String(20), nullable=True)
+    status                   = Column(String(20), default="dipinjam")  # dipinjam / dikembalikan / dibatalkan
+    keterangan               = Column(Text, nullable=True)
+    created_at               = Column(DateTime(timezone=True), server_default=func.now())
+
+    user               = relationship("User", foreign_keys=[user_id])
+    detail_peminjaman  = relationship("DetailPeminjaman", back_populates="peminjaman", cascade="all, delete-orphan")
+    pengembalian        = relationship("Pengembalian", back_populates="peminjaman", uselist=False)
+
+
+class DetailPeminjaman(Base):
+    __tablename__ = "detail_peminjaman"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    peminjaman_id  = Column(Integer, ForeignKey("peminjaman.id"), nullable=False)
+    barang_id      = Column(Integer, ForeignKey("barang_gudang.id"), nullable=False)
+    lantai_asal    = Column(String(50), nullable=True)
+    ruangan_asal   = Column(String(100), nullable=True)
+    jumlah         = Column(Integer, default=1)
+    status_item    = Column(String(20), default="dipinjam")  # dipinjam / dikembalikan / dibatalkan
+    kondisi_item   = Column(String(20), nullable=True)        # diisi saat pengembalian
+    keterangan     = Column(Text, nullable=True)
+
+    peminjaman = relationship("Peminjaman", back_populates="detail_peminjaman")
+    barang     = relationship("Barang", back_populates="detail_peminjaman")
+
+
+class Pengembalian(Base):
+    __tablename__ = "pengembalian"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    peminjaman_id  = Column(Integer, ForeignKey("peminjaman.id"), nullable=False)
+    user_id        = Column(Integer, ForeignKey("users.id"), nullable=False)  # yang memproses pengembalian
+    tanggal_kembali = Column(String(20), nullable=False)
+    keterangan     = Column(Text, nullable=True)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+
+    peminjaman = relationship("Peminjaman", back_populates="pengembalian")
+    user       = relationship("User", foreign_keys=[user_id])
+
+
+class MutasiBarang(Base):
+    __tablename__ = "mutasi_barang"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    barang_id       = Column(Integer, ForeignKey("barang_gudang.id"), nullable=False)
+    user_id         = Column(Integer, ForeignKey("users.id"), nullable=False)  # yang mencatat mutasi
+    lantai_asal     = Column(String(50), nullable=True)
+    ruangan_asal    = Column(String(100), nullable=True)
+    lantai_tujuan   = Column(String(50), nullable=False)
+    ruangan_tujuan  = Column(String(100), nullable=False)
+    tanggal_mutasi  = Column(String(20), nullable=False)
+    alasan          = Column(String(150), nullable=True)
+    keterangan      = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    barang = relationship("Barang", back_populates="mutasi")
+    user   = relationship("User", foreign_keys=[user_id])

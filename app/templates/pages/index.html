@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <div class="section-card p-3 mb-3 bg-white rounded shadow-sm">
+    <div class="section-card p-3 mb-3 bg-white rounded shadow-sm" id="cardInfoDevice">
       <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
         <i class="bi bi-router me-2 text-primary"></i>Info Device
       </h6>
@@ -125,12 +125,15 @@ async function loadHariLiburDashboard() {
   try {
     const today = getTodayLocal();
     const year  = today.slice(0, 4);
-    const res   = await fetch(`https://libur.deno.dev/api?year=${year}`);
+    // Sumber: api-hari-libur.vercel.app (menggantikan libur.deno.dev yang
+    // sudah down dan api-harilibur.vercel.app yang di-pause).
+    const res   = await fetch(`https://api-hari-libur.vercel.app/api?year=${year}`);
     if (!res.ok) return;
-    const data  = await res.json();
+    const body  = await res.json();
+    const data  = body.data || [];
     hariLiburDashboard = {};
     data.forEach(h => {
-      if (h.date) hariLiburDashboard[h.date] = h.name;
+      if (h.date) hariLiburDashboard[h.date] = h.description;
     });
   } catch(e) {
     console.error("Gagal memuat data hari libur:", e);
@@ -173,11 +176,16 @@ function formatLantai(l) {
 async function loadDeviceInfo() {
   const rid = getRuanganId();
   if (!rid) {
+    // "Semua Ruangan" dipilih: sembunyikan card Identitas Ruangan & Info Device
+    // (keduanya spesifik per-perangkat/ruangan), lalu tampilkan jadwal aktif
+    // hari ini dari SEMUA ruangan sekaligus di card Jadwal Aktif.
     document.getElementById('cardIdentitasRuangan').style.display = 'none';
-    document.getElementById('infoDevice').innerHTML =
-      '<div class="text-warning text-center">Pilih ruangan di sidebar</div>';
+    document.getElementById('cardInfoDevice').style.display = 'none';
+    document.getElementById('statusDevice').innerHTML = '<span class="text-muted">—</span>';
+    loadJadwalSemuaRuangan();
     return;
   }
+  document.getElementById('cardInfoDevice').style.display = 'block';
   try {
     const role = "{{ user.role }}";
     const r    = await fetch(`/device-bridge/status-public?ruangan_id=${rid}&role=${role}`);
@@ -297,6 +305,60 @@ async function loadDeviceInfo() {
       '<div class="text-danger text-center">Bridge belum aktif</div>';
     document.getElementById('statusDevice').innerHTML = 
       '<span class="text-danger"><i class="bi bi-circle-fill me-1" style="font-size:0.7rem;"></i>Offline</span>';
+  }
+}
+
+async function loadJadwalSemuaRuangan() {
+  try {
+    const res     = await fetch('/jadwal/hari-ini-semua-ruangan');
+    const jadwals = await res.json();
+    const today     = getTodayLocal();
+    const namaLibur = hariLiburDashboard[today] || null;
+    let jadwalHtml = '';
+
+    if (namaLibur) {
+      jadwalHtml += `
+        <div class="d-flex align-items-center gap-2 p-2 mb-2 rounded-3"
+             style="background:#fff1f2;border:1px solid #fecdd3;">
+          <div style="min-width:32px;text-align:center;font-size:1.1rem;">🚩</div>
+          <div>
+            <div class="fw-bold" style="font-size:.83rem;color:#be123c;">Hari Libur Nasional</div>
+            <div style="font-size:.75rem;color:#e11d48;">${namaLibur}</div>
+          </div>
+        </div>`;
+    }
+
+    if (!jadwals.length) {
+      jadwalHtml += `
+        <div class="text-muted text-center py-3" style="font-size:.83rem;">
+          <i class="bi bi-calendar-x d-block mb-1" style="font-size:1.3rem;"></i>
+          Tidak ada jadwal hari ini di semua ruangan
+        </div>`;
+    } else {
+      jadwalHtml += jadwals.map(j => `
+        <div class="d-flex align-items-start gap-2 p-2 mb-2 rounded-3"
+             style="background:#f8fafc;border:1px solid #e2e8f0;">
+          <div style="min-width:48px;text-align:center;background:#eff6ff;
+                      border-radius:8px;padding:4px;">
+            <div style="font-size:.62rem;color:#64748b;">${j.kelas || ''}</div>
+            <div style="font-size:.7rem;font-weight:600;color:#1d4ed8;">${j.jam_mulai}</div>
+          </div>
+          <div>
+            <div class="fw-bold" style="font-size:.83rem;">${j.nama_kegiatan}</div>
+            <div style="font-size:.74rem;color:#1d4ed8;">
+              <i class="bi bi-geo-alt me-1"></i>${j.nama_ruangan}
+            </div>
+            <div style="font-size:.75rem;color:#64748b;">
+              <i class="bi bi-clock me-1"></i>${j.jam_mulai}–${j.jam_selesai}
+            </div>
+          </div>
+        </div>`).join('');
+    }
+    document.getElementById('jadwalHariIni').innerHTML = jadwalHtml;
+  } catch(e) {
+    console.error('Gagal memuat jadwal semua ruangan:', e);
+    document.getElementById('jadwalHariIni').innerHTML =
+      '<div class="text-danger text-center py-3">Gagal memuat jadwal</div>';
   }
 }
 
