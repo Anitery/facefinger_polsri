@@ -32,7 +32,7 @@ def now_wib() -> datetime:
 DEVICE_IP         = os.getenv("DEVICE_IP",         "10.17.44.162")
 DEVICE_COMKEY     = os.getenv("DEVICE_COMKEY",     "0")
 DEVICE_RUANGAN_ID = int(os.getenv("DEVICE_RUANGAN_ID", "7"))
-SERVER_URL        = os.getenv("SERVER_URL",        "https://facefingerpolsri-production.up.railway.app")
+SERVER_URL        = os.getenv("SERVER_URL",        "http://localhost:8000")
 BRIDGE_API_KEY    = os.getenv("BRIDGE_API_KEY",    "bridge-key-polsri-2026")
 PULL_INTERVAL     = int(os.getenv("PULL_INTERVAL", "30"))
 SYNC_INTERVAL     = int(os.getenv("SYNC_INTERVAL", "10"))

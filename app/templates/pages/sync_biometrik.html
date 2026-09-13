@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Sync Biometrik{% endblock %}
+{% block page_title %}Monitoring Sync Biometrik{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+  <i class="bi bi-info-circle me-1"></i>
+  Sistem ini <strong>self-healing</strong> — STB otomatis coba ulang semua yang berstatus
+  "gagal" tiap putaran sinkronisasi (default 30 menit), tanpa perlu aksi manual.
+  Halaman ini murni untuk <strong>memantau</strong>, bukan trigger manual.
+</div>
+
+<div class="row g-2 mb-3" id="ringkasanCards"></div>
+
+<div class="section-card p-3 mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-md">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+        <input type="text" class="form-control" id="fSearch" placeholder="Cari nama...">
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <select class="form-select form-select-sm" id="fRuangan">
+        <option value="">Semua Ruangan</option>
+        {% for r in ruangan_list %}
+        <option value="{{ r.id }}">{{ r.nama }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-3">
+      <select class="form-select form-select-sm" id="fStatus">
+        <option value="">Semua Status</option>
+        <option value="synced">Synced</option>
+        <option value="provisioned">Provisioned</option>
+        <option value="removed">Removed</option>
+        <option value="gagal">Gagal</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="tbl-wrap d-none d-md-block">
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th style="width:40px;">No</th>
+          <th>Nama</th>
+          <th>PIN</th>
+          <th>Ruangan</th>
+          <th>Status</th>
+          <th>Terakhir Update</th>
+        </tr>
+      </thead>
+      <tbody id="syncBodyDesktop"><tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<div id="syncBodyMobile" class="d-md-none d-flex flex-column gap-2">
+  <div class="text-center text-muted py-4">Memuat...</div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function statusStyle(s) {
+  if (s === 'synced') return 'background:#dcfce7;color:#15803d';
+  if (s === 'provisioned') return 'background:#dbeafe;color:#1d4ed8';
+  if (s === 'gagal') return 'background:#fee2e2;color:#b91c1c';
+  return 'background:#e2e8f0;color:#475569'; // removed
+}
+
+function formatWaktu(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('id-ID', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+}
+
+async function loadRingkasan() {
+  const res = await fetch('/device-bridge/sync-status/ringkasan');
+  const data = await res.json();
+  const el = document.getElementById('ringkasanCards');
+
+  if (!data.length) {
+    el.innerHTML = '<div class="col-12"><div class="section-card p-3 text-center text-muted">Belum ada data sync</div></div>';
+    return;
+  }
+
+  el.innerHTML = data.map(r => `
+    <div class="col-6 col-md-3">
+      <div class="section-card p-3">
+        <div class="fw-bold mb-2" style="font-size:.85rem;">${r.nama_ruangan}</div>
+        <div class="d-flex flex-wrap gap-1">
+          <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ ${r.synced}</span>
+          <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">⏳ ${r.provisioned}</span>
+          ${r.gagal > 0 ? `<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">✗ ${r.gagal}</span>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadSyncStatus() {
+  const params = new URLSearchParams();
+  const ruangan = document.getElementById('fRuangan').value;
+  const status = document.getElementById('fStatus').value;
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  if (ruangan) params.set('ruangan_id', ruangan);
+  if (status) params.set('status', status);
+
+  const res = await fetch(`/device-bridge/sync-status?${params.toString()}`);
+  let data = await res.json();
+
+  if (search) {
+    data = data.filter(d => d.nama.toLowerCase().includes(search));
+  }
+
+  const desktop = document.getElementById('syncBodyDesktop');
+  const mobile = document.getElementById('syncBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data</td></tr>';
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Tidak ada data</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map((d, i) => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td style="font-size:.85rem;">${d.nama}</td>
+      <td><code style="font-size:.78rem;">${d.pin ?? '—'}</code></td>
+      <td style="font-size:.82rem;">${d.nama_ruangan}</td>
+      <td><span style="${statusStyle(d.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${d.status}</span></td>
+      <td style="font-size:.78rem;color:#64748b;">${formatWaktu(d.updated_at)}</td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map(d => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-1">
+        <div class="fw-bold" style="font-size:.88rem;">${d.nama}</div>
+        <span style="${statusStyle(d.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${d.status}</span>
+      </div>
+      <div style="font-size:.78rem;color:#64748b;">
+        PIN ${d.pin ?? '—'} · ${d.nama_ruangan}<br>
+        Update: ${formatWaktu(d.updated_at)}
+      </div>
+    </div>`).join('');
+}
+
+['fSearch', 'fRuangan', 'fStatus'].forEach(id => {
+  document.getElementById(id).addEventListener('input', loadSyncStatus);
+  document.getElementById(id).addEventListener('change', loadSyncStatus);
+});
+
+loadRingkasan();
+loadSyncStatus();
+</script>
+{% endblock %}

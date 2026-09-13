@@ -176,6 +176,49 @@ class BridgeHeartbeat(Base):
     extra_info = Column(Text,        nullable=True)
 
 
+class BiometricTemplate(Base):
+    """
+    Template fingerprint user, diambil SEKALI dari device tempat dia
+    pertama enroll, disimpan di sini supaya bisa diduplikasi ke device
+    lain tanpa perlu registrasi ulang.
+
+    Mekanisme akses: user hanya bisa akses di ruangan yang device-nya
+    PUNYA data user itu (di-push saat user MULAI punya jadwal di sana,
+    dihapus saat jadwal berakhir/tidak ada lagi) — jadi TIDAK bergantung
+    pada Group/TimeZone device yang terbukti tidak reliable.
+    """
+    __tablename__ = "biometric_template"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    finger_id  = Column(Integer, nullable=False)   # 0-9, jari mana yang didaftarkan
+    size       = Column(String(20), nullable=True)
+    template   = Column(Text, nullable=False)       # data template (string panjang)
+    valid      = Column(String(5), default="1")
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    user = relationship("User")
+
+
+class UserDeviceSync(Base):
+    """
+    Status sinkronisasi user per device — melacak device mana saja yang
+    SAAT INI punya data user ini di memorinya (hasil push/delete
+    otomatis berdasar jadwal). Dipakai sync job untuk tahu perlu
+    push/delete apa saja tanpa harus query ulang device tiap kali.
+    """
+    __tablename__ = "user_device_sync"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    ruangan_id = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
+    status     = Column(String(20), default="pending")  # pending / synced / removed / gagal
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    user    = relationship("User")
+    ruangan = relationship("Ruangan")
+
+
 class PengaturanSistem(Base):
     """
     Pengaturan sistem global — single-row table (selalu id=1).

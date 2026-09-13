@@ -470,16 +470,24 @@ def dashboard_pengaturan(request: Request, db: Session = Depends(get_db)):
                  "ruangan_list": get_ruangan_list(db)}
     )
 
+@app.get("/dashboard/sync-biometrik")
+def dashboard_sync_biometrik(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user["role"] not in ("admin", "teknisi"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/sync_biometrik.html",
+        context={"active": "sync_biometrik", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
 # ── Root & Health ────────────────────────────────────────────────────────
 
 @app.get("/")
 def root():
-    return {
-        "sistem": "Smart Door Lock",
-        "versi":  "1.0.0",
-        "docs":   "/docs",
-        "dashboard": "/dashboard"
-    }
+    return RedirectResponse("/dashboard", status_code=302)
 
 @app.get("/health")
 def health_check():

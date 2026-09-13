@@ -126,6 +126,74 @@ class X606SOAPClient:
         )
         return self._ok(self._send(xml))
 
+    # ── Fingerprint template (untuk duplikasi antar device) ──
+
+    def get_user_template(self, pin: str, finger_id: int) -> Optional[Dict[str, str]]:
+        """
+        Ambil 1 template fingerprint milik user (per jari, finger_id 0-9).
+        Return None kalau finger_id ini belum didaftarkan (Valid=0 atau kosong).
+        """
+        xml = (
+            f'<GetUserTemplate>'
+            f'<ArgComKey xsi:type="xsd:integer">{self.com_key}</ArgComKey>'
+            f'<Arg>'
+            f'<PIN xsi:type="xsd:integer">{pin}</PIN>'
+            f'<FingerID xsi:type="xsd:integer">{finger_id}</FingerID>'
+            f'</Arg>'
+            f'</GetUserTemplate>'
+        )
+        rows = self._rows(self._send(xml), "GetUserTemplateResponse")
+        if not rows:
+            return None
+        row = rows[0]
+        if not row.get("Template") or row.get("Valid") in (None, "0", ""):
+            return None
+        return row
+
+    def get_all_templates(self, pin: str, max_fingers: int = 10) -> List[Dict[str, str]]:
+        """Ambil semua template fingerprint valid milik 1 user (loop finger_id 0-9)."""
+        hasil = []
+        for finger_id in range(max_fingers):
+            t = self.get_user_template(pin, finger_id)
+            if t:
+                hasil.append(t)
+        return hasil
+
+    def set_user_template(self, pin: str, finger_id: int, size: str, template: str, valid: str = "1") -> bool:
+        """
+        Upload 1 template fingerprint ke device ini (dipakai untuk
+        duplikasi — template diambil dari get_user_template() di
+        device asal, lalu di-push ke device tujuan).
+        PENTING: user (PIN) harus sudah ada di device tujuan dulu
+        (panggil set_user() sebelum ini), atau template bisa gagal
+        ter-assign dengan benar.
+        """
+        xml = (
+            f'<SetUserTemplate>'
+            f'<ArgComKey xsi:type="xsd:integer">{self.com_key}</ArgComKey>'
+            f'<Arg>'
+            f'<PIN xsi:type="xsd:integer">{pin}</PIN>'
+            f'<FingerID xsi:type="xsd:integer">{finger_id}</FingerID>'
+            f'<Size xsi:type="xsd:integer">{size}</Size>'
+            f'<Valid xsi:type="xsd:integer">{valid}</Valid>'
+            f'<Template xsi:type="xsd:string">{template}</Template>'
+            f'</Arg>'
+            f'</SetUserTemplate>'
+        )
+        return self._ok(self._send(xml))
+
+    def delete_template(self, pin: str) -> bool:
+        """Hapus template fingerprint 1 user (user & data lain tetap ada)."""
+        xml = (
+            f'<DeleteTemplate>'
+            f'<ArgComKey xsi:type="xsd:integer">{self.com_key}</ArgComKey>'
+            f'<Arg>'
+            f'<PIN xsi:type="xsd:integer">{pin}</PIN>'
+            f'</Arg>'
+            f'</DeleteTemplate>'
+        )
+        return self._ok(self._send(xml))
+
     # ── Attendance logs ──────────────────────────────────
 
     def get_logs(self, pin: str = "All") -> List[Dict[str, str]]:

@@ -30,12 +30,27 @@ from app.models.models import (
     BridgeHeartbeat,
     Ruangan,
     PengaturanSistem,
+    BiometricTemplate,
+    UserDeviceSync,
 )
 from app.routers.pengaturan import get_pengaturan
+from app.services.auth_service import get_current_user_session
+import requests
 
 router = APIRouter(prefix="/device-bridge", tags=["Device Bridge"])
 
 BRIDGE_API_KEY = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2026")
+
+# Kredensial admin panel bawaan X606-S — SEKARANG dipakai oleh door_service.py
+# yang jalan di STB (bukan langsung dari server ini), karena server mungkin
+# tidak satu jaringan langsung dengan device.
+DEVICE_WEBPANEL_USER = os.getenv("DEVICE_WEBPANEL_USER", "1")
+DEVICE_WEBPANEL_PASS = os.getenv("DEVICE_WEBPANEL_PASS", "8888")
+
+# door_service.py berjalan di STB (satu jaringan dengan device). Server ini
+# memanggilnya lewat HTTP biasa, bukan menghubungi device secara langsung.
+DOOR_SERVICE_URL     = os.getenv("DOOR_SERVICE_URL", "http://10.17.44.161:8081")
+DOOR_SERVICE_API_KEY = os.getenv("DOOR_SERVICE_API_KEY", "ganti-key-ini-di-env")
 
 # Definisikan Timezone WIB (UTC+7)
 WIB = timezone(timedelta(hours=7))
@@ -437,8 +452,13 @@ def sync_enrollment(
 ):
     """
     Bridge kirim daftar user yang ada di device untuk reverse-sync ke DB Cloud.
+    Sekaligus mendeteksi user yang PIN-nya sudah cocok tapi BELUM punya
+    template biometrik tersimpan di server — supaya bridge tahu perlu
+    ekstrak & upload template untuk PIN-PIN itu (lihat /upload-templates).
     """
     updated = 0
+    need_download = []
+
     for du in payload.device_users:
         try:
             perangkat_id = int(du.pin)
@@ -453,25 +473,275 @@ def sync_enrollment(
         if not user:
             if not du.name or not du.name.strip():
                 continue
-            
+
             # Ambil potongan nama depan untuk meraba nama di DB
             nama_depan = du.name.split()[0]
             user = db.query(User).filter(
                 User.nama.ilike(f"%{nama_depan}%"),
                 User.aktif == True
             ).first()
-            
+
             if user and not user.id_perangkat:
                 user.id_perangkat = perangkat_id
                 db.commit()
                 updated += 1
                 log.info(f"Auto-mapped: {user.nama} → ID Perangkat:{perangkat_id}")
 
+        if user:
+            punya_template = db.query(BiometricTemplate).filter(
+                BiometricTemplate.user_id == user.id
+            ).first()
+            if not punya_template:
+                need_download.append(perangkat_id)
+
     return {
-        "status":  "ok",
-        "updated": updated,
-        "total":   len(payload.device_users)
+        "status":        "ok",
+        "updated":       updated,
+        "total":         len(payload.device_users),
+        "need_download": need_download,
     }
+
+
+@router.post("/upload-templates")
+def upload_templates(
+    payload: dict,
+    key=Depends(verify_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Bridge mengirim template biometrik hasil ekstraksi SOAP
+    (GetUserTemplate) dari device-nya, untuk PIN-PIN yang server
+    tandai butuh download lewat /sync-enrollment. Body:
+        {"pin": "4", "templates": [{"finger_id":0,"size":"512","valid":"1","template":"..."}]}
+    """
+    pin = payload.get("pin")
+    templates = payload.get("templates", [])
+    if not pin or not templates:
+        raise HTTPException(status_code=400, detail="pin dan templates wajib diisi")
+
+    try:
+        perangkat_id = int(pin)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="pin harus angka")
+
+    user = db.query(User).filter(User.id_perangkat == perangkat_id, User.aktif == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User dengan id_perangkat {pin} tidak ditemukan")
+
+    tersimpan = 0
+    for t in templates:
+        existing = db.query(BiometricTemplate).filter(
+            BiometricTemplate.user_id == user.id,
+            BiometricTemplate.finger_id == int(t["finger_id"]),
+        ).first()
+        if existing:
+            existing.size = t.get("size")
+            existing.template = t.get("template")
+            existing.valid = t.get("valid", "1")
+        else:
+            db.add(BiometricTemplate(
+                user_id=user.id,
+                finger_id=int(t["finger_id"]),
+                size=t.get("size"),
+                template=t.get("template"),
+                valid=t.get("valid", "1"),
+            ))
+        tersimpan += 1
+    db.commit()
+
+    log.info(f"Template biometrik tersimpan untuk {user.nama} (PIN {pin}): {tersimpan} jari")
+    return {"status": "ok", "user": user.nama, "tersimpan": tersimpan}
+
+
+@router.get("/roster-ruangan")
+def get_roster_ruangan(
+    ruangan_id: int,
+    hari_kedepan: int = 3,
+    key=Depends(verify_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Daftar mahasiswa yang SEHARUSNYA ada di device ruangan ini — dari
+    jadwal hari ini sampai N hari ke depan (default 3, supaya bisa
+    di-provision SEBELUM kelasnya mulai). Dipakai Process 2 (di STB)
+    untuk tahu siapa yang perlu di-push/provision/hapus dari device.
+
+    Admin/teknisi/dosen TIDAK lewat endpoint ini — mereka akses bebas
+    (ROLE_BEBAS), diprovision terpisah/manual, tidak terikat jadwal.
+    """
+    today = datetime.now(WIB).date()
+    tanggal_list = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(hari_kedepan + 1)]
+
+    jadwals = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(
+        JadwalRuangan.ruangan_id == ruangan_id,
+        JadwalRuangan.tanggal.in_(tanggal_list),
+        JadwalRuangan.is_active == True,
+    ).all()
+
+    user_ids = set()
+    for j in jadwals:
+        for m in j.mahasiswa_diizinkan:
+            user_ids.add(m.id)
+
+    if not user_ids:
+        return []
+
+    users = db.query(User).filter(
+        User.id.in_(user_ids), User.id_perangkat.isnot(None), User.aktif == True
+    ).all()
+
+    hasil = []
+    for u in users:
+        punya_template = db.query(BiometricTemplate).filter(BiometricTemplate.user_id == u.id).first() is not None
+        hasil.append({
+            "user_id": u.id,
+            "pin": u.id_perangkat,
+            "nama": u.nama,
+            "punya_template": punya_template,
+        })
+    return hasil
+
+
+@router.get("/to-remove")
+def get_to_remove_ruangan(
+    ruangan_id: int,
+    hari_kedepan: int = 3,
+    key=Depends(verify_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Kebalikan dari /roster-ruangan — user yang statusnya SUDAH
+    provisioned/synced di ruangan ini di UserDeviceSync, TAPI sekarang
+    TIDAK LAGI ada di roster (jadwalnya sudah habis/berubah). Dipakai
+    Process 2 (STB) untuk tahu siapa yang perlu dihapus dari device.
+    """
+    today = datetime.now(WIB).date()
+    tanggal_list = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(hari_kedepan + 1)]
+
+    jadwals = db.query(JadwalRuangan).options(
+        joinedload(JadwalRuangan.mahasiswa_diizinkan)
+    ).filter(
+        JadwalRuangan.ruangan_id == ruangan_id,
+        JadwalRuangan.tanggal.in_(tanggal_list),
+        JadwalRuangan.is_active == True,
+    ).all()
+
+    roster_ids = set()
+    for j in jadwals:
+        for m in j.mahasiswa_diizinkan:
+            roster_ids.add(m.id)
+
+    aktif_sync = db.query(UserDeviceSync).filter(
+        UserDeviceSync.ruangan_id == ruangan_id,
+        UserDeviceSync.status.in_(["synced", "provisioned"]),
+    ).all()
+
+    hasil = []
+    for s in aktif_sync:
+        if s.user_id not in roster_ids:
+            u = db.query(User).filter(User.id == s.user_id).first()
+            if u and u.id_perangkat:
+                hasil.append({"user_id": u.id, "pin": u.id_perangkat, "nama": u.nama})
+    return hasil
+
+
+@router.get("/user-templates")
+def get_user_templates(pin: int, key=Depends(verify_key), db: Session = Depends(get_db)):
+    """Ambil semua template fingerprint 1 user (buat STB push ke device lokalnya)."""
+    user = db.query(User).filter(User.id_perangkat == pin).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User dengan PIN {pin} tidak ditemukan")
+    templates = db.query(BiometricTemplate).filter(BiometricTemplate.user_id == user.id).all()
+    return {
+        "user_id": user.id,
+        "nama": user.nama,
+        "pin": pin,
+        "templates": [
+            {"finger_id": t.finger_id, "size": t.size, "valid": t.valid, "template": t.template}
+            for t in templates
+        ],
+    }
+
+
+class ReportSyncStatusPayload(BaseModel):
+    ruangan_id: int
+    user_id: int
+    status: str  # provisioned / synced / removed / gagal
+
+
+@router.post("/report-sync-status")
+def report_sync_status(
+    payload: ReportSyncStatusPayload,
+    key=Depends(verify_key),
+    db: Session = Depends(get_db),
+):
+    """STB melaporkan hasil push/provision/hapus — server catat di UserDeviceSync."""
+    row = db.query(UserDeviceSync).filter(
+        UserDeviceSync.user_id == payload.user_id,
+        UserDeviceSync.ruangan_id == payload.ruangan_id,
+    ).first()
+    if row:
+        row.status = payload.status
+    else:
+        db.add(UserDeviceSync(user_id=payload.user_id, ruangan_id=payload.ruangan_id, status=payload.status))
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.get("/sync-status")
+def get_sync_status(
+    ruangan_id: Optional[int] = None,
+    status: Optional[str] = None,
+    user=Depends(get_current_user_session),
+    db: Session = Depends(get_db),
+):
+    """
+    Dashboard monitoring: status sync biometrik semua user x ruangan.
+    Dipanggil dari browser (session login), BUKAN dari STB.
+    """
+    q = db.query(UserDeviceSync).options(
+        joinedload(UserDeviceSync.user), joinedload(UserDeviceSync.ruangan)
+    )
+    if ruangan_id:
+        q = q.filter(UserDeviceSync.ruangan_id == ruangan_id)
+    if status:
+        q = q.filter(UserDeviceSync.status == status)
+
+    rows = q.order_by(UserDeviceSync.updated_at.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "user_id": r.user_id,
+            "nama": r.user.nama if r.user else "—",
+            "pin": r.user.id_perangkat if r.user else None,
+            "ruangan_id": r.ruangan_id,
+            "nama_ruangan": r.ruangan.nama if r.ruangan else "—",
+            "status": r.status,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/sync-status/ringkasan")
+def get_sync_status_ringkasan(user=Depends(get_current_user_session), db: Session = Depends(get_db)):
+    """Hitung jumlah per status, per ruangan — buat kartu ringkasan di dashboard."""
+    rows = db.query(
+        UserDeviceSync.ruangan_id, Ruangan.nama, UserDeviceSync.status, func.count(UserDeviceSync.id)
+    ).join(Ruangan, Ruangan.id == UserDeviceSync.ruangan_id).group_by(
+        UserDeviceSync.ruangan_id, Ruangan.nama, UserDeviceSync.status
+    ).all()
+
+    ringkasan = {}
+    for ruangan_id, nama_ruangan, status, jumlah in rows:
+        if ruangan_id not in ringkasan:
+            ringkasan[ruangan_id] = {"ruangan_id": ruangan_id, "nama_ruangan": nama_ruangan,
+                                       "synced": 0, "provisioned": 0, "removed": 0, "gagal": 0}
+        ringkasan[ruangan_id][status] = jumlah
+
+    return list(ringkasan.values())
 
 
 @router.get("/device-info")
@@ -755,3 +1025,55 @@ def status_semua_ruangan(role: Optional[str] = None, db: Session = Depends(get_d
         })
 
     return hasil
+
+
+@router.post("/open-door")
+def open_door_manual(
+    ruangan_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_session),
+):
+    """
+    Buka pintu secara manual lewat dashboard. Hanya admin/teknisi — ini
+    aksi fisik yang sensitif.
+
+    Server ini TIDAK menghubungi device secara langsung — request
+    diteruskan ke door_service.py yang berjalan di STB (satu jaringan
+    dengan device), karena server utama mungkin tidak satu jaringan
+    langsung dengan X606-S.
+    """
+    if user["role"] not in ROLE_BEBAS:
+        raise HTTPException(status_code=403, detail="Hanya admin/teknisi yang boleh membuka pintu manual")
+
+    # Ruangan_id disimpan untuk konteks log — saat ini asumsinya 1
+    # door_service per lokasi. Kalau nanti multi-ruangan, DOOR_SERVICE_URL
+    # bisa dipetakan per ruangan_id (misal via kolom di tabel Ruangan).
+    try:
+        r = requests.post(
+            f"{DOOR_SERVICE_URL}/open-door",
+            headers={"X-API-Key": DOOR_SERVICE_API_KEY},
+            timeout=15,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gagal menghubungi door_service di STB ({DOOR_SERVICE_URL}): {e}")
+
+    if not r.ok:
+        try:
+            detail = r.json().get("detail", r.text)
+        except Exception:
+            detail = r.text
+        raise HTTPException(status_code=502, detail=f"door_service melaporkan gagal: {detail}")
+
+    # Catat sebagai access_log untuk jejak audit
+    log = AccessLog(
+        ruangan_id=ruangan_id,
+        user_id=user["user_id"],
+        status="berhasil",
+        metode="manual_dashboard",
+        keterangan=f"Pintu dibuka manual dari dashboard oleh {user['nama']}",
+        waktu_akses=datetime.now(WIB),
+    )
+    db.add(log)
+    db.commit()
+
+    return {"pesan": "Pintu berhasil dibuka", "ruangan_id": ruangan_id}

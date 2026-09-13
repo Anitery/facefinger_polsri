@@ -350,6 +350,11 @@
       {% endif %}
 
       <div class="nav-section mt-3">Akun &amp; Sistem</div>
+      {% if user and user.role in ['admin', 'teknisi'] %}
+      <a href="/dashboard/sync-biometrik" class="nav-link {% if active=='sync_biometrik' %}active{% endif %}">
+        <i class="bi bi-fingerprint"></i> Sync Biometrik
+      </a>
+      {% endif %}
       {% if user and user.role == 'admin' %}
       <a href="/dashboard/pengaturan" class="nav-link {% if active=='pengaturan' %}active{% endif %}">
         <i class="bi bi-sliders"></i> Pengaturan Sistem
