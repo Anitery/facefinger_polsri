@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Registrasi Biometrik{% endblock %}
+{% block page_title %}Sesi Registrasi Biometrik{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+  <i class="bi bi-info-circle me-1"></i>
+  Selama sesi aktif, <strong>jadwal yang sedang berjalan di ruangan itu dinonaktifkan sementara</strong>
+  dan sync biometrik otomatis di-skip — supaya tidak bentrok dengan pendaftaran manual.
+  Jadwal otomatis aktif lagi setelah sesi diselesaikan/dibatalkan.
+</div>
+
+<!-- ══════════ STATE: TIDAK ADA SESI AKTIF ══════════ -->
+<div id="areaMulaiSesi">
+  <div class="section-card p-4 mb-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Ruangan / Alat</h6>
+    <select class="form-select" id="pilihRuangan" onchange="onRuanganDipilih()">
+      <option value="">Memuat daftar ruangan...</option>
+    </select>
+    <div id="infoRuanganDipilih" class="mt-2" style="font-size:.8rem;color:#64748b;"></div>
+  </div>
+
+  <div class="section-card p-4 mb-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>2. Pilih User</h6>
+    <div class="row g-2 mb-3">
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-bold" style="font-size:.82rem;">Pilih cepat per kelas</label>
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" id="pilihKelasCepat">
+            <option value="">— Pilih kelas —</option>
+          </select>
+          <button class="btn btn-outline-primary btn-sm" onclick="tambahSemuaKelas()">
+            <i class="bi bi-plus-lg"></i> Tambah Semua
+          </button>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-bold" style="font-size:.82rem;">Cari user manual</label>
+        <input type="text" class="form-control form-control-sm" id="cariUserManual" placeholder="Ketik nama/NIM..." oninput="cariUser()">
+        <div id="hasilCariUser" class="list-group mt-1" style="position:relative;z-index:10;font-size:.82rem;"></div>
+      </div>
+    </div>
+
+    <label class="form-label fw-bold" style="font-size:.82rem;">User terpilih (<span id="jumlahTerpilih">0</span>)</label>
+    <div id="daftarTerpilih" class="border rounded p-2" style="min-height:80px;max-height:260px;overflow-y:auto;">
+      <div class="text-muted text-center py-3" style="font-size:.82rem;">Belum ada user dipilih</div>
+    </div>
+  </div>
+
+  <div id="alertMulai" class="mb-3"></div>
+  <button class="btn btn-primary" onclick="mulaiSesi()">
+    <i class="bi bi-play-fill me-1"></i>Mulai Sesi Input Finger
+  </button>
+</div>
+
+<!-- ══════════ STATE: SESI SEDANG AKTIF ══════════ -->
+<div id="areaSesiAktif" style="display:none;">
+  <div class="section-card p-4 mb-3" style="border-left:4px solid #d97706;">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+      <div>
+        <h6 class="fw-bold mb-1"><i class="bi bi-record-circle-fill text-warning me-2"></i>Sesi Sedang Berjalan</h6>
+        <div style="font-size:.85rem;color:#64748b;" id="infoSesiAktif"></div>
+      </div>
+    </div>
+    <div class="alert alert-warning py-2 mt-2 mb-0" style="font-size:.8rem;">
+      Daftarkan fingerprint tiap user berikut satu per satu langsung di alat. PIN dan nama mereka
+      sudah dikirim ke device — device siap menerima pendaftaran.
+    </div>
+  </div>
+
+  <div class="section-card p-3 mb-3">
+    <div id="daftarPesertaSesi"></div>
+  </div>
+
+  <div id="alertSelesai" class="mb-3"></div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-success" onclick="selesaikanSesi()">
+      <i class="bi bi-check-lg me-1"></i>Selesaikan Sesi (Ekstrak &amp; Simpan Template)
+    </button>
+    <button class="btn btn-outline-danger" onclick="batalkanSesi()">
+      <i class="bi bi-x-lg me-1"></i>Batalkan Sesi
+    </button>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let userTerpilih = [];   // [{id, nama, nim_nip, id_perangkat}]
+let semuaUserCache = [];
+let sesiAktifId = null;
+
+async function loadRuanganDropdown() {
+  const res = await fetch('/device-bridge/status-semua-ruangan');
+  const data = await res.json();
+  const el = document.getElementById('pilihRuangan');
+  el.innerHTML = '<option value="">— Pilih ruangan —</option>' + data.map(r =>
+    `<option value="${r.ruangan_id}" data-online="${r.bridge_aktif}">${r.nama_ruangan} ${r.bridge_aktif ? '🟢' : '🔴'}</option>`
+  ).join('');
+}
+
+function onRuanganDipilih() {
+  const sel = document.getElementById('pilihRuangan');
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById('infoRuanganDipilih');
+  if (!sel.value) { info.textContent = ''; return; }
+  const online = opt.dataset.online === 'true';
+  info.innerHTML = online
+    ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge online, siap dipakai untuk sesi.</span>'
+    : '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Bridge tidak online — sesi mungkin gagal push ke device.</span>';
+}
+
+async function loadKelasDropdown() {
+  const res = await fetch('/jadwal/kelas-list');
+  const data = await res.json();
+  document.getElementById('pilihKelasCepat').innerHTML =
+    '<option value="">— Pilih kelas —</option>' + data.map(k => `<option value="${k}">${k}</option>`).join('');
+}
+
+async function loadSemuaUserCache() {
+  semuaUserCache = [];
+  try {
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const res = await fetch(`/users/?limit=200&page=${page}`);
+      if (!res.ok) {
+        console.error('Gagal load user, status:', res.status);
+        break;
+      }
+      const data = await res.json();
+      semuaUserCache = semuaUserCache.concat(data.data || []);
+      totalPages = data.pagination ? data.pagination.total_pages : 1;
+      page++;
+    } while (page <= totalPages);
+  } catch (e) {
+    console.error('Gagal load daftar user:', e);
+  }
+}
+
+function tambahUser(u) {
+  if (!u.id_perangkat) return; // skip user tanpa ID Perangkat, tidak bisa di-provision
+  if (userTerpilih.find(x => x.id === u.id)) return; // sudah ada
+  userTerpilih.push(u);
+  renderDaftarTerpilih();
+}
+
+function hapusUserTerpilih(id) {
+  userTerpilih = userTerpilih.filter(u => u.id !== id);
+  renderDaftarTerpilih();
+}
+
+function tambahSemuaKelas() {
+  const kelas = document.getElementById('pilihKelasCepat').value;
+  if (!kelas) return;
+  semuaUserCache.filter(u => u.kelas === kelas && u.role === 'mahasiswa').forEach(tambahUser);
+}
+
+function cariUser() {
+  const kw = document.getElementById('cariUserManual').value.trim().toLowerCase();
+  const hasil = document.getElementById('hasilCariUser');
+  if (kw.length < 2) { hasil.innerHTML = ''; return; }
+  const cocok = semuaUserCache.filter(u =>
+    (u.nama.toLowerCase().includes(kw) || (u.nim_nip||'').toLowerCase().includes(kw))
+    && !userTerpilih.find(x => x.id === u.id)
+  ).slice(0, 8);
+  hasil.innerHTML = cocok.map(u => `
+    <button type="button" class="list-group-item list-group-item-action py-1 px-2"
+            onclick='tambahUser(${JSON.stringify(u)}); document.getElementById("cariUserManual").value=""; document.getElementById("hasilCariUser").innerHTML="";'>
+      ${u.nama} <small class="text-muted">${u.nim_nip}</small>
+    </button>`).join('');
+}
+
+function renderDaftarTerpilih() {
+  document.getElementById('jumlahTerpilih').textContent = userTerpilih.length;
+  const el = document.getElementById('daftarTerpilih');
+  if (!userTerpilih.length) {
+    el.innerHTML = '<div class="text-muted text-center py-3" style="font-size:.82rem;">Belum ada user dipilih</div>';
+    return;
+  }
+  el.innerHTML = userTerpilih.map(u => `
+    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+      <div style="font-size:.82rem;">${u.nama} <small class="text-muted">(${u.nim_nip}, PIN ${u.id_perangkat})</small></div>
+      <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="hapusUserTerpilih(${u.id})"><i class="bi bi-x"></i></button>
+    </div>`).join('');
+}
+
+async function mulaiSesi() {
+  const ruanganId = document.getElementById('pilihRuangan').value;
+  const alertEl = document.getElementById('alertMulai');
+  if (!ruanganId) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih ruangan dulu.</div>'; return; }
+  if (!userTerpilih.length) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Memulai sesi & push ke device...</div>';
+
+  const res = await fetch('/sesi-finger/mulai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ ruangan_id: parseInt(ruanganId), user_ids: userTerpilih.map(u => u.id) }),
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal memulai sesi.'}</div>`;
+    return;
+  }
+  if (data.peringatan) {
+    alertEl.innerHTML = `<div class="alert alert-warning py-2">${data.peringatan}</div>`;
+  }
+  sesiAktifId = data.sesi_id;
+  tampilkanSesiAktif();
+}
+
+function tampilkanSesiAktif() {
+  document.getElementById('areaMulaiSesi').style.display = 'none';
+  document.getElementById('areaSesiAktif').style.display = 'block';
+
+  const ruanganNama = document.getElementById('pilihRuangan').selectedOptions[0]?.text || '—';
+  document.getElementById('infoSesiAktif').innerHTML = `Ruangan: <strong>${ruanganNama}</strong> · ${userTerpilih.length} user`;
+
+  document.getElementById('daftarPesertaSesi').innerHTML = userTerpilih.map((u, i) => `
+    <div class="d-flex justify-content-between align-items-center py-2 ${i < userTerpilih.length-1 ? 'border-bottom' : ''}">
+      <div style="font-size:.85rem;">
+        <span class="text-muted" style="font-size:.75rem;">${i+1}.</span>
+        <strong>${u.nama}</strong> <small class="text-muted">PIN ${u.id_perangkat}</small>
+      </div>
+      <span class="text-muted" style="font-size:.78rem;"><i class="bi bi-fingerprint me-1"></i>Silakan daftarkan di alat</span>
+    </div>`).join('');
+}
+
+async function selesaikanSesi() {
+  const alertEl = document.getElementById('alertSelesai');
+  if (!confirm('Pastikan semua user sudah selesai daftar fingerprint di alat. Lanjutkan ekstrak & simpan?')) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mengekstrak template dari device, mohon tunggu...</div>';
+
+  const res = await fetch('/sesi-finger/selesai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ sesi_id: sesiAktifId }),
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal menyelesaikan sesi.'}</div>`;
+    return;
+  }
+
+  let pesan = `<div class="alert alert-success py-2">Sesi selesai! ${data.tersimpan} user berhasil disimpan templatenya.`;
+  if (data.gagal && data.gagal.length) {
+    pesan += `<br><strong>Gagal (belum enroll / error):</strong> PIN ${data.gagal.join(', ')}`;
+  }
+  pesan += '</div>';
+  alertEl.innerHTML = pesan;
+
+  setTimeout(resetKeFormAwal, 2500);
+}
+
+async function batalkanSesi() {
+  if (!confirm('Batalkan sesi ini? Data yang belum di-ekstrak akan hilang (jadwal akan diaktifkan lagi).')) return;
+  await fetch('/sesi-finger/batal', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ sesi_id: sesiAktifId }),
+  });
+  resetKeFormAwal();
+}
+
+function resetKeFormAwal() {
+  userTerpilih = [];
+  sesiAktifId = null;
+  document.getElementById('areaSesiAktif').style.display = 'none';
+  document.getElementById('areaMulaiSesi').style.display = 'block';
+  document.getElementById('alertMulai').innerHTML = '';
+  document.getElementById('alertSelesai').innerHTML = '';
+  renderDaftarTerpilih();
+  loadSemuaUserCache(); // refresh status punya_template
+}
+
+async function cekSesiAktifSaatBuka() {
+  const res = await fetch('/sesi-finger/aktif');
+  const data = await res.json();
+  if (data.aktif) {
+    sesiAktifId = data.id;
+    userTerpilih = data.peserta.map(p => ({ id: p.id, nama: p.nama, id_perangkat: p.pin, nim_nip: '' }));
+    document.getElementById('pilihRuangan').value = data.ruangan_id;
+    tampilkanSesiAktif();
+  }
+}
+
+loadRuanganDropdown();
+loadKelasDropdown();
+loadSemuaUserCache().then(cekSesiAktifSaatBuka);
+</script>
+{% endblock %}

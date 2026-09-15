@@ -111,6 +111,65 @@ def trigger_open_door(x_api_key: str = Header(...)):
     return {"pesan": "Pintu berhasil dibuka", "device_ip": DEVICE_IP}
 
 
+@app.post("/provision-users")
+def provision_users(payload: dict, x_api_key: str = Header(...)):
+    """
+    Dipanggil server saat admin MULAI sesi input finger. Push PIN+nama
+    (TANPA template) ke device — supaya device siap terima pendaftaran
+    fingerprint fisik untuk tiap user di daftar ini.
+    Body: {"users": [{"pin": "101", "nama": "Andi"}, ...]}
+    """
+    verify_key(x_api_key)
+    users = payload.get("users", [])
+    if not users:
+        raise HTTPException(status_code=400, detail="Daftar users kosong")
+
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    berhasil, gagal = [], []
+    for u in users:
+        try:
+            ok = client.set_user(pin=str(u["pin"]), name=u["nama"])
+            (berhasil if ok else gagal).append(u["pin"])
+        except Exception as e:
+            log.error(f"provision-users gagal untuk PIN {u.get('pin')}: {e}")
+            gagal.append(u["pin"])
+        time.sleep(JEDA_ANTAR_USER)
+
+    return {"berhasil": berhasil, "gagal": gagal}
+
+
+@app.post("/extract-session-templates")
+def extract_session_templates(payload: dict, x_api_key: str = Header(...)):
+    """
+    Dipanggil server saat admin klik "Selesaikan Sesi". Ambil semua
+    template fingerprint (SOAP GetUserTemplate) untuk daftar PIN yang
+    diberikan — dipakai setelah sesi enrollment fisik selesai.
+    Body: {"pins": ["101", "102", ...]}
+    Return: {"101": [{"finger_id":0,"size":"512","valid":"1","template":"..."}], "102": [...]}
+    """
+    verify_key(x_api_key)
+    pins = payload.get("pins", [])
+    if not pins:
+        raise HTTPException(status_code=400, detail="Daftar pins kosong")
+
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    hasil = {}
+    for pin in pins:
+        try:
+            templates = client.get_all_templates(str(pin))
+            hasil[str(pin)] = [
+                {"finger_id": int(t["FingerID"]), "size": t.get("Size"), "valid": t.get("Valid", "1"), "template": t.get("Template")}
+                for t in templates
+            ]
+            log.info(f"extract-session-templates: PIN {pin} -> {len(templates)} template")
+        except Exception as e:
+            log.error(f"extract-session-templates gagal untuk PIN {pin}: {e}")
+            hasil[str(pin)] = []
+        time.sleep(JEDA_ANTAR_USER)
+
+    return hasil
+
+
 # ══════════════════════════════════════════════════════════
 # BACKGROUND LOOP — Sinkronisasi biometrik berdasar jadwal
 # ══════════════════════════════════════════════════════════
@@ -143,6 +202,13 @@ def biometric_sync_sekali_jalan():
     """1 putaran penuh: provision/push sesuai roster, hapus yang tidak perlu lagi."""
     if not DEVICE_RUANGAN_ID:
         log.warning("DEVICE_RUANGAN_ID belum di-set — skip sync biometrik.")
+        return
+
+    # Kalau ada sesi input finger yang sedang aktif di ruangan ini, SKIP
+    # putaran ini sepenuhnya — biar tidak bentrok dengan proses manual admin.
+    sesi = _server_get("/device-bridge/sesi-finger-aktif", {"ruangan_id": DEVICE_RUANGAN_ID})
+    if isinstance(sesi, dict) and sesi.get("aktif"):
+        log.info(f"Ada sesi input finger aktif di ruangan {DEVICE_RUANGAN_ID} — skip sync biometrik putaran ini.")
         return
 
     client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)

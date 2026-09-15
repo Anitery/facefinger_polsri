@@ -219,6 +219,38 @@ class UserDeviceSync(Base):
     ruangan = relationship("Ruangan")
 
 
+# Relasi: SesiInputFinger ↔ User (mahasiswa/dosen yang termasuk sesi)
+sesi_finger_user = Table(
+    "sesi_finger_user",
+    Base.metadata,
+    Column("sesi_id", Integer, ForeignKey("sesi_input_finger.id"), primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+)
+
+
+class SesiInputFinger(Base):
+    """
+    Sesi terkontrol untuk mendaftarkan fingerprint banyak user sekaligus
+    (misal 1 kelas) ke 1 device tertentu. Selama sesi aktif, jadwal yang
+    sedang berjalan di ruangan itu dinonaktifkan sementara, dan loop
+    sync biometrik otomatis (door_service.py) di-skip untuk ruangan ini
+    — supaya tidak "berantem" dengan proses manual admin.
+    """
+    __tablename__ = "sesi_input_finger"
+
+    id            = Column(Integer, primary_key=True)
+    ruangan_id    = Column(Integer, ForeignKey("ruangan.id"), nullable=False)
+    device_ip     = Column(String(50), nullable=True)   # snapshot IP saat sesi dibuat
+    status        = Column(String(20), default="aktif")  # aktif / selesai / batal
+    dimulai_oleh  = Column(Integer, ForeignKey("users.id"), nullable=True)
+    jadwal_dipause_id = Column(Integer, ForeignKey("jadwal_ruangan.id"), nullable=True)
+    dimulai_at    = Column(DateTime(timezone=True), server_default=func.now())
+    selesai_at    = Column(DateTime(timezone=True), nullable=True)
+
+    ruangan = relationship("Ruangan")
+    peserta = relationship("User", secondary=sesi_finger_user)
+
+
 class PengaturanSistem(Base):
     """
     Pengaturan sistem global — single-row table (selalu id=1).

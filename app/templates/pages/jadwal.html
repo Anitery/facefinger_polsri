@@ -262,6 +262,18 @@
           </div>
         </div>
 
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Mahasiswa yang Mengikuti <small class="text-muted fw-normal">(opsional, bisa diatur belakangan lewat "Kelola Mahasiswa")</small>
+          </label>
+          <select class="form-select" id="sKelasMahasiswa">
+            <option value="">— Tidak diisi dulu —</option>
+          </select>
+          <small class="text-muted" style="font-size:.75rem;">
+            Semua mahasiswa di kelas ini akan otomatis diizinkan pada SETIAP pertemuan yang dibuat.
+          </small>
+        </div>
+
         <div id="previewSemester" style="display:none;">
           <hr>
           <div class="d-flex align-items-center justify-content-between mb-2">
@@ -1253,6 +1265,20 @@ async function loadDosenForSemester() {
   } catch(e) {}
 }
 
+async function loadKelasForSemester() {
+  try {
+    // allKelas sudah dimuat oleh halaman jadwal manual — cukup pakai ulang,
+    // tapi muat sendiri juga kalau kebetulan belum terisi.
+    if (!allKelas.length) {
+      const res = await fetch('/jadwal/kelas-list');
+      allKelas = await res.json();
+    }
+    document.getElementById('sKelasMahasiswa').innerHTML =
+      '<option value="">— Tidak diisi dulu —</option>' +
+      allKelas.map(k => `<option value="${k}">${k}</option>`).join('');
+  } catch(e) {}
+}
+
 function generateTanggalSemester() {
   const hariTarget = parseInt(document.getElementById('sHari').value);
   // dropdown: 0=Min, 1=Sen, 2=Sel, 3=Rab, 4=Kam, 5=Jum, 6=Sab
@@ -1390,6 +1416,7 @@ async function simpanJadwalSemester() {
     Menyimpan ${previewTanggals.length} jadwal... mohon tunggu.</div>`;
 
   let berhasil = 0, gagal = 0;
+  const kelasMahasiswa = document.getElementById('sKelasMahasiswa').value;
 
   for (const tgl of previewTanggals) {
     try {
@@ -1407,7 +1434,24 @@ async function simpanJadwalSemester() {
           keterangan:    `Jadwal semester — generate otomatis`,
         })
       });
-      res.ok ? berhasil++ : gagal++;
+
+      if (res.ok) {
+        berhasil++;
+        // Kalau kelas mahasiswa dipilih, langsung daftarkan semua
+        // mahasiswa kelas itu ke jadwal yang baru dibuat ini.
+        if (kelasMahasiswa) {
+          const jadwalBaru = await res.json();
+          try {
+            await fetch(`/jadwal/${jadwalBaru.id}/mahasiswa/by-kelas/${encodeURIComponent(kelasMahasiswa)}`, {
+              method: 'POST',
+            });
+          } catch (e) {
+            console.error('Gagal daftarkan mahasiswa untuk jadwal', jadwalBaru.id, e);
+          }
+        }
+      } else {
+        gagal++;
+      }
     } catch { gagal++; }
   }
 
@@ -1483,6 +1527,7 @@ const modalJadwalSemesterEl = document.getElementById('modalJadwalSemester');
 if (modalJadwalSemesterEl) {
   modalJadwalSemesterEl.addEventListener('show.bs.modal', () => {
     loadDosenForSemester();
+    loadKelasForSemester();
     document.getElementById('previewSemester').style.display = 'none';
     document.getElementById('btnSimpanSemester').disabled    = true;
     document.getElementById('alertSemester').innerHTML       = '';

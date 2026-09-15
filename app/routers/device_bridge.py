@@ -1077,3 +1077,17 @@ def open_door_manual(
     db.commit()
 
     return {"pesan": "Pintu berhasil dibuka", "ruangan_id": ruangan_id}
+
+
+@router.get("/sesi-finger-aktif")
+def cek_sesi_finger_aktif_bridge(ruangan_id: int, key=Depends(verify_key), db: Session = Depends(get_db)):
+    """
+    Versi khusus STB (auth API key, bukan session) dari cek sesi input
+    finger aktif — dipakai door_service.py buat skip sync biometrik
+    kalau lagi ada sesi manual berjalan di ruangannya.
+    """
+    from app.models.models import SesiInputFinger
+    sesi = db.query(SesiInputFinger).filter(
+        SesiInputFinger.ruangan_id == ruangan_id, SesiInputFinger.status == "aktif"
+    ).first()
+    return {"aktif": sesi is not None}

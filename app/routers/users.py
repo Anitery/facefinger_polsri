@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import json
 from app.database import get_db
-from app.models.models import User
+from app.models.models import User, BiometricTemplate
 from app.schemas import UserCreate, UserOut, UserUpdate
 import bcrypt
 
@@ -150,17 +150,26 @@ def get_users(
     total  = len(all_users)
     offset = (page - 1) * limit
     users  = all_users[offset: offset + limit]
-    
+
+    user_ids_di_halaman = [u.id for u in users]
+    ids_dgn_template = set()
+    if user_ids_di_halaman:
+        rows = db.query(BiometricTemplate.user_id).filter(
+            BiometricTemplate.user_id.in_(user_ids_di_halaman)
+        ).distinct().all()
+        ids_dgn_template = {r[0] for r in rows}
+
     return {
         "data": [
             {
-                "id":           u.id,
-                "nama":         u.nama,
-                "nim_nip":      u.nim_nip,
-                "role":         u.role,
-                "kelas":        u.kelas,
-                "aktif":        u.aktif,
-                "id_perangkat": u.id_perangkat,
+                "id":             u.id,
+                "nama":           u.nama,
+                "nim_nip":        u.nim_nip,
+                "role":           u.role,
+                "kelas":          u.kelas,
+                "aktif":          u.aktif,
+                "id_perangkat":   u.id_perangkat,
+                "punya_template": u.id in ids_dgn_template,
             }
             for u in users
         ],

@@ -19,6 +19,7 @@ from app.routers import (
     absensi as absensi_router,
     gudang,
     pengaturan as pengaturan_router,
+    sesi_finger as sesi_finger_router,
 )
 from app.routers import device_bridge as device_bridge_router
 
@@ -71,6 +72,7 @@ app.include_router(stream_router.router)
 app.include_router(absensi_router.router)
 app.include_router(device_bridge_router.router)
 app.include_router(pengaturan_router.router)
+app.include_router(sesi_finger_router.router)
 for r in gudang.routers:
     app.include_router(r)
 
@@ -480,6 +482,19 @@ def dashboard_sync_biometrik(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request=request, name="pages/sync_biometrik.html",
         context={"active": "sync_biometrik", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/registrasi-biometrik")
+def dashboard_registrasi_biometrik(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user["role"] not in ("admin", "teknisi"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/registrasi_biometrik.html",
+        context={"active": "registrasi_biometrik", "user": user,
                  "ruangan_list": get_ruangan_list(db)}
     )
 
