@@ -41,6 +41,10 @@ def update_pengaturan(
         if data["toleransi_keterlambatan_menit"] < 0:
             raise HTTPException(status_code=400, detail="Toleransi keterlambatan tidak boleh negatif")
 
+    if "toleransi_masuk_awal_menit" in data and data["toleransi_masuk_awal_menit"] is not None:
+        if data["toleransi_masuk_awal_menit"] < 0:
+            raise HTTPException(status_code=400, detail="Toleransi masuk awal tidak boleh negatif")
+
     for field, value in data.items():
         setattr(p, field, value)
 

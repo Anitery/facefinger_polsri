@@ -10,7 +10,7 @@ Jalankan di PC yang ada di lab (bukan di server):
     python stream_kamera.py
 
 Konfigurasi di .env:
-    SERVER_URL  = https://nama-project.up.railway.app
+    SERVER_URL  = http://10.17.47.189:8080   (server rack lokal, ganti sesuai IP LAN)
     KAMERA_URL  = 0                    (webcam) ATAU rtsp://... (IP cam)
     RUANGAN_ID  = 1
     STREAM_FPS  = 10
@@ -216,7 +216,7 @@ async def stream_loop():
             print(f"\n[WS] Koneksi terputus: {e}")
         except ConnectionRefusedError:
             print(f"\n[WS] ✗ Server tidak bisa dihubungi")
-            print(f"      Pastikan server Railway berjalan")
+            print(f"      Pastikan server rack (FastAPI/Nginx) berjalan")
         except Exception as e:
             print(f"\n[WS] Error: {type(e).__name__}: {e}")
         finally:

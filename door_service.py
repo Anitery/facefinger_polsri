@@ -73,7 +73,7 @@ DOOR_SERVICE_PORT    = int(os.getenv("DOOR_SERVICE_PORT", "8081"))
 # ── Config: Biometric Sync ──
 DEVICE_COMKEY            = os.getenv("DEVICE_COMKEY", "0")
 DEVICE_RUANGAN_ID        = int(os.getenv("DEVICE_RUANGAN_ID", "0"))
-SERVER_URL               = os.getenv("SERVER_URL", "https://facefingerpolsri-production.up.railway.app")
+SERVER_URL               = os.getenv("SERVER_URL", "http://10.17.47.189:8080")
 BRIDGE_API_KEY           = os.getenv("BRIDGE_API_KEY", "bridge-key-polsri-2026")
 BIOMETRIC_SYNC_INTERVAL  = int(os.getenv("BIOMETRIC_SYNC_INTERVAL", "1800"))  # 30 menit
 JEDA_ANTAR_USER          = 0.3  # detik, hindari membanjiri device dengan request beruntun
@@ -135,6 +135,178 @@ def provision_users(payload: dict, x_api_key: str = Header(...)):
             gagal.append(u["pin"])
         time.sleep(JEDA_ANTAR_USER)
 
+    return {"berhasil": berhasil, "gagal": gagal}
+
+
+@app.post("/remove-users")
+def remove_users(payload: dict, x_api_key: str = Header(...)):
+    """
+    Hapus sekumpulan user (by PIN) dari device ini via SOAP DeleteUser.
+    Dipakai untuk:
+      - Bersihkan device sehabis sesi input finger (peserta hanya perlu
+        TERDAFTAR sementara di device supaya bisa taruh jari fisik —
+        setelah template diekstrak & disimpan di server, entrinya di
+        device ini tidak lagi diperlukan; push berikutnya ke device yang
+        benar akan dilakukan oleh loop sync biometrik berbasis jadwal).
+      - Hapus akses fisik user yang dihapus/dinonaktifkan di database
+        server, supaya PIN itu tidak lagi bisa buka pintu di device ini
+        walau datanya masih tersisa dari sinkronisasi sebelumnya.
+    Body: {"pins": ["101", "102", ...]}
+    """
+    verify_key(x_api_key)
+    pins = payload.get("pins", [])
+    if not pins:
+        raise HTTPException(status_code=400, detail="Daftar pins kosong")
+
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    berhasil, gagal = [], []
+    for pin in pins:
+        pin = str(pin)
+        try:
+            # DeleteTemplate dulu (jaga-jaga device menyimpan template
+            # terpisah dari record user), baru DeleteUser untuk hapus
+            # seluruh record-nya.
+            client.delete_template(pin)
+            ok = client.delete_user(pin)
+            (berhasil if ok else gagal).append(pin)
+        except Exception as e:
+            log.error(f"remove-users gagal untuk PIN {pin}: {e}")
+            gagal.append(pin)
+        time.sleep(JEDA_ANTAR_USER)
+
+    if berhasil:
+        try:
+            client.refresh_db()
+        except Exception as e:
+            log.warning(f"RefreshDB setelah remove-users gagal: {e}")
+
+    log.info(f"remove-users: {len(berhasil)} berhasil, {len(gagal)} gagal")
+    return {"berhasil": berhasil, "gagal": gagal}
+
+
+@app.get("/device-users")
+def list_device_users(x_api_key: str = Header(...)):
+    """
+    List semua user yang SAAT INI ada di device ini, ditandai apakah
+    sudah punya fingerprint atau belum. Dipakai fitur "Transfer Data"
+    di dashboard untuk memilih user yang mau dipindah dari alat ini ke
+    alat lain.
+    """
+    verify_key(x_api_key)
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    try:
+        users = client.get_all_users()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gagal membaca daftar user dari device: {e}")
+
+    hasil = []
+    for u in users:
+        pin = u.get("PIN", "")
+        if not pin:
+            continue
+        try:
+            jumlah_template = len(client.get_all_templates(pin))
+        except Exception as e:
+            log.warning(f"Cek template PIN {pin} gagal: {e}")
+            jumlah_template = 0
+        hasil.append({
+            "pin": pin,
+            "nama": u.get("Name", ""),
+            "punya_fingerprint": jumlah_template > 0,
+            "jumlah_jari": jumlah_template,
+        })
+    return hasil
+
+
+@app.post("/export-users")
+def export_users(payload: dict, x_api_key: str = Header(...)):
+    """
+    Ambil data lengkap (nama + seluruh template fingerprint yang ada)
+    untuk PIN-PIN yang diminta — dipakai fitur "Transfer Data" untuk
+    membaca data dari alat SUMBER sebelum di-push ke alat TUJUAN.
+    Kalau user belum punya fingerprint, "templates" akan kosong ([]) —
+    tetap diikutkan supaya nama+PIN-nya tetap bisa dipindah/di-provision
+    di alat tujuan (tinggal daftar jari fisik di sana).
+    Body: {"pins": ["101", "102", ...]}
+    """
+    verify_key(x_api_key)
+    pins = payload.get("pins", [])
+    if not pins:
+        raise HTTPException(status_code=400, detail="Daftar pins kosong")
+
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    try:
+        nama_by_pin = {u.get("PIN", ""): u.get("Name", "") for u in client.get_all_users()}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gagal membaca daftar user dari device: {e}")
+
+    hasil = []
+    for pin in pins:
+        pin = str(pin)
+        try:
+            templates = client.get_all_templates(pin)
+        except Exception as e:
+            log.warning(f"Ambil template PIN {pin} gagal: {e}")
+            templates = []
+        hasil.append({
+            "pin": pin,
+            "nama": nama_by_pin.get(pin, ""),
+            "templates": [
+                {
+                    "finger_id": int(t["FingerID"]),
+                    "size": t.get("Size"),
+                    "valid": t.get("Valid", "1"),
+                    "template": t.get("Template"),
+                }
+                for t in templates
+            ],
+        })
+    return hasil
+
+
+@app.post("/import-users")
+def import_users(payload: dict, x_api_key: str = Header(...)):
+    """
+    Terima daftar user (nama + PIN, opsional template fingerprint) dan
+    push ke device ini — sisi TUJUAN dari fitur "Transfer Data".
+    Body: {"users": [{"pin": "101", "nama": "Andi", "templates": [...]}]}
+    """
+    verify_key(x_api_key)
+    users = payload.get("users", [])
+    if not users:
+        raise HTTPException(status_code=400, detail="Daftar users kosong")
+
+    client = X606SOAPClient(ip=DEVICE_IP, com_key=DEVICE_COMKEY)
+    berhasil, gagal = [], []
+    for u in users:
+        pin = str(u.get("pin", "")).strip()
+        nama = u.get("nama", "")
+        if not pin:
+            continue
+        try:
+            ok = client.set_user(pin=pin, name=nama)
+            for t in u.get("templates", []):
+                ok_t = client.set_user_template(
+                    pin=pin,
+                    finger_id=t["finger_id"],
+                    size=t.get("size") or "0",
+                    template=t["template"],
+                    valid=t.get("valid", "1"),
+                )
+                ok = ok and ok_t
+            (berhasil if ok else gagal).append(pin)
+        except Exception as e:
+            log.error(f"import-users gagal untuk PIN {pin}: {e}")
+            gagal.append(pin)
+        time.sleep(JEDA_ANTAR_USER)
+
+    if berhasil:
+        try:
+            client.refresh_db()
+        except Exception as e:
+            log.warning(f"RefreshDB setelah import-users gagal: {e}")
+
+    log.info(f"import-users: {len(berhasil)} berhasil, {len(gagal)} gagal")
     return {"berhasil": berhasil, "gagal": gagal}
 
 

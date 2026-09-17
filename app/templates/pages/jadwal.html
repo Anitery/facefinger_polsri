@@ -679,20 +679,23 @@ async function loadHariLibur() {
   }
 
   try {
-    // Sumber: api-hari-libur.vercel.app (menggantikan libur.deno.dev yang
-    // sudah down dan api-harilibur.vercel.app yang di-pause).
-    const res  = await fetch(`https://api-hari-libur.vercel.app/api?year=${curYear}`);
+    // PENTING: panggil endpoint backend sendiri (/jadwal/hari-libur), BUKAN
+    // api-hari-libur.vercel.app langsung dari browser — memanggil domain
+    // pihak ketiga itu langsung dari sini akan diblokir CORS oleh browser.
+    // Backend yang proxy-kan permintaan ini server-ke-server (tidak kena
+    // CORS) sekaligus meng-cache hasilnya.
+    const res  = await fetch(`/jadwal/hari-libur?year=${curYear}`);
 
     if (!res.ok) throw new Error("Gagal fetch API hari libur");
 
-    const body = await res.json();
-    const data = body.data || [];
+    const data = await res.json();
     hariLibur  = {};
 
-    // Parsing property sesuai dokumentasi api-hari-libur: 'date' dan 'description'
+    // Field dari backend: 'tanggal' dan 'nama' (bukan 'date'/'description'
+    // seperti API eksternal — backend sudah menormalisasinya).
     data.forEach(h => {
-      if (h.date && h.description) {
-        hariLibur[h.date] = h.description;
+      if (h.tanggal && h.nama) {
+        hariLibur[h.tanggal] = h.nama;
       }
     });
 

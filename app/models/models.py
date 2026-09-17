@@ -34,6 +34,16 @@ class Ruangan(Base):
     aktif = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # ── Multi-device support ─────────────────────────────────
+    # URL door_service.py milik STB untuk ruangan ini, contoh:
+    # "http://10.17.47.163:8103". Diisi per ruangan lewat dashboard
+    # (endpoint PATCH /ruangan/{id}/door-service) supaya 1 backend bisa
+    # melayani banyak STB/port sekaligus, tanpa hardcode 1 URL global.
+    door_service_url = Column(String(255), nullable=True)
+    # Opsional: override API key kalau door_service ruangan ini pakai
+    # key berbeda dari DOOR_SERVICE_API_KEY (default) di server.
+    door_service_api_key = Column(String(255), nullable=True)
+
     # Relasi standard
     users = relationship("User", back_populates="ruangan")
     access_logs = relationship("AccessLog", back_populates="ruangan")
@@ -277,6 +287,15 @@ class PengaturanSistem(Base):
     # d. Toleransi keterlambatan presensi (menit) sebelum status
     #    berubah dari "hadir" jadi "terlambat". Sebelumnya di-hardcode 15.
     toleransi_keterlambatan_menit = Column(Integer, default=15, nullable=False)
+
+    # e. Toleransi masuk lebih awal (menit) — user yang jadwalnya baru
+    #    mulai beberapa menit lagi tetap boleh discan/masuk duluan.
+    #    Contoh: jadwal jam 15:00, toleransi 15 menit -> user sudah
+    #    boleh masuk sejak jam 14:45. Tidak memengaruhi status presensi
+    #    (tetap dihitung "hadir" berdasar jam_mulai asli + toleransi
+    #    keterlambatan), hanya memperlebar jendela validasi akses di
+    #    cek_akses_device().
+    toleransi_masuk_awal_menit = Column(Integer, default=15, nullable=False)
 
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 

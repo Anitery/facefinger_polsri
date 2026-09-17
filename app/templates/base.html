@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}Smart Door Lock{% endblock %} — Ruang Multimedia Polsri</title>
 
+  <!-- Favicon: taruh file-file ini di folder app/assets/ (tab browser & shortcut HP) -->
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
 
@@ -322,6 +328,7 @@
       {% endif %}
 
       {% if user and user.role in ['admin', 'dosen'] %}
+      <div class="nav-section mt-3">Perkuliahan</div>
       <a href="/dashboard/jadwal" class="nav-link {% if active=='jadwal' %}active{% endif %}">
         <i class="bi bi-calendar3"></i> Jadwal Ruangan
       </a>
@@ -330,43 +337,45 @@
       </a>
       {% endif %}
 
+      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      <div class="nav-section mt-3">Manajemen Pengguna</div>
+      {% if user.role in ['admin', 'teknisi'] %}
+      <a href="/dashboard/sync-biometrik" class="nav-link {% if active=='sync_biometrik' %}active{% endif %}">
+        <i class="bi bi-fingerprint"></i> Sync Biometrik
+      </a>
+      {% endif %}
+      <a href="/dashboard/pengguna" class="nav-link {% if active=='pengguna' %}active{% endif %}">
+        <i class="bi bi-people"></i> Pengguna
+      </a>
+      {% if user.role in ['admin', 'teknisi'] %}
+      <a href="/dashboard/registrasi-biometrik" class="nav-link {% if active=='registrasi_biometrik' %}active{% endif %}">
+        <i class="bi bi-person-fill-add"></i> Registrasi Biometrik
+      </a>
+      <a href="/dashboard/transfer-data" class="nav-link {% if active=='transfer_data' %}active{% endif %}">
+        <i class="bi bi-arrow-left-right"></i> Transfer Data Alat
+      </a>
+      {% endif %}
+      {% endif %}
+
       {% if user and user.role in ['admin', 'teknisi'] %}
+      <div class="nav-section mt-3">Inventaris Gudang</div>
+      <a href="/dashboard/gudang" class="nav-link {% if active=='gudang' %}active{% endif %}">
+        <i class="bi bi-boxes"></i> Kelola Gudang
+      </a>
       <a href="/dashboard/ruangan" class="nav-link {% if active=='ruangan' %}active{% endif %}">
         <i class="bi bi-building"></i> Ruangan
       </a>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'dosen', 'teknisi'] %}
-      <a href="/dashboard/pengguna" class="nav-link {% if active=='pengguna' %}active{% endif %}">
-        <i class="bi bi-people"></i> Pengguna
-      </a>
-      {% endif %}
-
-      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
-      <div class="nav-section mt-3">Inventaris Gudang</div>
-      <a href="/dashboard/gudang" class="nav-link {% if active=='gudang' %}active{% endif %}">
-        <i class="bi bi-boxes"></i> Kelola Gudang
-      </a>
-      {% endif %}
-
-      <div class="nav-section mt-3">Akun &amp; Sistem</div>
-      {% if user and user.role in ['admin', 'teknisi'] %}
-      <a href="/dashboard/sync-biometrik" class="nav-link {% if active=='sync_biometrik' %}active{% endif %}">
-        <i class="bi bi-fingerprint"></i> Sync Biometrik
-      </a>
-      <a href="/dashboard/registrasi-biometrik" class="nav-link {% if active=='registrasi_biometrik' %}active{% endif %}">
-        <i class="bi bi-person-fill-add"></i> Registrasi Biometrik
-      </a>
-      {% endif %}
+      <div class="nav-section mt-3">Sistem</div>
       {% if user and user.role == 'admin' %}
       <a href="/dashboard/pengaturan" class="nav-link {% if active=='pengaturan' %}active{% endif %}">
         <i class="bi bi-sliders"></i> Pengaturan Sistem
       </a>
       {% endif %}
-      <a href="/dashboard/profil" class="nav-link {% if active=='profil' %}active{% endif %}">
-        <i class="bi bi-person-circle"></i> Profil Saya
+      <a href="/dashboard/about-me" class="nav-link {% if active=='about_me' %}active{% endif %}">
+        <i class="bi bi-info-circle"></i> About Me
       </a>
-      
       {% if user and user.role == 'admin' %}
       <a href="/docs" target="_blank" class="nav-link">
         <i class="bi bi-code-square"></i> API Docs

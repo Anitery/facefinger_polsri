@@ -10,31 +10,39 @@ Selama sesi aktif: jadwal yang sedang berjalan di ruangan itu
 dinonaktifkan sementara, dan loop sync biometrik otomatis
 (door_service.py) di-skip untuk ruangan ini.
 """
-import os
 from typing import List, Optional
 from datetime import datetime
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 import requests
+
+log = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.models import (
     SesiInputFinger, User, Ruangan, JadwalRuangan, BiometricTemplate, BridgeHeartbeat,
 )
 from app.services.auth_service import get_current_user_session
+from app.routers.device_bridge import resolve_door_service
 
 router = APIRouter(prefix="/sesi-finger", tags=["Sesi Input Fingerprint"])
 
-DOOR_SERVICE_URL     = os.getenv("DOOR_SERVICE_URL", "http://10.17.44.161:8081")
-DOOR_SERVICE_API_KEY = os.getenv("DOOR_SERVICE_API_KEY", "ganti-key-ini-di-env")
 
-
-def _door_service_post(path: str, data: dict, timeout: int = 60):
+def _door_service_post(ruangan_id: int, db: Session, path: str, data: dict, timeout: int = 60):
+    """
+    Kirim request ke door_service.py milik ruangan yang bersangkutan.
+    URL/port di-resolve per ruangan_id (lihat resolve_door_service di
+    device_bridge.py) — bukan lagi 1 alamat tetap untuk semua ruangan,
+    supaya sesi input finger bisa dipakai di lab manapun tanpa perlu
+    ganti .env server tiap kali pindah ruangan.
+    """
+    door_service_url, door_service_api_key = resolve_door_service(ruangan_id, db)
     try:
         r = requests.post(
-            f"{DOOR_SERVICE_URL}{path}",
-            headers={"X-API-Key": DOOR_SERVICE_API_KEY},
+            f"{door_service_url}{path}",
+            headers={"X-API-Key": door_service_api_key},
             json=data, timeout=timeout,
         )
         return r.ok, (r.json() if r.headers.get("content-type", "").startswith("application/json") else r.text)
@@ -108,7 +116,7 @@ def mulai_sesi(payload: MulaiSesiPayload, db: Session = Depends(get_db), user=De
     db.refresh(sesi)
 
     # Push PIN+nama (tanpa template) ke device via door_service
-    ok, hasil = _door_service_post("/provision-users", {
+    ok, hasil = _door_service_post(ruangan.id, db, "/provision-users", {
         "users": [{"pin": str(p.id_perangkat), "nama": p.nama} for p in peserta]
     })
 
@@ -140,7 +148,7 @@ def selesaikan_sesi(payload: SelesaiSesiPayload, db: Session = Depends(get_db), 
         raise HTTPException(status_code=400, detail="Sesi ini sudah tidak aktif")
 
     pins = [str(p.id_perangkat) for p in sesi.peserta]
-    ok, hasil = _door_service_post("/extract-session-templates", {"pins": pins}, timeout=120)
+    ok, hasil = _door_service_post(sesi.ruangan_id, db, "/extract-session-templates", {"pins": pins}, timeout=120)
 
     tersimpan = 0
     gagal_pin = []
@@ -178,12 +186,28 @@ def selesaikan_sesi(payload: SelesaiSesiPayload, db: Session = Depends(get_db), 
     sesi.selesai_at = datetime.now()
     db.commit()
 
-    return {
+    # Hapus peserta dari device tempat sesi berlangsung — template
+    # fingerprint mereka sudah tersimpan di server, jadi entri
+    # sementara di device ini tidak lagi diperlukan. Akses fisik
+    # mereka yang sebenarnya (device mana + kapan) sepenuhnya diatur
+    # loop sync biometrik berbasis jadwal (roster-ruangan), bukan oleh
+    # sesi input finger ini. Kegagalan hapus di sini TIDAK membatalkan
+    # hasil sesi — cuma dilaporkan sebagai peringatan.
+    peringatan_hapus = None
+    ok_hapus, hasil_hapus = _door_service_post(sesi.ruangan_id, db, "/remove-users", {"pins": pins})
+    if not ok_hapus:
+        peringatan_hapus = f"Gagal membersihkan device sehabis sesi: {hasil_hapus}"
+        log.warning(peringatan_hapus)
+
+    respon = {
         "pesan": "Sesi selesai",
         "tersimpan": tersimpan,
         "gagal": gagal_pin,
         "jadwal_diaktifkan_lagi": sesi.jadwal_dipause_id is not None,
     }
+    if peringatan_hapus:
+        respon["peringatan"] = peringatan_hapus
+    return respon
 
 
 @router.post("/batal")
@@ -192,7 +216,9 @@ def batalkan_sesi(payload: SelesaiSesiPayload, db: Session = Depends(get_db), us
     if user["role"] not in ("admin", "teknisi"):
         raise HTTPException(status_code=403, detail="Hanya admin/teknisi yang boleh membatalkan sesi")
 
-    sesi = db.query(SesiInputFinger).filter(SesiInputFinger.id == payload.sesi_id).first()
+    sesi = db.query(SesiInputFinger).options(joinedload(SesiInputFinger.peserta)).filter(
+        SesiInputFinger.id == payload.sesi_id
+    ).first()
     if not sesi or sesi.status != "aktif":
         raise HTTPException(status_code=404, detail="Sesi aktif tidak ditemukan")
 
@@ -201,6 +227,17 @@ def batalkan_sesi(payload: SelesaiSesiPayload, db: Session = Depends(get_db), us
         if jadwal:
             jadwal.is_active = True
 
+    pins = [str(p.id_perangkat) for p in sesi.peserta]
+
     sesi.status = "batal"
     db.commit()
+
+    # Sesi dibatalkan sebelum sempat ekstrak template — peserta yang
+    # sudah terlanjur di-push ke device (lihat /mulai) tetap harus
+    # dibersihkan, supaya tidak nyangkut dengan akses bebas tanpa
+    # jadwal di device tersebut.
+    if pins:
+        ok_hapus, hasil_hapus = _door_service_post(sesi.ruangan_id, db, "/remove-users", {"pins": pins})
+        if not ok_hapus:
+            log.warning(f"Gagal membersihkan device setelah batalkan sesi {sesi.id}: {hasil_hapus}")
     return {"pesan": "Sesi dibatalkan"}

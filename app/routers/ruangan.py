@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.models import Ruangan, User
-from app.schemas import RuanganCreate, RuanganOut
-
-# Catatan: Sesuaikan path import ini dengan lokasi fungsi get_current_role di project Anda
-# from app.dependencies import get_current_role 
+from app.schemas import RuanganCreate, RuanganOut, RuanganDoorServiceUpdate
+from app.services.auth_service import get_current_user_session
 
 router = APIRouter(prefix="/ruangan", tags=["Ruangan"])
 
@@ -137,18 +135,61 @@ def hapus_pj(
 
 
 @router.delete("/{ruangan_id}")
-def delete_ruangan(ruangan_id: int, request: Request, db: Session = Depends(get_db)):
-    """Hapus ruangan secara permanen (Hanya Admin)."""
-    # Pastikan fungsi get_current_role sudah di-import
-    role = get_current_role(request)
-    
-    if role != "admin":
+def delete_ruangan(
+    ruangan_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_session),
+):
+    """Hapus ruangan secara permanen (Hanya Admin).
+
+    BUG LAMA: endpoint ini memanggil get_current_role(request) yang tidak
+    pernah diimpor (importnya dikomentari), jadi setiap kali dipanggil
+    selalu meledak NameError -> 500, bukan 403 seperti yang dimaksud.
+    Diganti pakai get_current_user_session yang sudah dipakai konsisten
+    di router lain (auth_service.py) supaya endpoint ini benar-benar bisa
+    dipanggil dan role-check-nya jalan.
+    """
+    if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Hanya admin yang dapat menghapus ruangan")
-    
+
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
         raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
-    
+
     db.delete(ruangan)
     db.commit()
     return {"pesan": "Ruangan dihapus"}
+
+
+@router.patch("/{ruangan_id}/door-service", response_model=RuanganOut)
+def set_door_service(
+    ruangan_id: int,
+    payload: RuanganDoorServiceUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_session),
+):
+    """
+    Atur alamat door_service.py (STB) untuk 1 ruangan spesifik — ini yang
+    membuat backend bisa melayani banyak lab sekaligus (beda STB/port)
+    tanpa perlu env DOOR_SERVICE_URL tunggal & tanpa redeploy.
+
+    Contoh body:
+        {"door_service_url": "http://10.17.47.163:8103"}
+
+    Kosongkan/kirim null untuk kembali memakai fallback global/env.
+    """
+    if user["role"] not in ("admin", "teknisi"):
+        raise HTTPException(status_code=403, detail="Hanya admin/teknisi yang boleh mengubah konfigurasi door_service")
+
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
+    if not ruangan:
+        raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
+
+    if payload.door_service_url is not None:
+        ruangan.door_service_url = payload.door_service_url.strip() or None
+    if payload.door_service_api_key is not None:
+        ruangan.door_service_api_key = payload.door_service_api_key.strip() or None
+
+    db.commit()
+    db.refresh(ruangan)
+    return ruangan

@@ -20,6 +20,7 @@ from app.routers import (
     gudang,
     pengaturan as pengaturan_router,
     sesi_finger as sesi_finger_router,
+    transfer as transfer_router,
 )
 from app.routers import device_bridge as device_bridge_router
 
@@ -56,6 +57,7 @@ async def log_semua_request(request: Request, call_next):
 
 # ── Static & Templates ───────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/assets", StaticFiles(directory="app/assets"), name="assets")
 templates = Jinja2Templates(directory="app/templates")
 
 # ── Routers ───────────────────────────────────────────────
@@ -73,6 +75,7 @@ app.include_router(absensi_router.router)
 app.include_router(device_bridge_router.router)
 app.include_router(pengaturan_router.router)
 app.include_router(sesi_finger_router.router)
+app.include_router(transfer_router.router)
 for r in gudang.routers:
     app.include_router(r)
 
@@ -496,6 +499,29 @@ def dashboard_registrasi_biometrik(request: Request, db: Session = Depends(get_d
         request=request, name="pages/registrasi_biometrik.html",
         context={"active": "registrasi_biometrik", "user": user,
                  "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/transfer-data")
+def dashboard_transfer_data(request: Request, db: Session = Depends(get_db)):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user["role"] not in ("admin", "teknisi"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/transfer_data.html",
+        context={"active": "transfer_data", "user": user,
+                 "ruangan_list": get_ruangan_list(db)}
+    )
+
+@app.get("/dashboard/about-me")
+def dashboard_about_me(request: Request):
+    user = get_session(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="pages/about_me.html",
+        context={"active": "about_me", "user": user}
     )
 
 # ── Root & Health ────────────────────────────────────────────────────────

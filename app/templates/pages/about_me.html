@@ -1,0 +1,749 @@
+{% extends "base.html" %}
+{% block title %}About Me{% endblock %}
+{% block page_title %}Tentang Proyek{% endblock %}
+
+{% block content %}
+
+<style>
+  .about-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background:
+      radial-gradient(circle at 90% 10%, rgba(124, 58, 237, .10), transparent 30%),
+      radial-gradient(circle at 10% 90%, rgba(37, 99, 235, .10), transparent 30%),
+      #ffffff;
+  }
+
+  .about-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, .20);
+  }
+
+  .about-icon i {
+    color: white;
+    font-size: 1.8rem;
+  }
+
+  .about-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+
+  .about-subtitle {
+    font-size: .84rem;
+    color: #64748b;
+  }
+
+  .about-description {
+    color: #475569;
+    font-size: .88rem;
+    line-height: 1.75;
+  }
+
+  .about-section-title {
+    font-size: .82rem;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .about-section-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .tech-card {
+    height: 100%;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    transition: all .2s ease;
+  }
+
+  .tech-card:hover {
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+  }
+
+  .tech-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .tech-icon i {
+    font-size: 1.15rem;
+  }
+
+  .tech-title {
+    font-size: .84rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+
+  .tech-text {
+    font-size: .76rem;
+    line-height: 1.55;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .profile-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .profile-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, .18);
+  }
+
+  .profile-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .profile-role {
+    font-size: .78rem;
+    color: #64748b;
+  }
+
+  .info-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .info-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .info-label {
+    font-size: .76rem;
+    color: #64748b;
+    margin-bottom: 3px;
+  }
+
+  .info-value {
+    font-size: .84rem;
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .info-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .info-icon i {
+    font-size: 1rem;
+  }
+
+  .info-value a {
+    color: #0f172a;
+    text-decoration: none;
+  }
+
+  .info-value a:hover {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  .architecture-step {
+    position: relative;
+    padding-left: 45px;
+  }
+
+  .architecture-number {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    font-weight: 700;
+  }
+
+  .architecture-step h6 {
+    font-size: .84rem;
+    font-weight: 700;
+    margin-bottom: 3px;
+    color: #0f172a;
+  }
+
+  .architecture-step p {
+    font-size: .76rem;
+    color: #64748b;
+    line-height: 1.55;
+    margin-bottom: 16px;
+  }
+
+  .badge-tech {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: .72rem;
+    font-weight: 600;
+    margin: 2px;
+  }
+
+  .project-footer {
+    font-size: .75rem;
+    color: #94a3b8;
+  }
+</style>
+
+
+<!-- =========================================================
+     HERO PROYEK
+========================================================= -->
+<div class="section-card about-hero p-4 p-lg-5 mb-3">
+
+  <div class="d-flex align-items-start gap-3">
+
+    <div class="about-icon">
+      <i class="bi bi-shield-lock-fill"></i>
+    </div>
+
+    <div>
+      <div class="about-title">
+        Smart Door Lock — Face &amp; Fingerprint
+      </div>
+
+      <div class="about-subtitle mb-3">
+        Sistem Kontrol Akses Laboratorium Berbasis Biometrik
+      </div>
+
+      <p class="about-description mb-0">
+        Proyek Tugas Akhir yang mengembangkan sistem kontrol akses
+        laboratorium dengan memanfaatkan autentikasi biometrik,
+        pengelolaan jadwal perkuliahan, pencatatan akses, dan
+        manajemen pengguna secara terpusat.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="mt-4 pt-3 border-top">
+
+    <span class="badge-tech">
+      <i class="bi bi-fingerprint"></i>
+      Biometric Access
+    </span>
+
+    <span class="badge-tech">
+      <i class="bi bi-calendar3"></i>
+      Schedule Control
+    </span>
+
+    <span class="badge-tech">
+      <i class="bi bi-database"></i>
+      Centralized Database
+    </span>
+
+    <span class="badge-tech">
+      <i class="bi bi-router"></i>
+      Network Integration
+    </span>
+
+    <span class="badge-tech">
+      <i class="bi bi-journal-check"></i>
+      Access Logging
+    </span>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     TENTANG SISTEM
+========================================================= -->
+<div class="row g-3 mb-3">
+
+  <div class="col-12 col-lg-7">
+
+    <div class="section-card p-4 h-100">
+
+      <div class="about-section-title mb-1">
+        Tentang Sistem
+      </div>
+
+      <div class="about-section-heading mb-3">
+        Integrasi perangkat, jaringan, dan aplikasi
+      </div>
+
+      <p class="about-description mb-3">
+        Sistem dirancang untuk menghubungkan perangkat akses pada
+        masing-masing laboratorium dengan server lokal yang berada
+        pada jaringan kampus. Setiap perangkat X606-S berkomunikasi
+        melalui bridge berbasis STB/Armbian sebelum terhubung dengan
+        aplikasi utama.
+      </p>
+
+      <p class="about-description mb-0">
+        Aplikasi utama menyediakan pengelolaan data pengguna,
+        ruangan, jadwal, presensi, serta pencatatan aktivitas akses.
+        Dengan arsitektur tersebut, aktivitas dari beberapa
+        laboratorium dapat dikelola melalui satu sistem terpusat.
+      </p>
+
+    </div>
+
+  </div>
+
+
+  <div class="col-12 col-lg-5">
+
+    <div class="section-card p-4 h-100">
+
+      <div class="about-section-title mb-1">
+        Tujuan Pengembangan
+      </div>
+
+      <div class="about-section-heading mb-3">
+        Kontrol akses yang terintegrasi
+      </div>
+
+      <div class="architecture-step">
+
+        <div class="architecture-number">01</div>
+
+        <h6>Autentikasi pengguna</h6>
+
+        <p>
+          Memanfaatkan metode biometrik pada perangkat X606-S
+          untuk melakukan verifikasi pengguna.
+        </p>
+
+      </div>
+
+      <div class="architecture-step">
+
+        <div class="architecture-number">02</div>
+
+        <h6>Kontrol berdasarkan jadwal</h6>
+
+        <p>
+          Data jadwal digunakan sebagai bagian dari pengaturan
+          akses pengguna terhadap ruangan.
+        </p>
+
+      </div>
+
+      <div class="architecture-step">
+
+        <div class="architecture-number">03</div>
+
+        <h6>Pencatatan aktivitas</h6>
+
+        <p class="mb-0">
+          Setiap aktivitas akses dapat dicatat dan dikelola
+          melalui sistem secara terpusat.
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     TEKNOLOGI
+========================================================= -->
+<div class="section-card p-4 mb-3">
+
+  <div class="about-section-title mb-1">
+    Teknologi
+  </div>
+
+  <div class="about-section-heading mb-3">
+    Komponen yang digunakan
+  </div>
+
+  <div class="row g-3">
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-code-slash"></i>
+        </div>
+
+        <div class="tech-title">
+          Backend
+        </div>
+
+        <p class="tech-text">
+          FastAPI dan SQLAlchemy digunakan untuk membangun
+          layanan aplikasi dan pengelolaan database.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-database"></i>
+        </div>
+
+        <div class="tech-title">
+          Database
+        </div>
+
+        <p class="tech-text">
+          PostgreSQL digunakan sebagai basis data utama
+          untuk menyimpan data sistem secara terpusat.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-cpu"></i>
+        </div>
+
+        <div class="tech-title">
+          Server
+        </div>
+
+        <p class="tech-text">
+          Raspberry Pi digunakan sebagai server lokal
+          yang menjalankan aplikasi pada jaringan kampus.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-router"></i>
+        </div>
+
+        <div class="tech-title">
+          Bridge / STB
+        </div>
+
+        <p class="tech-text">
+          STB berbasis Armbian berfungsi sebagai bridge
+          antara server dan perangkat X606-S.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-fingerprint"></i>
+        </div>
+
+        <div class="tech-title">
+          Solution X606-S
+        </div>
+
+        <p class="tech-text">
+          Perangkat akses biometrik yang menangani autentikasi
+          dan aktivitas akses pada laboratorium.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-arrow-left-right"></i>
+        </div>
+
+        <div class="tech-title">
+          SOAP / XML
+        </div>
+
+        <p class="tech-text">
+          Digunakan sebagai protokol komunikasi dengan
+          perangkat X606-S.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-cloud-arrow-up"></i>
+        </div>
+
+        <div class="tech-title">
+          REST API
+        </div>
+
+        <p class="tech-text">
+          Menyediakan komunikasi antara aplikasi utama
+          dengan service pada bridge.
+        </p>
+
+      </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="tech-card">
+
+        <div class="tech-icon">
+          <i class="bi bi-terminal"></i>
+        </div>
+
+        <div class="tech-title">
+          Linux &amp; Systemd
+        </div>
+
+        <p class="tech-text">
+          Digunakan untuk menjalankan service bridge dan
+          door service secara otomatis.
+        </p>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+<!-- =========================================================
+     PROFIL PENGEMBANG
+========================================================= -->
+<div class="row g-3 mb-3">
+
+  <div class="col-12 col-lg-5">
+
+    <div class="profile-card p-4 h-100">
+
+      <div class="d-flex align-items-center gap-3 mb-4">
+
+        <div class="profile-avatar">
+          FA
+        </div>
+
+        <div>
+
+          <div class="profile-name">
+            Profil Pengembang
+          </div>
+
+          <div class="profile-role">
+            Alumni D3 Teknik Komputer 2023-2026
+          </div>
+
+          <div class="profile-role">
+            Politeknik Negeri Sriwijaya
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="info-item">
+        <div class="info-icon">
+          <i class="bi bi-person-fill"></i>
+        </div>
+        <div>
+          <div class="info-label">Nama</div>
+          <div class="info-value">Fatah Alfi Syahri</div>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-icon">
+          <i class="bi bi-credit-card-2-front-fill"></i>
+        </div>
+        <div>
+          <div class="info-label">NIM</div>
+          <div class="info-value">062330701514</div>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-icon">
+          <i class="bi bi-envelope-fill"></i>
+        </div>
+        <div>
+          <div class="info-label">Email</div>
+          <div class="info-value">
+            <a href="mailto:fatah.asyhr@gmail.com">fatah.asyhr@gmail.com</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-icon">
+          <i class="bi bi-github"></i>
+        </div>
+        <div>
+          <div class="info-label">GitHub</div>
+          <div class="info-value">
+            <a href="https://github.com/falfisyahri" target="_blank" rel="noopener">github.com/falfisyahri</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <div class="col-12 col-lg-7">
+
+    <div class="section-card p-4 h-100">
+
+      <div class="about-section-title mb-1">
+        Status Proyek
+      </div>
+
+      <div class="about-section-heading mb-3">
+        Capaian Saat Ini &amp; Rencana Pengembangan Selanjutnya
+      </div>
+
+      <p class="about-description">
+        Hingga tahap ini, sistem <strong>Smart Door Lock</strong>
+        telah berhasil dikembangkan dan mampu mengelola beberapa
+        perangkat (multi-device) secara terpusat, mencakup sinkronisasi
+        data fingerprint, pengaturan jadwal akses,
+        pencatatan presensi, serta perekaman log akses pada setiap
+        laboratorium yang terhubung. Pengelolaan data wajah pada sistem
+        saat ini belum tersedia.
+      </p>
+
+      <p class="about-description mb-3">
+        Proyek ini dikembangkan sebagai Tugas Akhir dan pengembangannya
+        tidak dilanjutkan lebih jauh oleh pengembang. Namun, sistem ini
+        masih memiliki beberapa kemungkinan pengembangan yang dapat
+        dilanjutkan oleh pihak lain, seperti peningkatan optimasi
+        performa aplikasi dan server, penambahan kemampuan untuk
+        mengelola data wajah yang tersimpan pada perangkat, serta
+        fitur input data fingerprint dan wajah secara langsung melalui
+        website tanpa perlu melakukan pendaftaran manual pada perangkat.
+      </p>
+
+      <div class="pt-2">
+
+        <span class="badge-tech">
+          <i class="bi bi-window"></i>
+          Web Application
+        </span>
+
+        <span class="badge-tech">
+          <i class="bi bi-diagram-3"></i>
+          Network
+        </span>
+
+        <span class="badge-tech">
+          <i class="bi bi-cpu"></i>
+          Embedded System
+        </span>
+
+        <span class="badge-tech">
+          <i class="bi bi-fingerprint"></i>
+          Biometrics
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+<div class="text-center py-2">
+
+  <div class="project-footer">
+    Smart Door Lock — Face &amp; Fingerprint
+    <span class="mx-1">•</span>
+    Tugas Akhir D3 Teknik Komputer
+    <span class="mx-1">•</span>
+    Politeknik Negeri Sriwijaya
+  </div>
+
+</div>
+
+{% endblock %}

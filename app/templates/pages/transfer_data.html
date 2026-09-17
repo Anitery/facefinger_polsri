@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+{% block title %}Transfer Data Alat{% endblock %}
+{% block page_title %}Transfer Data Antar Alat{% endblock %}
+
+{% block content %}
+
+<ul class="nav nav-tabs mb-3" id="tabMode" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-alat-btn" data-bs-toggle="tab" data-bs-target="#tab-alat" type="button">
+      <i class="bi bi-router me-1"></i>Alat ke Alat
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-db-btn" data-bs-toggle="tab" data-bs-target="#tab-db" type="button">
+      <i class="bi bi-database-fill-gear me-1"></i>Database Server ke Alat
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  {# ============================================================ #}
+  {# MODE 1: ALAT KE ALAT (device asal -> device tujuan)          #}
+  {# ============================================================ #}
+  <div class="tab-pane fade show active" id="tab-alat" role="tabpanel">
+
+    <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+      <i class="bi bi-info-circle me-1"></i>
+      Pindahkan user (nama + PIN, dan fingerprint-nya kalau sudah ada) dari 1 alat ke alat lain.
+      User yang <strong>belum punya fingerprint</strong> tetap ikut dipindah (nama+PIN saja) — tinggal
+      daftar jari fisik di alat tujuan. Template yang berhasil dipindah juga otomatis disalin ke database
+      server sebagai master copy.
+    </div>
+
+    <div class="section-card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Alat Asal &amp; Tujuan</h6>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Asal</label>
+          <select class="form-select" id="pilihAsal" onchange="onAsalDipilih()">
+            <option value="">Memuat daftar ruangan...</option>
+          </select>
+          <div id="infoAsal" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Tujuan</label>
+          <select class="form-select" id="pilihTujuan">
+            <option value="">Memuat daftar ruangan...</option>
+          </select>
+          <div id="infoTujuan" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button class="btn btn-outline-primary" id="btnMuatUser" onclick="muatUserAsal()" disabled>
+          <i class="bi bi-download me-1"></i>Muat Daftar User dari Alat Asal
+        </button>
+      </div>
+      <div id="alertMuat" class="mt-2"></div>
+    </div>
+
+    <div class="section-card p-4 mb-3" id="areaDaftarUser" style="display:none;">
+      <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>2. Pilih User yang Dipindah</h6>
+
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-12 col-md">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+            <input type="text" class="form-control" id="fSearchUser" placeholder="Cari nama/PIN..." oninput="renderDaftarUser()">
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <select class="form-select form-select-sm" id="fFingerprint" onchange="renderDaftarUser()">
+            <option value="">Semua status</option>
+            <option value="ada">Sudah punya fingerprint</option>
+            <option value="belum">Belum punya fingerprint</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-3 text-end">
+          <button class="btn btn-sm btn-outline-secondary" onclick="pilihSemuaUser()">
+            <i class="bi bi-check2-square me-1"></i>Pilih Semua (Terlihat)
+          </button>
+        </div>
+      </div>
+
+      <div style="max-height:360px;overflow-y:auto;" class="border rounded">
+        <table class="table table-hover table-sm mb-0">
+          <thead style="position:sticky;top:0;background:#fff;">
+            <tr>
+              <th style="width:36px;"></th>
+              <th>PIN</th>
+              <th>Nama</th>
+              <th>Fingerprint</th>
+            </tr>
+          </thead>
+          <tbody id="daftarUserBody"><tr><td colspan="4" class="text-center py-4 text-muted">Belum ada data</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="mt-3 d-flex justify-content-between align-items-center">
+        <div style="font-size:.85rem;color:#64748b;"><span id="jumlahTerpilih">0</span> user dipilih</div>
+        <button class="btn btn-primary" onclick="prosesTransfer()">
+          <i class="bi bi-arrow-left-right me-1"></i>Pindahkan User Terpilih
+        </button>
+      </div>
+      <div id="alertTransfer" class="mt-2"></div>
+    </div>
+
+  </div>
+
+  {# ============================================================ #}
+  {# MODE 2: DATABASE SERVER KE ALAT                               #}
+  {# ============================================================ #}
+  <div class="tab-pane fade" id="tab-db" role="tabpanel">
+
+    <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+      <i class="bi bi-info-circle me-1"></i>
+      Kirim user langsung dari <strong>master data di database server</strong> ke 1 alat — dipakai kalau
+      alat/lab baru butuh diisi data user tanpa perlu ambil dari alat lain. Kalau usernya sudah pernah
+      punya fingerprint tersimpan di server, template-nya ikut dikirim; kalau belum, hanya nama+PIN saja
+      (tinggal daftar jari fisik di alat tujuan).
+    </div>
+
+    <div class="section-card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Alat Tujuan</h6>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Tujuan</label>
+          <select class="form-select" id="pilihTujuanDb">
+            <option value="">Memuat daftar ruangan...</option>
+          </select>
+          <div id="infoTujuanDb" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>2. Pilih User dari Database Server</h6>
+
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-12 col-md">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+            <input type="text" class="form-control" id="fSearchUserDb" placeholder="Cari nama/NIM/NIP..." oninput="muatUserDatabase()">
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <select class="form-select form-select-sm" id="fRoleDb" onchange="muatUserDatabase()">
+            <option value="">Semua role</option>
+            <option value="mahasiswa">Mahasiswa</option>
+            <option value="dosen">Dosen</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-3">
+          <select class="form-select form-select-sm" id="fFingerprintDb" onchange="halamanUserDb=1; renderDaftarUserDb();">
+            <option value="">Semua status</option>
+            <option value="ada">Sudah punya fingerprint</option>
+            <option value="belum">Belum punya fingerprint</option>
+          </select>
+        </div>
+      </div>
+      <div class="text-end mb-2">
+        <button class="btn btn-sm btn-outline-secondary" onclick="pilihSemuaUserDb()">
+          <i class="bi bi-check2-square me-1"></i>Pilih Semua (Terlihat)
+        </button>
+      </div>
+
+      <div style="max-height:360px;overflow-y:auto;" class="border rounded">
+        <table class="table table-hover table-sm mb-0">
+          <thead style="position:sticky;top:0;background:#fff;">
+            <tr>
+              <th style="width:36px;"></th>
+              <th>PIN</th>
+              <th>Nama</th>
+              <th>Role</th>
+              <th>Fingerprint</th>
+            </tr>
+          </thead>
+          <tbody id="daftarUserDbBody"><tr><td colspan="5" class="text-center py-4 text-muted">Memuat data...</td></tr></tbody>
+        </table>
+      </div>
+      <div id="paginasiUserDb" class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2" style="font-size:.8rem;color:#64748b;"></div>
+
+      <div class="mt-3 d-flex justify-content-between align-items-center">
+        <div style="font-size:.85rem;color:#64748b;"><span id="jumlahTerpilihDb">0</span> user dipilih</div>
+        <button class="btn btn-primary" onclick="prosesKirimDb()">
+          <i class="bi bi-send-fill me-1"></i>Kirim ke Alat Tujuan
+        </button>
+      </div>
+      <div id="alertKirimDb" class="mt-2"></div>
+    </div>
+
+  </div>
+
+</div>
+
+{% if user.role == 'admin' %}
+<div class="section-card p-4 mb-3 border border-danger-subtle">
+  <h6 class="fw-bold mb-2 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Zona Berbahaya — Cabut Akses Alat Mahasiswa</h6>
+  <p style="font-size:.85rem;color:#64748b;" class="mb-3">
+    Cabut akses fisik <strong>SEMUA</strong> user berrole "mahasiswa" dari <strong>SEMUA alat</strong>
+    (PIN mereka dihapus dari tiap device). User dengan role <strong>admin/dosen/teknisi TIDAK
+    disentuh</strong>. <strong>Data di database server (biodata, riwayat, template fingerprint) TIDAK
+    dihapus</strong> — cuma akses fisiknya yang dicabut. Cocok dipakai misal di akhir semester untuk
+    "kosongkan" alat, tanpa kehilangan data biometrik — semester depan tinggal kirim lagi lewat tab
+    "Database Server ke Alat" tanpa perlu daftar ulang jari.
+  </p>
+  <button class="btn btn-danger" onclick="cabutAksesMahasiswa()">
+    <i class="bi bi-door-closed-fill me-1"></i>Cabut Akses Alat Semua Mahasiswa
+  </button>
+  <div id="alertBersihkan" class="mt-2"></div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let daftarRuangan = [];
+let daftarUserAsal = [];   // [{pin, nama, punya_fingerprint, jumlah_jari}]
+let userTerpilihPin = new Set();
+
+let daftarUserDb = [];     // [{id, pin, nama, nim_nip, role, punya_fingerprint}]
+let userTerpilihIdDb = new Set();
+let halamanUserDb = 1;
+const UKURAN_HALAMAN_DB = 20;
+
+async function loadRuanganDropdown() {
+  const res = await fetch('/device-bridge/status-semua-ruangan');
+  daftarRuangan = await res.json();
+  const opts = '<option value="">— Pilih ruangan —</option>' + daftarRuangan.map(r =>
+    `<option value="${r.ruangan_id}" data-online="${r.bridge_aktif}">${r.nama_ruangan} ${r.bridge_aktif ? '🟢' : '🔴'}</option>`
+  ).join('');
+  document.getElementById('pilihAsal').innerHTML = opts;
+  document.getElementById('pilihTujuan').innerHTML = opts;
+  document.getElementById('pilihTujuanDb').innerHTML = opts;
+}
+
+function infoOnline(selectId, infoId) {
+  const sel = document.getElementById(selectId);
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById(infoId);
+  if (!sel.value) { info.textContent = ''; return; }
+  const online = opt.dataset.online === 'true';
+  info.innerHTML = online
+    ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge online</span>'
+    : '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Bridge tidak online — kemungkinan gagal terhubung</span>';
+}
+
+function onAsalDipilih() {
+  infoOnline('pilihAsal', 'infoAsal');
+  document.getElementById('btnMuatUser').disabled = !document.getElementById('pilihAsal').value;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('pilihTujuan').addEventListener('change', () => infoOnline('pilihTujuan', 'infoTujuan'));
+  document.getElementById('pilihTujuanDb').addEventListener('change', () => infoOnline('pilihTujuanDb', 'infoTujuanDb'));
+});
+
+/* ==================== MODE 1: ALAT KE ALAT ==================== */
+
+async function muatUserAsal() {
+  const ruanganId = document.getElementById('pilihAsal').value;
+  const alertEl = document.getElementById('alertMuat');
+  if (!ruanganId) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Membaca daftar user dari alat, mohon tunggu...</div>';
+  document.getElementById('areaDaftarUser').style.display = 'none';
+
+  try {
+    const res = await fetch(`/transfer/device-users?ruangan_id=${ruanganId}`);
+    const data = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal memuat data dari alat.'}</div>`;
+      return;
+    }
+    daftarUserAsal = data;
+    userTerpilihPin = new Set();
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.length} user ditemukan di alat asal.</div>`;
+    document.getElementById('areaDaftarUser').style.display = 'block';
+    renderDaftarUser();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+function toggleUser(pin, checked) {
+  if (checked) userTerpilihPin.add(pin); else userTerpilihPin.delete(pin);
+  document.getElementById('jumlahTerpilih').textContent = userTerpilihPin.size;
+}
+
+function pilihSemuaUser() {
+  document.querySelectorAll('.chkUser').forEach(chk => {
+    chk.checked = true;
+    userTerpilihPin.add(chk.value);
+  });
+  document.getElementById('jumlahTerpilih').textContent = userTerpilihPin.size;
+}
+
+function renderDaftarUser() {
+  const kw = document.getElementById('fSearchUser').value.trim().toLowerCase();
+  const filterFp = document.getElementById('fFingerprint').value;
+
+  let data = daftarUserAsal;
+  if (kw) {
+    data = data.filter(u => u.nama.toLowerCase().includes(kw) || String(u.pin).includes(kw));
+  }
+  if (filterFp === 'ada') data = data.filter(u => u.punya_fingerprint);
+  if (filterFp === 'belum') data = data.filter(u => !u.punya_fingerprint);
+
+  const body = document.getElementById('daftarUserBody');
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Tidak ada user yang cocok</td></tr>';
+    return;
+  }
+
+  body.innerHTML = data.map(u => `
+    <tr>
+      <td><input type="checkbox" class="form-check-input chkUser" value="${u.pin}"
+                 ${userTerpilihPin.has(String(u.pin)) ? 'checked' : ''}
+                 onchange="toggleUser('${u.pin}', this.checked)"></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">${u.nama || '—'}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? `<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ ${u.jumlah_jari} jari</span>`
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+}
+
+async function prosesTransfer() {
+  const alertEl = document.getElementById('alertTransfer');
+  const asal = document.getElementById('pilihAsal').value;
+  const tujuan = document.getElementById('pilihTujuan').value;
+
+  if (!tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih ruangan/alat tujuan dulu.</div>'; return; }
+  if (asal === tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Alat asal dan tujuan tidak boleh sama.</div>'; return; }
+  if (!userTerpilihPin.size) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  const namaTujuan = document.getElementById('pilihTujuan').selectedOptions[0]?.text || 'alat tujuan';
+  if (!confirm(`Pindahkan ${userTerpilihPin.size} user ke ${namaTujuan}?`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Memindahkan data, mohon tunggu (bisa beberapa detik per user)...</div>';
+
+  try {
+    const res = await fetch('/transfer/push', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ruangan_asal_id: parseInt(asal),
+        ruangan_tujuan_id: parseInt(tujuan),
+        pins: Array.from(userTerpilihPin),
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Transfer gagal.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}.`;
+    if (data.template_disalin_ke_server) {
+      pesan += ` ${data.template_disalin_ke_server} template disalin ke database server.`;
+    }
+    if (data.gagal && data.gagal.length) {
+      pesan += `<br><strong>Gagal:</strong> PIN ${data.gagal.join(', ')}`;
+    }
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ==================== MODE 2: DATABASE KE ALAT ==================== */
+
+async function muatUserDatabase() {
+  const kw = document.getElementById('fSearchUserDb').value.trim();
+  const role = document.getElementById('fRoleDb').value;
+  const body = document.getElementById('daftarUserDbBody');
+  body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat data...</td></tr>';
+
+  const params = new URLSearchParams();
+  if (kw) params.set('search', kw);
+  if (role) params.set('role', role);
+
+  try {
+    const res = await fetch(`/transfer/database-users?${params.toString()}`);
+    daftarUserDb = await res.json();
+    halamanUserDb = 1;
+    renderDaftarUserDb();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">Gagal memuat data: ${e}</td></tr>`;
+  }
+}
+
+function toggleUserDb(id, checked) {
+  id = parseInt(id);
+  if (checked) userTerpilihIdDb.add(id); else userTerpilihIdDb.delete(id);
+  document.getElementById('jumlahTerpilihDb').textContent = userTerpilihIdDb.size;
+}
+
+function pilihSemuaUserDb() {
+  // Sengaja hanya pilih yang TERLIHAT DI HALAMAN INI (bukan lintas semua
+  // halaman), supaya "pilih semua" tidak diam-diam menyertakan ratusan
+  // user di halaman lain yang tidak sedang dilihat admin.
+  document.querySelectorAll('.chkUserDb').forEach(chk => {
+    chk.checked = true;
+    userTerpilihIdDb.add(parseInt(chk.value));
+  });
+  document.getElementById('jumlahTerpilihDb').textContent = userTerpilihIdDb.size;
+}
+
+function gantiHalamanUserDb(halaman) {
+  halamanUserDb = halaman;
+  renderDaftarUserDb();
+}
+
+function renderDaftarUserDb() {
+  const filterFp = document.getElementById('fFingerprintDb').value;
+  let data = daftarUserDb;
+  if (filterFp === 'ada') data = data.filter(u => u.punya_fingerprint);
+  if (filterFp === 'belum') data = data.filter(u => !u.punya_fingerprint);
+
+  const body = document.getElementById('daftarUserDbBody');
+  const paginasiEl = document.getElementById('paginasiUserDb');
+
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Tidak ada user yang cocok (atau belum punya PIN)</td></tr>';
+    paginasiEl.innerHTML = '';
+    return;
+  }
+
+  const totalHalaman = Math.max(1, Math.ceil(data.length / UKURAN_HALAMAN_DB));
+  if (halamanUserDb > totalHalaman) halamanUserDb = totalHalaman;
+  const mulai = (halamanUserDb - 1) * UKURAN_HALAMAN_DB;
+  const dataHalaman = data.slice(mulai, mulai + UKURAN_HALAMAN_DB);
+
+  body.innerHTML = dataHalaman.map(u => `
+    <tr>
+      <td><input type="checkbox" class="form-check-input chkUserDb" value="${u.id}"
+                 ${userTerpilihIdDb.has(u.id) ? 'checked' : ''}
+                 onchange="toggleUserDb('${u.id}', this.checked)"></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">${u.nama || '—'}<div style="font-size:.72rem;color:#94a3b8;">${u.nim_nip || ''}</div></td>
+      <td style="font-size:.8rem;text-transform:capitalize;">${u.role}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? '<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ Ada</span>'
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+
+  renderPaginasiUserDb(totalHalaman, data.length, mulai, dataHalaman.length);
+}
+
+function renderPaginasiUserDb(totalHalaman, totalData, mulai, jumlahDiHalaman) {
+  const el = document.getElementById('paginasiUserDb');
+  if (totalHalaman <= 1) {
+    el.innerHTML = `<span>Menampilkan semua ${totalData} user</span>`;
+    return;
+  }
+
+  let tombol = '';
+  tombol += `<button class="btn btn-sm btn-outline-secondary" ${halamanUserDb <= 1 ? 'disabled' : ''} onclick="gantiHalamanUserDb(${halamanUserDb - 1})"><i class="bi bi-chevron-left"></i></button>`;
+  for (let i = 1; i <= totalHalaman; i++) {
+    tombol += `<button class="btn btn-sm ${i === halamanUserDb ? 'btn-primary' : 'btn-outline-secondary'}" onclick="gantiHalamanUserDb(${i})">${i}</button>`;
+  }
+  tombol += `<button class="btn btn-sm btn-outline-secondary" ${halamanUserDb >= totalHalaman ? 'disabled' : ''} onclick="gantiHalamanUserDb(${halamanUserDb + 1})"><i class="bi bi-chevron-right"></i></button>`;
+
+  el.innerHTML = `
+    <span>Menampilkan ${mulai + 1}–${mulai + jumlahDiHalaman} dari ${totalData} user</span>
+    <div class="d-flex gap-1 flex-wrap">${tombol}</div>
+  `;
+}
+}
+
+async function prosesKirimDb() {
+  const alertEl = document.getElementById('alertKirimDb');
+  const tujuan = document.getElementById('pilihTujuanDb').value;
+
+  if (!tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih alat tujuan dulu.</div>'; return; }
+  if (!userTerpilihIdDb.size) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  const namaTujuan = document.getElementById('pilihTujuanDb').selectedOptions[0]?.text || 'alat tujuan';
+  if (!confirm(`Kirim ${userTerpilihIdDb.size} user dari database server ke ${namaTujuan}?`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mengirim data, mohon tunggu...</div>';
+
+  try {
+    const res = await fetch('/transfer/push-dari-database', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ruangan_tujuan_id: parseInt(tujuan),
+        user_ids: Array.from(userTerpilihIdDb),
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Kirim gagal.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}.`;
+    if (data.template_disalin_ke_server) {
+      pesan += ` ${data.template_disalin_ke_server} template ikut disinkronkan ke database server.`;
+    }
+    if (data.gagal && data.gagal.length) {
+      pesan += `<br><strong>Gagal:</strong> PIN ${data.gagal.join(', ')}`;
+    }
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ==================== ZONA BERBAHAYA: BERSIHKAN MAHASISWA ==================== */
+
+async function cabutAksesMahasiswa() {
+  const alertEl = document.getElementById('alertBersihkan');
+  if (!confirm('Cabut akses fisik SEMUA mahasiswa dari SEMUA alat? Data user & fingerprint di server tetap aman, tidak dihapus.')) return;
+
+  const konfirmasi = prompt('Ketik persis "CABUT AKSES SEMUA MAHASISWA" untuk melanjutkan:');
+  if (konfirmasi !== 'CABUT AKSES SEMUA MAHASISWA') {
+    alertEl.innerHTML = '<div class="alert alert-warning py-2">Dibatalkan — teks konfirmasi tidak sesuai.</div>';
+    return;
+  }
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mencabut akses di semua alat, mohon tunggu...</div>';
+
+  try {
+    const res = await fetch(`/users/cabut-akses-alat-mahasiswa?konfirmasi=${encodeURIComponent(konfirmasi)}`, {
+      method: 'POST',
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal mencabut akses.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}`;
+    if (data.peringatan) pesan += `<br><span class="text-warning">${data.peringatan}</span>`;
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+loadRuanganDropdown();
+muatUserDatabase();
+</script>
+{% endblock %}

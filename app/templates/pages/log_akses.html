@@ -32,6 +32,7 @@
         <option value="">Semua Metode</option>
         <option value="face">Face Recognition</option>
         <option value="fingerprint">Fingerprint</option>
+        <option value="manual">Buka Manual (Dashboard)</option>
       </select>
     </div>
 
@@ -145,6 +146,7 @@ function fmtDateTime(iso) {
 function metodeLabel(m) {
   if (m === 'face')        return '<span class="badge-role"><i class="bi bi-camera me-1"></i>Face</span>';
   if (m === 'fingerprint') return '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-fingerprint me-1"></i>FP</span>';
+  if (m === 'manual')      return '<span style="background:#fef3c7;color:#92400e;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-hand-index-thumb me-1"></i>Buka Manual</span>';
   return m ? `<span style="background:#f1f5f9;color:#64748b;padding:3px 9px;border-radius:20px;font-size:.72rem;">${m}</span>` : '—';
 }
 

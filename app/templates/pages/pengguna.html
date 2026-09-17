@@ -13,10 +13,30 @@
 </div>
 
 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
-  <div class="input-group" style="max-width:320px;">
-    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-    <input type="text" class="form-control" id="searchPengguna"
-          placeholder="Cari nama, NIM/NIP, atau kelas...">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <div class="input-group" style="max-width:280px;">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="text" class="form-control" id="searchPengguna"
+            placeholder="Cari nama, NIM/NIP, atau kelas...">
+    </div>
+    <select class="form-select form-select-sm" id="filterRole" style="max-width:160px;">
+      <option value="">Semua Role</option>
+      <option value="mahasiswa">Mahasiswa</option>
+      <option value="dosen">Dosen</option>
+      <option value="teknisi">Teknisi</option>
+      {% if user.role == 'admin' %}<option value="admin">Admin</option>{% endif %}
+    </select>
+    <select class="form-select form-select-sm" id="filterKelas" style="max-width:150px;">
+      <option value="">Semua Kelas</option>
+    </select>
+    <select class="form-select form-select-sm" id="filterFingerprint" style="max-width:190px;">
+      <option value="">Semua Status Fingerprint</option>
+      <option value="ada">Sudah Punya Fingerprint</option>
+      <option value="belum">Belum Punya Fingerprint</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary" onclick="resetFilterPengguna()" title="Reset filter">
+      <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
   </div>
   {% if user.role == 'admin' %}
   <div class="form-check">
@@ -415,10 +435,16 @@ async function loadUsers(page = 1) {
   currentPageUsers = page;
   const showInactive = document.getElementById('showInactive')?.checked || false;
   const keyword      = (document.getElementById('searchPengguna')?.value || '').trim();
-  
+  const role         = document.getElementById('filterRole')?.value || '';
+  const kelas        = document.getElementById('filterKelas')?.value || '';
+  const fingerprint  = document.getElementById('filterFingerprint')?.value || '';
+
   let url = `/users/?limit=${USER_LIMIT}&page=${page}&include_inactive=${showInactive}`;
-  if (keyword) url += `&search=${encodeURIComponent(keyword)}`;
-  
+  if (keyword)     url += `&search=${encodeURIComponent(keyword)}`;
+  if (role)        url += `&role=${encodeURIComponent(role)}`;
+  if (kelas)       url += `&kelas=${encodeURIComponent(kelas)}`;
+  if (fingerprint) url += `&fingerprint=${encodeURIComponent(fingerprint)}`;
+
   try {
     const res  = await fetch(url);
     const json = await res.json();
@@ -428,6 +454,28 @@ async function loadUsers(page = 1) {
     renderPaginasiPengguna(pg);
   } catch(e) {
     console.error("Gagal load users:", e);
+  }
+}
+
+function resetFilterPengguna() {
+  document.getElementById('searchPengguna').value = '';
+  document.getElementById('filterRole').value = '';
+  document.getElementById('filterKelas').value = '';
+  document.getElementById('filterFingerprint').value = '';
+  if (document.getElementById('showInactive')) document.getElementById('showInactive').checked = false;
+  loadUsers(1);
+}
+
+async function loadDaftarKelas() {
+  const sel = document.getElementById('filterKelas');
+  if (!sel) return;
+  try {
+    const res = await fetch('/users/daftar-kelas');
+    const kelasList = await res.json();
+    sel.innerHTML = '<option value="">Semua Kelas</option>' +
+      kelasList.map(k => `<option value="${k}">${k}</option>`).join('');
+  } catch (e) {
+    console.error('Gagal memuat daftar kelas:', e);
   }
 }
 
@@ -617,6 +665,10 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleKelasField();
   document.getElementById('searchPengguna')?.addEventListener('input', () => loadUsers(1));
   document.getElementById('showInactive')?.addEventListener('change', () => loadUsers(1));
+  document.getElementById('filterRole')?.addEventListener('change', () => loadUsers(1));
+  document.getElementById('filterKelas')?.addEventListener('change', () => loadUsers(1));
+  document.getElementById('filterFingerprint')?.addEventListener('change', () => loadUsers(1));
+  loadDaftarKelas();
   loadUsers(1);
 });
 </script>

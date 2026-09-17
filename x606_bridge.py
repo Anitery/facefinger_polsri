@@ -4,8 +4,8 @@ Berjalan di STB Linux 24/7 di jaringan lab.
 
 Alur kerja:
   1. Sync user + timezone ke device (awal + periodik)
-  2. Pull log absensi dari device → kirim ke Railway
-  3. Railway validasi jadwal KBM + catat absensi otomatis
+  2. Pull log absensi dari device → kirim ke server rack lokal
+  3. Server rack validasi jadwal KBM + catat absensi otomatis
 
 Jalankan:
     python x606_bridge.py
@@ -60,10 +60,10 @@ _processed: set = set()
 
 
 # ══════════════════════════════════════════════════════════
-# HELPER: Komunikasi ke Railway
+# HELPER: Komunikasi ke server rack (FastAPI lokal)
 # ══════════════════════════════════════════════════════════
 
-def railway_get(path: str, params: dict = None) -> dict:
+def server_get(path: str, params: dict = None) -> dict:
     try:
         r = requests.get(
             f"{SERVER_URL}{path}",
@@ -75,7 +75,7 @@ def railway_get(path: str, params: dict = None) -> dict:
         return {}
 
 
-def railway_post(path: str, data: dict) -> dict:
+def server_post(path: str, data: dict) -> dict:
     try:
         r = requests.post(
             f"{SERVER_URL}{path}",
@@ -139,17 +139,17 @@ def get_access_config(user: dict, jadwals: list) -> tuple[int, int]:
     return GROUP_TERKONTROL, ZONE_BLOCKED_ID
 
 def sync_users(client: X606SOAPClient):
-    """Sync semua user dari Railway ke device dengan timezone dan group yang benar."""
+    """Sync semua user dari server rack ke device dengan timezone dan group yang benar."""
     log.info("── Sync user ke device...")
 
-    users   = railway_get("/device-bridge/users")
-    jadwals = railway_get(
+    users   = server_get("/device-bridge/users")
+    jadwals = server_get(
         "/device-bridge/jadwal-hari-ini",
         {"ruangan_id": DEVICE_RUANGAN_ID}
     )
 
     if not users:
-        log.warning("Tidak ada user dari Railway")
+        log.warning("Tidak ada user dari server rack")
         return 0
 
     if isinstance(jadwals, dict):
@@ -195,11 +195,11 @@ def sync_users(client: X606SOAPClient):
 
 '''
 # ══════════════════════════════════════════════════════════
-# BAGIAN B — Pull log dari device → Railway
+# BAGIAN B — Pull log dari device → server rack
 # ══════════════════════════════════════════════════════════
 
 def pull_logs(client: X606SOAPClient) -> int:
-    """Pull SOAP log dari device, filter baru, kirim ke Railway."""
+    """Pull SOAP log dari device, filter baru, kirim ke server rack."""
     try:
         logs = client.get_logs("All")
     except Exception as e:
@@ -220,7 +220,7 @@ def pull_logs(client: X606SOAPClient) -> int:
         log.debug(f"Semua {len(logs)} log sudah diproses")
         return 0
 
-    log.info(f"Mengirim {len(new_logs)} log baru ke Railway...")
+    log.info(f"Mengirim {len(new_logs)} log baru ke server rack...")
 
     payload = {
         "ruangan_id": DEVICE_RUANGAN_ID,
@@ -248,7 +248,7 @@ def pull_logs(client: X606SOAPClient) -> int:
         }.get(v, f"Unknown({v})")
         log.info(f"  → PIN:{pin} Method:{method}(verified={v}) DT:{l.get('DateTime')}")
 
-    res = railway_post("/device-bridge/push-logs", payload)
+    res = server_post("/device-bridge/push-logs", payload)
     
     if res:
         berhasil = res.get("berhasil", 0)
@@ -258,7 +258,7 @@ def pull_logs(client: X606SOAPClient) -> int:
         total    = res.get("total", 0)
         
         log.info(
-            f"  Railway: {berhasil} berhasil | {ditolak} ditolak | "
+            f"  Server: {berhasil} berhasil | {ditolak} ditolak | "
             f"{duplikat} duplikat | {error} error (total:{total})"
         )
         
@@ -281,7 +281,7 @@ def pull_logs(client: X606SOAPClient) -> int:
 
 def sync_enrollment(client: X606SOAPClient):
     """
-    Ambil semua user di device, kirim ke Railway untuk
+    Ambil semua user di device, kirim ke server rack untuk
     verifikasi mapping fingerprint_id.
     Berguna saat ada pendaftaran baru di device.
     """
@@ -302,7 +302,7 @@ def sync_enrollment(client: X606SOAPClient):
                 for u in device_users
             ]
         }
-        res = railway_post("/device-bridge/sync-enrollment", payload)
+        res = server_post("/device-bridge/sync-enrollment", payload)
         if res.get("updated", 0) > 0:
             log.info(
                 f"Enrollment sync: {res['updated']} "
@@ -313,7 +313,7 @@ def sync_enrollment(client: X606SOAPClient):
 
 
 def heartbeat(client: X606SOAPClient):
-    """Kirim status bridge + info device ke Railway."""
+    """Kirim status bridge + info device ke server rack."""
     try:
         users = client.get_all_users()
         total = len(users) if users else 0
@@ -348,7 +348,7 @@ def heartbeat(client: X606SOAPClient):
 def main():
     print("\n" + "═" * 58)
     print("  Smart Door Lock Bridge — Polsri")
-    print("  STB Linux ↔ X606-S ↔ Railway")
+    print("  STB Linux ↔ X606-S ↔ Server Rack")
     print("═" * 58)
     print(f"  Device     : {DEVICE_IP}")
     print(f"  Server     : {SERVER_URL}")
@@ -362,8 +362,8 @@ def main():
     log.info(f"  Waktu UTC : {_now_utc.strftime('%Y-%m-%d %H:%M:%S')}")
     log.info(f"  Waktu WIB : {_now_wib.strftime('%Y-%m-%d %H:%M:%S')} (yang dikirim ke device)")
 
-    # ── Test Railway ─────────────────────────────────────
-    log.info("Test koneksi Railway...")
+    # ── Test Server Rack ─────────────────────────────────
+    log.info("Test koneksi server rack...")
     try:
         r = requests.get(
             f"{SERVER_URL}/device-bridge/status-public",
@@ -371,12 +371,12 @@ def main():
             timeout=10
         )
         if r.status_code == 200:
-            log.info("  ✓ Railway online")
+            log.info("  ✓ Server rack online")
         else:
-            log.error("  ✗ Railway tidak merespons!")
+            log.error("  ✗ Server rack tidak merespons!")
             return
     except Exception as e:
-        log.error(f"  ✗ Railway gagal diakses: {e}")
+        log.error(f"  ✗ Server rack gagal diakses: {e}")
         return
 
     # ── Test Device ──────────────────────────────────────

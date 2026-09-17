@@ -22,8 +22,16 @@ class PenanggungJawabInfo(BaseModel):
 class RuanganOut(RuanganBase):
     id:    int
     aktif: bool
+    door_service_url: Optional[str] = None
     penanggung_jawab: list[PenanggungJawabInfo] = []
     model_config = {"from_attributes": True}
+
+
+class RuanganDoorServiceUpdate(BaseModel):
+    """Payload untuk mengatur alamat door_service.py milik sebuah ruangan
+    (mendukung multi-STB / multi-port tanpa perlu redeploy backend)."""
+    door_service_url: Optional[str] = None
+    door_service_api_key: Optional[str] = None
 
 
 # ── User ───────────────────────────────────────────────────
@@ -136,6 +144,7 @@ class PengaturanOut(BaseModel):
     sembunyikan_ip: bool
     mode_pemeliharaan: bool
     toleransi_keterlambatan_menit: int
+    toleransi_masuk_awal_menit: int
     model_config = {"from_attributes": True}
 
 class PengaturanUpdate(BaseModel):
@@ -143,6 +152,7 @@ class PengaturanUpdate(BaseModel):
     sembunyikan_ip: Optional[bool] = None
     mode_pemeliharaan: Optional[bool] = None
     toleransi_keterlambatan_menit: Optional[int] = None
+    toleransi_masuk_awal_menit: Optional[int] = None
 
 
 # ── Inventaris Gudang: Kategori ─────────────────────────────

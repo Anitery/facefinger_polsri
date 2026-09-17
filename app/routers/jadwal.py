@@ -1,5 +1,5 @@
 import requests as http_requests
-from functools import lru_cache
+import time
 from datetime import datetime
 from typing import Optional, List, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -40,25 +40,55 @@ class JadwalOut(JadwalCreate):
     model_config = {"from_attributes": True}
 
 
-@lru_cache(maxsize=24)  # Cache per bulan agar tidak spam ke API eksternal
-def _fetch_hari_libur_cached(year: int, month: int):
+# Cache manual (bukan @lru_cache) supaya kegagalan panggilan API TIDAK ikut
+# ter-cache permanen — sebelumnya @lru_cache akan menyimpan hasil [] selamanya
+# begitu 1x gagal/timeout, jadi fitur libur nasional "mati" terus sampai
+# proses backend di-restart. Di sini, hasil kosong karena error hanya
+# dianggap valid selama _CACHE_TTL_GAGAL detik, lalu dicoba ulang lagi.
+_cache_hari_libur: dict = {}   # {(year, month): (timestamp, data)}
+_CACHE_TTL_SUKSES = 6 * 60 * 60   # 6 jam — data resmi jarang berubah
+_CACHE_TTL_GAGAL  = 5 * 60        # 5 menit — supaya cepat coba lagi kalau tadi gagal
+
+
+def _fetch_hari_libur_cached(year: int, month: Optional[int] = None):
     """
     Sumber: api-hari-libur.vercel.app (scraping tanggalans.com, update
     otomatis harian). Menggantikan api-harilibur.vercel.app (paused) dan
     libur.deno.dev (down).
+
+    PENTING: ini HARUS dipanggil dari backend (server-ke-server), bukan
+    langsung dari browser — browser akan diblokir CORS oleh domain pihak
+    ketiga ini. Frontend jadwal.html memanggil endpoint /jadwal/hari-libur
+    di bawah, bukan API eksternal ini secara langsung.
     """
+    key = (year, month)
+    now = time.time()
+
+    if key in _cache_hari_libur:
+        cached_at, cached_data = _cache_hari_libur[key]
+        ttl = _CACHE_TTL_SUKSES if cached_data else _CACHE_TTL_GAGAL
+        if now - cached_at < ttl:
+            return cached_data
+
+    data = []
     try:
+        params = {"year": year}
+        if month:
+            params["month"] = month
         r = http_requests.get(
             "https://api-hari-libur.vercel.app/api",
-            params={"year": year, "month": month},
-            timeout=5
+            params=params,
+            timeout=10,
         )
         if r.ok:
             body = r.json()
-            return body.get("data", [])
+            # Respons resmi: {"status":"success","data":[...],"message":"..."}
+            data = body.get("data", []) if isinstance(body, dict) else (body or [])
     except Exception:
-        pass
-    return []
+        data = []
+
+    _cache_hari_libur[key] = (now, data)
+    return data
 
 def is_hari_libur(tanggal: str) -> Tuple[bool, str]:
     """
@@ -78,11 +108,13 @@ def is_hari_libur(tanggal: str) -> Tuple[bool, str]:
 @router.get("/hari-libur")
 def get_hari_libur(
     year: int = Query(...),
-    month: int = Query(...)
+    month: Optional[int] = Query(None, description="1-12, opsional. Kosongkan untuk ambil 1 tahun penuh."),
 ):
     """
-    Ambil daftar hari libur nasional Indonesia untuk bulan tertentu.
-    Data dari api-hari-libur.vercel.app (scraping SKB dari tanggalans.com).
+    Ambil daftar hari libur nasional Indonesia untuk 1 tahun (atau 1 bulan
+    kalau `month` diisi). Data dari api-hari-libur.vercel.app (scraping SKB
+    dari tanggalans.com), di-proxy lewat backend ini supaya tidak kena CORS
+    kalau dipanggil dari browser.
     """
     data = _fetch_hari_libur_cached(year, month)
     return [

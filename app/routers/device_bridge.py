@@ -1,5 +1,5 @@
 """
-Device Bridge API — berjalan di Railway
+Device Bridge API — berjalan di server rack lokal (FastAPI + Nginx)
 Menyediakan endpoint untuk komunikasi dengan local bridge script.
 """
 from fastapi import (
@@ -49,8 +49,64 @@ DEVICE_WEBPANEL_PASS = os.getenv("DEVICE_WEBPANEL_PASS", "8888")
 
 # door_service.py berjalan di STB (satu jaringan dengan device). Server ini
 # memanggilnya lewat HTTP biasa, bukan menghubungi device secara langsung.
-DOOR_SERVICE_URL     = os.getenv("DOOR_SERVICE_URL", "http://10.17.44.161:8081")
-DOOR_SERVICE_API_KEY = os.getenv("DOOR_SERVICE_API_KEY", "ganti-key-ini-di-env")
+#
+# CATATAN MULTI-DEVICE:
+# Dulu di sini cuma ada 1 DOOR_SERVICE_URL global dari .env — jadi semua
+# ruangan (walaupun door_service-nya beda port/beda STB) selalu diarahkan
+# ke 1 alamat yang sama. Itu sebabnya multi-lab tidak bisa jalan tanpa
+# hack manual. Sekarang resolusinya per-ruangan_id lewat resolve_door_service()
+# di bawah, dengan urutan prioritas: kolom DB Ruangan.door_service_url →
+# pola env DOOR_SERVICE_URL_L{ruangan_id} → fallback DOOR_SERVICE_URL lama
+# (untuk kompatibilitas deployment single-lab yang belum diisi kolom DB-nya).
+DOOR_SERVICE_API_KEY_DEFAULT = os.getenv("DOOR_SERVICE_API_KEY", "ganti-key-ini-di-env")
+DOOR_SERVICE_URL_FALLBACK    = os.getenv("DOOR_SERVICE_URL")  # boleh kosong
+
+
+def resolve_door_service(ruangan_id: int, db: Session) -> "tuple[str, str]":
+    """
+    Tentukan (url, api_key) door_service.py yang benar untuk sebuah ruangan.
+
+    Prioritas:
+      1. Ruangan.door_service_url (diatur admin lewat dashboard/endpoint
+         PATCH /ruangan/{id}/door-service) — cara utama untuk multi-STB/
+         multi-port tanpa perlu redeploy backend.
+      2. Environment variable pola DOOR_SERVICE_URL_L{ruangan_id}, contoh
+         DOOR_SERVICE_URL_L3=http://10.17.47.163:8103 — berguna kalau mau
+         atur lewat .env server rack tanpa sentuh DB.
+      3. DOOR_SERVICE_URL lama (satu alamat global) — fallback supaya
+         deployment lama/single-lab yang belum migrasi tetap jalan.
+
+    Raise HTTPException(400) kalau tidak ada satupun yang cocok, supaya
+    error-nya jelas ("ruangan X belum dikonfigurasi") daripada diam-diam
+    salah kirim ke STB/port yang salah.
+    """
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
+
+    if ruangan and ruangan.door_service_url:
+        url = ruangan.door_service_url.rstrip("/")
+        key = ruangan.door_service_api_key or DOOR_SERVICE_API_KEY_DEFAULT
+        return url, key
+
+    env_url = os.getenv(f"DOOR_SERVICE_URL_L{ruangan_id}")
+    if env_url:
+        return env_url.rstrip("/"), DOOR_SERVICE_API_KEY_DEFAULT
+
+    if DOOR_SERVICE_URL_FALLBACK:
+        log.warning(
+            f"Ruangan {ruangan_id} belum punya door_service_url sendiri — "
+            f"pakai DOOR_SERVICE_URL fallback global ({DOOR_SERVICE_URL_FALLBACK}). "
+            f"Ini TIDAK aman untuk multi-lab, tolong set lewat dashboard."
+        )
+        return DOOR_SERVICE_URL_FALLBACK.rstrip("/"), DOOR_SERVICE_API_KEY_DEFAULT
+
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Ruangan {ruangan_id} belum dikonfigurasi door_service_url-nya. "
+            f"Set lewat PATCH /ruangan/{ruangan_id}/door-service, atau env "
+            f"DOOR_SERVICE_URL_L{ruangan_id}."
+        ),
+    )
 
 # Definisikan Timezone WIB (UTC+7)
 WIB = timezone(timedelta(hours=7))
@@ -79,6 +135,15 @@ VERIFY_MAP = {
 }
 
 ROLE_BEBAS = {"admin", "teknisi"}
+
+
+def _jam_ke_menit(jam_str: str) -> Optional[int]:
+    """Konversi 'HH:MM' -> total menit sejak 00:00. None kalau formatnya rusak."""
+    try:
+        jam, menit = jam_str.split(":")
+        return int(jam) * 60 + int(menit)
+    except (ValueError, AttributeError):
+        return None
 
 
 def verify_key(x_api_key: str = Header(...)):
@@ -110,15 +175,30 @@ def cek_akses_device(
 
     today    = waktu.strftime("%Y-%m-%d")
     now_time = waktu.strftime("%H:%M")
+    now_menit = _jam_ke_menit(now_time)
 
-    jadwal = db.query(JadwalRuangan).options(
+    # Toleransi masuk lebih awal (menit) — jadwal jam 15:00 dengan
+    # toleransi 15 menit berarti user sudah boleh masuk sejak 14:45.
+    # Dihitung di Python (bukan filter SQL) karena jam_mulai/jam_selesai
+    # disimpan sebagai string "HH:MM", bukan tipe waktu asli.
+    toleransi_awal = pengaturan.toleransi_masuk_awal_menit or 0
+
+    jadwals_hari_ini = db.query(JadwalRuangan).options(
         joinedload(JadwalRuangan.mahasiswa_diizinkan)
     ).filter(
-        JadwalRuangan.ruangan_id  == ruangan_id,
-        JadwalRuangan.tanggal     == today,
-        JadwalRuangan.jam_mulai   <= now_time,
-        JadwalRuangan.jam_selesai >  now_time,
-    ).first()
+        JadwalRuangan.ruangan_id == ruangan_id,
+        JadwalRuangan.tanggal    == today,
+    ).order_by(JadwalRuangan.jam_mulai).all()
+
+    jadwal = None
+    for j in jadwals_hari_ini:
+        mulai_menit   = _jam_ke_menit(j.jam_mulai)
+        selesai_menit = _jam_ke_menit(j.jam_selesai)
+        if mulai_menit is None or selesai_menit is None or now_menit is None:
+            continue
+        if (mulai_menit - toleransi_awal) <= now_menit < selesai_menit:
+            jadwal = j
+            break
 
     if not jadwal:
         return False, "Tidak ada jadwal aktif saat ini", None
@@ -186,7 +266,7 @@ def catat_absensi_device(
 def bridge_status(key=Depends(verify_key)):
     return {
         "status": "online",
-        "server": "SmartDoorLock Railway",
+        "server": "SmartDoorLock Server Rack",
         "time":   wib_now().isoformat()
     }
 
@@ -1041,21 +1121,23 @@ def open_door_manual(
     diteruskan ke door_service.py yang berjalan di STB (satu jaringan
     dengan device), karena server utama mungkin tidak satu jaringan
     langsung dengan X606-S.
+
+    Setiap ruangan bisa punya door_service_url/port berbeda (multi-STB
+    atau 1 STB dengan banyak port) — lihat resolve_door_service().
     """
     if user["role"] not in ROLE_BEBAS:
         raise HTTPException(status_code=403, detail="Hanya admin/teknisi yang boleh membuka pintu manual")
 
-    # Ruangan_id disimpan untuk konteks log — saat ini asumsinya 1
-    # door_service per lokasi. Kalau nanti multi-ruangan, DOOR_SERVICE_URL
-    # bisa dipetakan per ruangan_id (misal via kolom di tabel Ruangan).
+    door_service_url, door_service_api_key = resolve_door_service(ruangan_id, db)
+
     try:
         r = requests.post(
-            f"{DOOR_SERVICE_URL}/open-door",
-            headers={"X-API-Key": DOOR_SERVICE_API_KEY},
+            f"{door_service_url}/open-door",
+            headers={"X-API-Key": door_service_api_key},
             timeout=15,
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Gagal menghubungi door_service di STB ({DOOR_SERVICE_URL}): {e}")
+        raise HTTPException(status_code=502, detail=f"Gagal menghubungi door_service di STB ({door_service_url}): {e}")
 
     if not r.ok:
         try:
@@ -1069,7 +1151,7 @@ def open_door_manual(
         ruangan_id=ruangan_id,
         user_id=user["user_id"],
         status="berhasil",
-        metode="manual_dashboard",
+        metode="manual",
         keterangan=f"Pintu dibuka manual dari dashboard oleh {user['nama']}",
         waktu_akses=datetime.now(WIB),
     )
