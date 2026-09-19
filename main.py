@@ -475,44 +475,36 @@ def dashboard_pengaturan(request: Request, db: Session = Depends(get_db)):
                  "ruangan_list": get_ruangan_list(db)}
     )
 
-@app.get("/dashboard/sync-biometrik")
-def dashboard_sync_biometrik(request: Request, db: Session = Depends(get_db)):
+@app.get("/dashboard/biometrik")
+def dashboard_biometrik(request: Request, db: Session = Depends(get_db)):
+    """
+    Halaman gabungan: Sync Biometrik, Registrasi Biometrik, dan Transfer
+    Data Alat — sebelumnya 3 halaman terpisah, sekarang 1 halaman dengan
+    tab supaya alur kerja terkait biometrik/device ada di satu tempat.
+    """
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     if user["role"] not in ("admin", "teknisi"):
         return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
-        request=request, name="pages/sync_biometrik.html",
-        context={"active": "sync_biometrik", "user": user,
+        request=request, name="pages/biometrik.html",
+        context={"active": "biometrik", "user": user,
                  "ruangan_list": get_ruangan_list(db)}
     )
+
+# Redirect URL lama supaya bookmark/link yang sudah ada tidak 404.
+@app.get("/dashboard/sync-biometrik")
+def dashboard_sync_biometrik_redirect():
+    return RedirectResponse("/dashboard/biometrik", status_code=302)
 
 @app.get("/dashboard/registrasi-biometrik")
-def dashboard_registrasi_biometrik(request: Request, db: Session = Depends(get_db)):
-    user = get_session(request)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "teknisi"):
-        return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse(
-        request=request, name="pages/registrasi_biometrik.html",
-        context={"active": "registrasi_biometrik", "user": user,
-                 "ruangan_list": get_ruangan_list(db)}
-    )
+def dashboard_registrasi_biometrik_redirect():
+    return RedirectResponse("/dashboard/biometrik", status_code=302)
 
 @app.get("/dashboard/transfer-data")
-def dashboard_transfer_data(request: Request, db: Session = Depends(get_db)):
-    user = get_session(request)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "teknisi"):
-        return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse(
-        request=request, name="pages/transfer_data.html",
-        context={"active": "transfer_data", "user": user,
-                 "ruangan_list": get_ruangan_list(db)}
-    )
+def dashboard_transfer_data_redirect():
+    return RedirectResponse("/dashboard/biometrik", status_code=302)
 
 @app.get("/dashboard/about-me")
 def dashboard_about_me(request: Request):

@@ -48,6 +48,64 @@
 </div>
 
 <div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Nonaktifkan Penghapusan Otomatis dari Alat (Semua Alat)</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Sistem normalnya menghapus otomatis akses fisik user dari alat kalau jadwalnya sudah tidak
+    ada lagi (lihat catatan "self-healing" di halaman Sync Biometrik). Saat toggle ini
+    <strong>aktif</strong>, penghapusan otomatis itu <strong>dimatikan untuk SEMUA alat</strong> —
+    data user di alat tidak akan terhapus lagi walau tidak ada jadwal, sampai toggle ini
+    dimatikan kembali. User baru tetap bisa ditambah/dikirim seperti biasa; ini cuma mematikan
+    proses "hapus"-nya saja.
+  </p>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="swNonaktifHapusGlobal" style="width:2.5em;height:1.4em;">
+    <label class="form-check-label ms-2 fw-bold" for="swNonaktifHapusGlobal" style="font-size:.85rem;">Nonaktifkan penghapusan otomatis untuk semua alat</label>
+  </div>
+  <div id="warnNonaktifHapusGlobal" class="alert alert-warning py-2 mt-2 mb-0" style="display:none;font-size:.8rem;">
+    <i class="bi bi-exclamation-triangle me-1"></i>Semua alat berhenti menghapus user otomatis walau jadwalnya sudah habis — pastikan ini memang disengaja.
+  </div>
+</div>
+
+<div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-router-fill me-2 text-warning"></i>Nonaktifkan Penghapusan Otomatis per Alat</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Kalau cuma ingin mematikan penghapusan otomatis untuk 1 atau beberapa alat tertentu saja
+    (bukan semua), pilih di bawah ini. Tidak berlaku kalau toggle "Semua Alat" di atas sedang
+    aktif — toggle global selalu menang.
+  </p>
+
+  <div class="dropdown mb-2">
+    <button class="btn btn-outline-secondary dropdown-toggle d-flex justify-content-between align-items-center w-100" type="button"
+            id="dropdownRuanganNH" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+            style="max-width:420px;">
+      <span><i class="bi bi-router me-1"></i><span id="labelDropdownRuanganNH">Pilih ruangan / alat...</span></span>
+    </button>
+    <div class="dropdown-menu p-2" aria-labelledby="dropdownRuanganNH" style="max-height:300px;overflow-y:auto;min-width:320px;max-width:420px;">
+      <div class="d-flex align-items-center border-bottom pb-2 mb-2">
+        <input type="checkbox" class="form-check-input me-2" id="chkSemuaRuanganNH" onchange="toggleSemuaRuanganNH(this.checked)">
+        <label for="chkSemuaRuanganNH" class="fw-bold mb-0" style="font-size:.82rem;cursor:pointer;">Pilih Semua</label>
+      </div>
+      <div id="daftarRuanganNHBody">
+        <div class="text-center py-3 text-muted" style="font-size:.82rem;">Memuat daftar ruangan...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-sm btn-warning" onclick="terapkanNonaktifHapusPerRuangan(true)">
+      <i class="bi bi-slash-circle me-1"></i>Nonaktifkan untuk yang Dipilih
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="terapkanNonaktifHapusPerRuangan(false)">
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Normal untuk yang Dipilih
+    </button>
+    <button class="btn btn-sm btn-outline-success" onclick="aktifkanSemuaAlat()">
+      <i class="bi bi-check2-all me-1"></i>Aktifkan Semua
+    </button>
+  </div>
+  <div id="alertNonaktifHapusPerRuangan" class="mt-2"></div>
+</div>
+
+<div class="section-card p-4 mb-3">
   <h6 class="fw-bold mb-1"><i class="bi bi-clock-history me-2 text-primary"></i>Toleransi Keterlambatan Presensi</h6>
   <p class="text-muted mb-3" style="font-size:.82rem;">
     Berapa menit setelah jam mulai jadwal, mahasiswa masih dianggap "hadir" (bukan "terlambat")?
@@ -73,6 +131,7 @@ async function loadPengaturan() {
   document.getElementById('swWajibJadwal').checked = p.wajib_jadwal;
   document.getElementById('swSembunyikanIp').checked = p.sembunyikan_ip;
   document.getElementById('swPemeliharaan').checked = p.mode_pemeliharaan;
+  document.getElementById('swNonaktifHapusGlobal').checked = p.nonaktifkan_hapus_otomatis_global;
   document.getElementById('inToleransi').value = p.toleransi_keterlambatan_menit;
   toggleWarnings();
 }
@@ -80,10 +139,12 @@ async function loadPengaturan() {
 function toggleWarnings() {
   document.getElementById('warnJadwal').style.display = document.getElementById('swWajibJadwal').checked ? 'none' : 'block';
   document.getElementById('warnPemeliharaan').style.display = document.getElementById('swPemeliharaan').checked ? 'block' : 'none';
+  document.getElementById('warnNonaktifHapusGlobal').style.display = document.getElementById('swNonaktifHapusGlobal').checked ? 'block' : 'none';
 }
 
 document.getElementById('swWajibJadwal').addEventListener('change', toggleWarnings);
 document.getElementById('swPemeliharaan').addEventListener('change', toggleWarnings);
+document.getElementById('swNonaktifHapusGlobal').addEventListener('change', toggleWarnings);
 
 async function simpanPengaturan() {
   const alertEl = document.getElementById('alertPengaturan');
@@ -91,6 +152,7 @@ async function simpanPengaturan() {
     wajib_jadwal: document.getElementById('swWajibJadwal').checked,
     sembunyikan_ip: document.getElementById('swSembunyikanIp').checked,
     mode_pemeliharaan: document.getElementById('swPemeliharaan').checked,
+    nonaktifkan_hapus_otomatis_global: document.getElementById('swNonaktifHapusGlobal').checked,
     toleransi_keterlambatan_menit: parseInt(document.getElementById('inToleransi').value) || 0,
   };
 
@@ -101,6 +163,11 @@ async function simpanPengaturan() {
   }
   if (!body.wajib_jadwal && !confirm('Matikan validasi jadwal? Semua orang bisa akses kapan saja tanpa jadwal, dan presensi otomatis berhenti tercatat.')) {
     document.getElementById('swWajibJadwal').checked = true;
+    toggleWarnings();
+    return;
+  }
+  if (body.nonaktifkan_hapus_otomatis_global && !confirm('Nonaktifkan penghapusan otomatis untuk SEMUA alat? Data user tidak akan dihapus lagi walau jadwalnya sudah habis, sampai toggle ini dimatikan kembali.')) {
+    document.getElementById('swNonaktifHapusGlobal').checked = false;
     toggleWarnings();
     return;
   }
@@ -115,6 +182,109 @@ async function simpanPengaturan() {
   }
 }
 
+/* ==================== NONAKTIFKAN HAPUS OTOMATIS: PER RUANGAN ==================== */
+
+async function loadDaftarRuanganNH() {
+  const body = document.getElementById('daftarRuanganNHBody');
+  try {
+    const res = await fetch('/ruangan/?include_inactive=true');
+    const daftar = await res.json();
+    if (!daftar.length) {
+      body.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:.82rem;">Belum ada ruangan/alat terdaftar</div>';
+      return;
+    }
+    body.innerHTML = daftar.map(r => `
+      <div class="d-flex align-items-center justify-content-between py-1">
+        <div class="form-check flex-grow-1 mb-0" style="min-width:0;">
+          <input type="checkbox" class="form-check-input chkRuanganNH" id="chkRuanganNH${r.id}" value="${r.id}" onchange="perbaruiLabelDropdownRuanganNH()">
+          <label class="form-check-label" for="chkRuanganNH${r.id}" style="font-size:.85rem;cursor:pointer;">
+            ${r.nama}${r.lokasi ? ` <span class="text-muted">(${r.lokasi})</span>` : ''}
+          </label>
+        </div>
+        ${r.nonaktifkan_hapus_otomatis
+          ? '<span style="background:#fef9c3;color:#a16207;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:600;white-space:nowrap;">Nonaktif</span>'
+          : '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:600;white-space:nowrap;">Normal</span>'}
+      </div>`).join('');
+    perbaruiLabelDropdownRuanganNH();
+  } catch (e) {
+    body.innerHTML = `<div class="text-center py-3 text-danger" style="font-size:.82rem;">Gagal memuat daftar ruangan: ${e}</div>`;
+  }
+}
+
+function toggleSemuaRuanganNH(checked) {
+  document.querySelectorAll('.chkRuanganNH').forEach(chk => chk.checked = checked);
+  perbaruiLabelDropdownRuanganNH();
+}
+
+function perbaruiLabelDropdownRuanganNH() {
+  const semuaChk = document.querySelectorAll('.chkRuanganNH');
+  const terpilih = Array.from(semuaChk).filter(chk => chk.checked);
+  const label = document.getElementById('labelDropdownRuanganNH');
+  const chkSemua = document.getElementById('chkSemuaRuanganNH');
+
+  if (!terpilih.length) {
+    label.textContent = 'Pilih ruangan / alat...';
+  } else if (terpilih.length === semuaChk.length) {
+    label.textContent = `Semua alat dipilih (${terpilih.length})`;
+  } else if (terpilih.length <= 2) {
+    label.textContent = terpilih.map(chk => {
+      const lbl = document.querySelector(`label[for="${chk.id}"]`);
+      return lbl ? lbl.textContent.trim() : chk.value;
+    }).join(', ');
+  } else {
+    label.textContent = `${terpilih.length} alat dipilih`;
+  }
+
+  chkSemua.checked = semuaChk.length > 0 && terpilih.length === semuaChk.length;
+  chkSemua.indeterminate = terpilih.length > 0 && terpilih.length < semuaChk.length;
+}
+
+async function terapkanNonaktifHapusPerRuangan(nonaktifkan, idsOverride) {
+  const alertEl = document.getElementById('alertNonaktifHapusPerRuangan');
+  const ids = idsOverride || Array.from(document.querySelectorAll('.chkRuanganNH:checked')).map(chk => parseInt(chk.value));
+
+  if (!ids.length) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 ruangan/alat.</div>';
+    return;
+  }
+
+  const aksi = nonaktifkan ? 'menonaktifkan penghapusan otomatis' : 'mengembalikan ke normal (penghapusan otomatis aktif lagi)';
+  if (!confirm(`Yakin ${aksi} untuk ${ids.length} alat${idsOverride ? ' (SEMUA alat terdaftar)' : ' terpilih'}?`)) return;
+
+  try {
+    const res = await fetch('/ruangan/nonaktifkan-hapus-otomatis', {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ruangan_ids: ids, nonaktifkan: nonaktifkan }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal menyimpan.'}</div>`;
+      return;
+    }
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.length} alat berhasil diperbarui.</div>`;
+    setTimeout(() => alertEl.innerHTML = '', 2500);
+    loadDaftarRuanganNH();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+async function aktifkanSemuaAlat() {
+  // Shortcut: kembalikan SEMUA alat yang terdaftar ke normal (penghapusan
+  // otomatis aktif lagi), tanpa perlu centang satu-satu dulu.
+  const alertEl = document.getElementById('alertNonaktifHapusPerRuangan');
+  const semuaIds = Array.from(document.querySelectorAll('.chkRuanganNH')).map(chk => parseInt(chk.value));
+
+  if (!semuaIds.length) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Belum ada ruangan/alat terdaftar.</div>';
+    return;
+  }
+
+  await terapkanNonaktifHapusPerRuangan(false, semuaIds);
+}
+
 loadPengaturan();
+loadDaftarRuanganNH();
 </script>
 {% endblock %}

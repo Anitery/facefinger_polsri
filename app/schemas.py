@@ -23,8 +23,16 @@ class RuanganOut(RuanganBase):
     id:    int
     aktif: bool
     door_service_url: Optional[str] = None
+    nonaktifkan_hapus_otomatis: bool = False
     penanggung_jawab: list[PenanggungJawabInfo] = []
     model_config = {"from_attributes": True}
+
+
+class RuanganNonaktifkanHapusOtomatisUpdate(BaseModel):
+    """Payload untuk toggle 'Nonaktifkan Penghapusan Otomatis' per 1 atau
+    beberapa ruangan sekaligus (menu di halaman Pengaturan)."""
+    ruangan_ids: list[int]
+    nonaktifkan: bool
 
 
 class RuanganDoorServiceUpdate(BaseModel):
@@ -145,6 +153,7 @@ class PengaturanOut(BaseModel):
     mode_pemeliharaan: bool
     toleransi_keterlambatan_menit: int
     toleransi_masuk_awal_menit: int
+    nonaktifkan_hapus_otomatis_global: bool = False
     model_config = {"from_attributes": True}
 
 class PengaturanUpdate(BaseModel):
@@ -153,6 +162,7 @@ class PengaturanUpdate(BaseModel):
     mode_pemeliharaan: Optional[bool] = None
     toleransi_keterlambatan_menit: Optional[int] = None
     toleransi_masuk_awal_menit: Optional[int] = None
+    nonaktifkan_hapus_otomatis_global: Optional[bool] = None
 
 
 # ── Inventaris Gudang: Kategori ─────────────────────────────

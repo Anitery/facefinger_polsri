@@ -44,6 +44,14 @@ class Ruangan(Base):
     # key berbeda dari DOOR_SERVICE_API_KEY (default) di server.
     door_service_api_key = Column(String(255), nullable=True)
 
+    # Nonaktifkan penghapusan otomatis (berbasis jadwal) KHUSUS ruangan
+    # ini — saat True, endpoint /device-bridge/to-remove akan selalu
+    # kosong untuk ruangan ini, jadi data user di alat ruangan ini TIDAK
+    # akan dihapus otomatis walau jadwalnya sudah tidak ada lagi. Kalau
+    # toggle global (PengaturanSistem.nonaktifkan_hapus_otomatis_global)
+    # aktif, pengaturan per-ruangan ini otomatis diabaikan (global menang).
+    nonaktifkan_hapus_otomatis = Column(Boolean, default=False, nullable=False)
+
     # Relasi standard
     users = relationship("User", back_populates="ruangan")
     access_logs = relationship("AccessLog", back_populates="ruangan")
@@ -296,6 +304,15 @@ class PengaturanSistem(Base):
     #    keterlambatan), hanya memperlebar jendela validasi akses di
     #    cek_akses_device().
     toleransi_masuk_awal_menit = Column(Integer, default=15, nullable=False)
+
+    # f. Nonaktifkan penghapusan otomatis (berbasis jadwal) untuk
+    #    SEMUA alat sekaligus — saat True, endpoint
+    #    /device-bridge/to-remove selalu kosong untuk semua ruangan,
+    #    jadi data user TIDAK akan pernah terhapus otomatis dari alat
+    #    manapun walau jadwalnya sudah tidak ada. Kalau butuh
+    #    nonaktifkan hanya sebagian alat, pakai toggle per-ruangan
+    #    (Ruangan.nonaktifkan_hapus_otomatis) dan biarkan ini False.
+    nonaktifkan_hapus_otomatis_global = Column(Boolean, default=False, nullable=False)
 
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 

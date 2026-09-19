@@ -696,7 +696,24 @@ def get_to_remove_ruangan(
     provisioned/synced di ruangan ini di UserDeviceSync, TAPI sekarang
     TIDAK LAGI ada di roster (jadwalnya sudah habis/berubah). Dipakai
     Process 2 (STB) untuk tahu siapa yang perlu dihapus dari device.
+
+    Dihormati di sini 2 toggle dari halaman Pengaturan:
+    - Global (PengaturanSistem.nonaktifkan_hapus_otomatis_global): kalau
+      aktif, endpoint ini SELALU balas [] untuk SEMUA ruangan — jadi
+      tidak ada satupun alat yang dihapuskan otomatis walau jadwalnya
+      sudah tidak ada.
+    - Per-ruangan (Ruangan.nonaktifkan_hapus_otomatis): kalau aktif
+      HANYA untuk ruangan_id ini, balas [] juga, tapi ruangan lain
+      yang togglenya tidak aktif tetap berjalan normal.
     """
+    pengaturan = get_pengaturan(db)
+    if pengaturan.nonaktifkan_hapus_otomatis_global:
+        return []
+
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
+    if ruangan and ruangan.nonaktifkan_hapus_otomatis:
+        return []
+
     today = datetime.now(WIB).date()
     tanggal_list = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(hari_kedepan + 1)]
 

@@ -383,13 +383,27 @@ def cabut_akses_alat_mahasiswa(
         ...,
         description="Ketik persis 'CABUT AKSES SEMUA MAHASISWA' untuk konfirmasi.",
     ),
+    kelas: Optional[str] = Query(
+        None,
+        description="Isi nama kelas untuk cabut akses 1 kelas saja. Diabaikan kalau user_ids diisi.",
+    ),
+    user_ids: Optional[List[int]] = Query(
+        None,
+        description="Isi 1/beberapa ID user (mahasiswa) untuk cabut akses orang-orang tsb saja "
+                     "('per orang'). Kalau diisi, parameter kelas diabaikan. Kosongkan kelas & "
+                     "user_ids untuk cabut akses SEMUA mahasiswa.",
+    ),
     db: Session = Depends(get_db),
 ):
     """
-    Menu "Zona Berbahaya" — cabut akses fisik SEMUA user berrole
-    'mahasiswa' dari SEMUA alat (hapus PIN mereka di setiap device
-    lewat door_service /remove-users), TIDAK menyentuh user
-    admin/dosen/teknisi sama sekali.
+    Menu "Zona Berbahaya" — cabut akses fisik user berrole 'mahasiswa'
+    dari SEMUA alat (hapus PIN mereka di setiap device lewat
+    door_service /remove-users), TIDAK menyentuh user
+    admin/dosen/teknisi sama sekali. 3 mode lingkup, saling eksklusif
+    dengan prioritas: `user_ids` > `kelas` > (kosong = semua mahasiswa):
+      1. `user_ids` diisi  → hanya mahasiswa dengan ID tsb ("per orang").
+      2. `kelas` diisi     → hanya mahasiswa di kelas itu ("per kelas").
+      3. Keduanya kosong   → SEMUA mahasiswa (global).
 
     PENTING — beda dengan hapus user biasa: endpoint ini SENGAJA
     TIDAK menghapus apapun di database server. Baris di tabel `users`
@@ -398,10 +412,10 @@ def cabut_akses_alat_mahasiswa(
     (bookkeeping status sync) dan entri PIN di alat itu sendiri.
 
     Cocok dipakai misalnya di akhir semester untuk "kosongkan" semua
-    alat dari akses mahasiswa, tanpa kehilangan data biometrik/riwayat
-    di server — semester berikutnya tinggal push lagi user yang
-    relevan lewat "Kirim dari Database Server ke Alat" tanpa perlu
-    daftar ulang jari.
+    alat dari akses mahasiswa (1 orang, 1 kelas yang lulus/pindah, atau
+    semua sekaligus), tanpa kehilangan data biometrik/riwayat di
+    server — nanti tinggal push lagi user yang relevan lewat "Kirim
+    dari Database Server ke Alat" tanpa perlu daftar ulang jari.
 
     Wajib admin, dan wajib isi query param `konfirmasi` PERSIS supaya
     tidak kepencet tidak sengaja.
@@ -416,10 +430,22 @@ def cabut_akses_alat_mahasiswa(
             "Konfirmasi tidak sesuai. Ketik persis: CABUT AKSES SEMUA MAHASISWA",
         )
 
-    mahasiswa_list = db.query(User).filter(User.role == "mahasiswa").all()
+    q = db.query(User).filter(User.role == "mahasiswa")
+    if user_ids:
+        q = q.filter(User.id.in_(user_ids))
+    elif kelas:
+        q = q.filter(User.kelas == kelas)
+    mahasiswa_list = q.all()
+
     total = len(mahasiswa_list)
+    if user_ids:
+        lingkup = f"{total} user terpilih"
+    elif kelas:
+        lingkup = f"kelas {kelas}"
+    else:
+        lingkup = "semua mahasiswa"
     if total == 0:
-        return {"pesan": "Tidak ada data mahasiswa", "diproses": 0}
+        return {"pesan": f"Tidak ada data mahasiswa untuk {lingkup}", "diproses": 0}
 
     # Cabut akses fisik di SETIAP device tempat mahasiswa itu pernah
     # synced — TIDAK hapus template DB (hapus_template_db=False),
@@ -439,7 +465,7 @@ def cabut_akses_alat_mahasiswa(
         raise HTTPException(500, f"Gagal menyimpan perubahan: {str(e)}")
 
     respon = {
-        "pesan": f"Akses alat {total} mahasiswa berhasil dicabut. Data user & fingerprint di server TIDAK dihapus.",
+        "pesan": f"Akses alat {total} mahasiswa ({lingkup}) berhasil dicabut. Data user & fingerprint di server TIDAK dihapus.",
         "diproses": total,
     }
     if gagal_device:

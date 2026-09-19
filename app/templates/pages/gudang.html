@@ -2,9 +2,67 @@
 {% block title %}Inventaris Gudang{% endblock %}
 {% block page_title %}Inventaris Gudang{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Tab menu gudang — dibuat lebih tegas & jelas (bukan cuma garis bawah tipis) */
+  .gudang-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    list-style: none;
+  }
+  .gudang-tabs .nav-item {
+    flex: 1 1 160px;
+  }
+  .gudang-tabs .nav-link {
+    border: 2px solid #dbe3ee;
+    border-radius: 10px;
+    color: #475569;
+    font-weight: 600;
+    font-size: .85rem;
+    padding: 10px 14px;
+    width: 100%;
+    text-align: center;
+    background: #fff;
+    transition: all .18s ease;
+    white-space: nowrap;
+  }
+  .gudang-tabs .nav-link:hover {
+    border-color: #1F3864;
+    color: #1F3864;
+    background: #f5f8fc;
+  }
+  .gudang-tabs .nav-link.active {
+    background: #1F3864;
+    border-color: #1F3864;
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(31,56,100,.28);
+  }
+  /* Tablet: 2 kolom biar tidak terlalu sempit */
+  @media (max-width: 767.98px) {
+    .gudang-tabs .nav-item { flex: 1 1 calc(50% - 4px); }
+  }
+  /* Mobile: full-width 1 kolom, teks rata tengah tetap (lebih mudah disentuh) */
+  @media (max-width: 575.98px) {
+    .gudang-tabs { flex-direction: column; gap: 8px; }
+    .gudang-tabs .nav-item { flex: 1 1 auto; }
+    .gudang-tabs .nav-link {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: .88rem;
+      display: flex;
+      align-items: center;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 
-<ul class="nav nav-tabs mb-3" id="gudangTabs" role="tablist" style="border-bottom:2px solid #e2e8f0;">
+<ul class="nav gudang-tabs mb-3" id="gudangTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabBarang" type="button">
       <i class="bi bi-box-seam me-1"></i>Barang

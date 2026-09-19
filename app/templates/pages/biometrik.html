@@ -1,0 +1,1679 @@
+{% extends "base.html" %}
+{% block title %}Biometrik & Transfer Data{% endblock %}
+{% block page_title %}Biometrik &amp; Transfer Data{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ══════ Tab menu — dibuat tegas & jelas (border tiap tombol), bukan cuma garis bawah tipis ══════ */
+  .clear-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .clear-tabs .nav-item { flex: 1 1 160px; }
+  .clear-tabs .nav-link {
+    border: 2px solid #dbe3ee;
+    border-radius: 10px;
+    color: #475569;
+    font-weight: 600;
+    font-size: .85rem;
+    padding: 10px 14px;
+    width: 100%;
+    text-align: center;
+    background: #fff;
+    transition: all .18s ease;
+    white-space: nowrap;
+  }
+  .clear-tabs .nav-link:hover {
+    border-color: #1F3864;
+    color: #1F3864;
+    background: #f5f8fc;
+  }
+  .clear-tabs .nav-link.active {
+    background: #1F3864;
+    border-color: #1F3864;
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(31,56,100,.28);
+  }
+  /* Varian sub-tab (nested di dalam tab utama) — sedikit lebih kecil/ringkas */
+  .clear-tabs--sub .nav-item { flex: 1 1 140px; }
+  .clear-tabs--sub .nav-link { font-size: .8rem; padding: 8px 12px; border-radius: 8px; }
+
+  /* Varian "berbahaya" — dipakai untuk tab Zona Berbahaya supaya beda dari tab lain sejak dilihat */
+  .clear-tabs .nav-link.nav-link-danger {
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .clear-tabs .nav-link.nav-link-danger:hover {
+    border-color: #dc2626;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+  .clear-tabs .nav-link.nav-link-danger.active {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(185,28,28,.28);
+  }
+
+  /* Tablet: 2 kolom biar tidak terlalu sempit */
+  @media (max-width: 767.98px) {
+    .clear-tabs .nav-item { flex: 1 1 calc(50% - 4px); }
+  }
+  /* Mobile: full-width 1 kolom, rata kiri + area sentuh lebih besar */
+  @media (max-width: 575.98px) {
+    .clear-tabs { flex-direction: column; gap: 8px; }
+    .clear-tabs .nav-item { flex: 1 1 auto; }
+    .clear-tabs .nav-link {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: .88rem;
+      display: flex;
+      align-items: center;
+    }
+    .clear-tabs--sub .nav-link { font-size: .85rem; padding: 10px 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<ul class="nav clear-tabs mb-3" id="tabUtama" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-registrasi-btn" data-bs-toggle="tab" data-bs-target="#tab-registrasi" type="button">
+      <i class="bi bi-person-fill-add me-1"></i>Registrasi Biometrik
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-sync-btn" data-bs-toggle="tab" data-bs-target="#tab-sync" type="button">
+      <i class="bi bi-arrow-repeat me-1"></i>Sync Biometrik
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-transferalat-btn" data-bs-toggle="tab" data-bs-target="#tab-transferalat" type="button">
+      <i class="bi bi-arrow-left-right me-1"></i>Transfer Data Alat
+    </button>
+  </li>
+  {% if user.role in ('admin', 'teknisi') %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link nav-link-danger" id="tab-zona-btn" data-bs-toggle="tab" data-bs-target="#tab-zona" type="button">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>Zona Berbahaya
+    </button>
+  </li>
+  {% endif %}
+</ul>
+
+<div class="tab-content">
+
+{# ================================================================ #}
+{# TAB 1: REGISTRASI BIOMETRIK (dari registrasi_biometrik.html)      #}
+{# ================================================================ #}
+<div class="tab-pane fade" id="tab-registrasi" role="tabpanel">
+
+  <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+    <i class="bi bi-info-circle me-1"></i>
+    Selama sesi aktif, <strong>jadwal yang sedang berjalan di ruangan itu dinonaktifkan sementara</strong>
+    dan sync biometrik otomatis di-skip — supaya tidak bentrok dengan pendaftaran manual.
+    Jadwal otomatis aktif lagi setelah sesi diselesaikan/dibatalkan.
+  </div>
+
+  <!-- ══════════ STATE: TIDAK ADA SESI AKTIF ══════════ -->
+  <div id="areaMulaiSesi">
+    <div class="section-card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Ruangan / Alat</h6>
+      <select class="form-select" id="pilihRuangan" onchange="onRuanganDipilih()">
+        <option value="">Memuat daftar ruangan...</option>
+      </select>
+      <div id="infoRuanganDipilih" class="mt-2" style="font-size:.8rem;color:#64748b;"></div>
+    </div>
+
+    <div class="section-card p-4 mb-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>2. Pilih User</h6>
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-bold" style="font-size:.82rem;">Pilih cepat per kelas</label>
+          <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" id="pilihKelasCepat">
+              <option value="">— Pilih kelas —</option>
+            </select>
+            <button class="btn btn-outline-primary btn-sm" onclick="tambahSemuaKelas()">
+              <i class="bi bi-plus-lg"></i> Tambah Semua
+            </button>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-bold" style="font-size:.82rem;">Cari user manual</label>
+          <input type="text" class="form-control form-control-sm" id="cariUserManual" placeholder="Ketik nama/NIM..." oninput="cariUser()">
+          <div id="hasilCariUser" class="list-group mt-1" style="position:relative;z-index:10;font-size:.82rem;"></div>
+        </div>
+      </div>
+
+      <label class="form-label fw-bold" style="font-size:.82rem;">User terpilih (<span id="jumlahTerpilihSesi">0</span>)</label>
+      <div id="daftarTerpilih" class="border rounded p-2" style="min-height:80px;max-height:260px;overflow-y:auto;">
+        <div class="text-muted text-center py-3" style="font-size:.82rem;">Belum ada user dipilih</div>
+      </div>
+    </div>
+
+    <div id="alertMulai" class="mb-3"></div>
+    <button class="btn btn-primary" onclick="mulaiSesi()">
+      <i class="bi bi-play-fill me-1"></i>Mulai Sesi Input Finger
+    </button>
+  </div>
+
+  <!-- ══════════ STATE: SESI SEDANG AKTIF ══════════ -->
+  <div id="areaSesiAktif" style="display:none;">
+    <div class="section-card p-4 mb-3" style="border-left:4px solid #d97706;">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <h6 class="fw-bold mb-1"><i class="bi bi-record-circle-fill text-warning me-2"></i>Sesi Sedang Berjalan</h6>
+          <div style="font-size:.85rem;color:#64748b;" id="infoSesiAktif"></div>
+        </div>
+      </div>
+      <div class="alert alert-warning py-2 mt-2 mb-0" style="font-size:.8rem;">
+        Daftarkan fingerprint tiap user berikut satu per satu langsung di alat. PIN dan nama mereka
+        sudah dikirim ke device — device siap menerima pendaftaran.
+      </div>
+    </div>
+
+    <div class="section-card p-3 mb-3">
+      <div id="daftarPesertaSesi"></div>
+    </div>
+
+    <div id="alertSelesai" class="mb-3"></div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-success" onclick="selesaikanSesi()">
+        <i class="bi bi-check-lg me-1"></i>Selesaikan Sesi (Ekstrak &amp; Simpan Template)
+      </button>
+      <button class="btn btn-outline-danger" onclick="batalkanSesi()">
+        <i class="bi bi-x-lg me-1"></i>Batalkan Sesi
+      </button>
+    </div>
+  </div>
+
+</div>
+
+
+{# ================================================================ #}
+{# TAB 2: SYNC BIOMETRIK (monitoring, dari sync_biometrik.html)      #}
+{# ================================================================ #}
+<div class="tab-pane fade show active" id="tab-sync" role="tabpanel">
+
+  <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+    <i class="bi bi-info-circle me-1"></i>
+    Sistem ini <strong>self-healing</strong> — STB otomatis coba ulang semua yang berstatus
+    "gagal" tiap putaran sinkronisasi (default 30 menit), tanpa perlu aksi manual.
+    Tab ini murni untuk <strong>memantau</strong>, bukan trigger manual.
+  </div>
+
+  <div class="row g-2 mb-3" id="ringkasanCards"></div>
+
+
+  <div class="section-card p-3 mb-3">
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-md">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+          <input type="text" class="form-control" id="fSearch" placeholder="Cari nama...">
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm" id="fRuangan">
+          <option value="">Semua Ruangan</option>
+          {% for r in ruangan_list %}
+          <option value="{{ r.id }}">{{ r.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm" id="fStatus">
+          <option value="">Semua Status</option>
+          <option value="synced">Synced</option>
+          <option value="provisioned">Provisioned</option>
+          <option value="removed">Removed</option>
+          <option value="gagal">Gagal</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap d-none d-md-block">
+    <div style="overflow-x:auto;">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th style="width:40px;">No</th>
+            <th>Nama</th>
+            <th>PIN</th>
+            <th>Ruangan</th>
+            <th>Status</th>
+            <th>Terakhir Update</th>
+          </tr>
+        </thead>
+        <tbody id="syncBodyDesktop"><tr><td colspan="6" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="syncBodyMobile" class="d-md-none d-flex flex-column gap-2">
+    <div class="text-center text-muted py-4">Memuat...</div>
+  </div>
+
+</div>
+
+{# ================================================================ #}
+{# TAB 3: TRANSFER DATA ALAT (dari transfer_data.html)               #}
+{# ================================================================ #}
+<div class="tab-pane fade" id="tab-transferalat" role="tabpanel">
+
+  <ul class="nav clear-tabs clear-tabs--sub mb-3" id="tabMode" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-alat-btn" data-bs-toggle="tab" data-bs-target="#tab-alat" type="button">
+        <i class="bi bi-router me-1"></i>Alat ke Alat
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-db-btn" data-bs-toggle="tab" data-bs-target="#tab-db" type="button">
+        <i class="bi bi-database-fill-gear me-1"></i>Database Server ke Alat
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    {# ---------- MODE 1: ALAT KE ALAT ---------- #}
+    <div class="tab-pane fade show active" id="tab-alat" role="tabpanel">
+
+      <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+        <i class="bi bi-info-circle me-1"></i>
+        Pindahkan user (nama + PIN, dan fingerprint-nya kalau sudah ada) dari 1 alat ke alat lain.
+        User yang <strong>belum punya fingerprint</strong> tetap ikut dipindah (nama+PIN saja) — tinggal
+        daftar jari fisik di alat tujuan. Template yang berhasil dipindah juga otomatis disalin ke database
+        server sebagai master copy.
+      </div>
+
+      <div class="section-card p-4 mb-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Alat Asal &amp; Tujuan</h6>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Asal</label>
+            <select class="form-select" id="pilihAsal" onchange="onAsalDipilih()">
+              <option value="">Memuat daftar ruangan...</option>
+            </select>
+            <div id="infoAsal" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Tujuan</label>
+            <select class="form-select" id="pilihTujuan">
+              <option value="">Memuat daftar ruangan...</option>
+            </select>
+            <div id="infoTujuan" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+          </div>
+        </div>
+        <div class="mt-3">
+          <button class="btn btn-outline-primary" id="btnMuatUser" onclick="muatUserAsal()" disabled>
+            <i class="bi bi-download me-1"></i>Muat Daftar User dari Alat Asal
+          </button>
+        </div>
+        <div id="alertMuat" class="mt-2"></div>
+      </div>
+
+      <div class="section-card p-4 mb-3" id="areaDaftarUser" style="display:none;">
+        <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>2. Pilih User yang Dipindah</h6>
+
+        <div class="row g-2 align-items-center mb-3">
+          <div class="col-12 col-md">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+              <input type="text" class="form-control" id="fSearchUser" placeholder="Cari nama/PIN..." oninput="renderDaftarUser()">
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="fFingerprint" onchange="renderDaftarUser()">
+              <option value="">Semua status</option>
+              <option value="ada">Sudah punya fingerprint</option>
+              <option value="belum">Belum punya fingerprint</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3 text-end">
+            <button class="btn btn-sm btn-outline-secondary" onclick="pilihSemuaUser()">
+              <i class="bi bi-check2-square me-1"></i>Pilih Semua (Terlihat)
+            </button>
+          </div>
+        </div>
+
+        <div style="max-height:360px;overflow-y:auto;" class="border rounded">
+          <table class="table table-hover table-sm mb-0">
+            <thead style="position:sticky;top:0;background:#fff;">
+              <tr>
+                <th style="width:36px;"></th>
+                <th>PIN</th>
+                <th>Nama</th>
+                <th>Fingerprint</th>
+              </tr>
+            </thead>
+            <tbody id="daftarUserBody"><tr><td colspan="4" class="text-center py-4 text-muted">Belum ada data</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+          <div style="font-size:.85rem;color:#64748b;"><span id="jumlahTerpilihAlat">0</span> user dipilih</div>
+          <button class="btn btn-primary" onclick="prosesTransfer()">
+            <i class="bi bi-arrow-left-right me-1"></i>Pindahkan User Terpilih
+          </button>
+        </div>
+        <div id="alertTransfer" class="mt-2"></div>
+      </div>
+
+    </div>
+
+    {# ---------- MODE 2: DATABASE SERVER KE ALAT ---------- #}
+    <div class="tab-pane fade" id="tab-db" role="tabpanel">
+
+      <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+        <i class="bi bi-info-circle me-1"></i>
+        Kirim user langsung dari <strong>master data di database server</strong> ke 1 alat — dipakai kalau
+        alat/lab baru butuh diisi data user tanpa perlu ambil dari alat lain. Kalau usernya sudah pernah
+        punya fingerprint tersimpan di server, template-nya ikut dikirim; kalau belum, hanya nama+PIN saja
+        (tinggal daftar jari fisik di alat tujuan).
+      </div>
+
+      <div class="section-card p-4 mb-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Alat Tujuan</h6>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Tujuan</label>
+            <select class="form-select" id="pilihTujuanDb">
+              <option value="">Memuat daftar ruangan...</option>
+            </select>
+            <div id="infoTujuanDb" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card p-4 mb-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>2. Pilih User dari Database Server</h6>
+
+        <div class="row g-2 align-items-center mb-3">
+          <div class="col-12 col-md">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+              <input type="text" class="form-control" id="fSearchUserDb" placeholder="Cari nama/NIM/NIP..." oninput="muatUserDatabase()">
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="fRoleDb" onchange="muatUserDatabase()">
+              <option value="">Semua role</option>
+              <option value="mahasiswa">Mahasiswa</option>
+              <option value="dosen">Dosen</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="fFingerprintDb" onchange="halamanUserDb=1; renderDaftarUserDb();">
+              <option value="">Semua status</option>
+              <option value="ada">Sudah punya fingerprint</option>
+              <option value="belum">Belum punya fingerprint</option>
+            </select>
+          </div>
+        </div>
+        <div class="text-end mb-2">
+          <button class="btn btn-sm btn-outline-secondary" onclick="pilihSemuaUserDb()">
+            <i class="bi bi-check2-square me-1"></i>Pilih Semua (Terlihat)
+          </button>
+        </div>
+
+        <div style="max-height:360px;overflow-y:auto;" class="border rounded">
+          <table class="table table-hover table-sm mb-0">
+            <thead style="position:sticky;top:0;background:#fff;">
+              <tr>
+                <th style="width:36px;"></th>
+                <th>PIN</th>
+                <th>Nama</th>
+                <th>Role</th>
+                <th>Fingerprint</th>
+              </tr>
+            </thead>
+            <tbody id="daftarUserDbBody"><tr><td colspan="5" class="text-center py-4 text-muted">Memuat data...</td></tr></tbody>
+          </table>
+        </div>
+        <div id="paginasiUserDb" class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2" style="font-size:.8rem;color:#64748b;"></div>
+
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+          <div style="font-size:.85rem;color:#64748b;"><span id="jumlahTerpilihDb">0</span> user dipilih</div>
+          <button class="btn btn-primary" onclick="prosesKirimDb()">
+            <i class="bi bi-send-fill me-1"></i>Kirim ke Alat Tujuan
+          </button>
+        </div>
+        <div id="alertKirimDb" class="mt-2"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+{# ================================================================ #}
+{# TAB 4: ZONA BERBAHAYA (hapus data user dari alat)                 #}
+{# ================================================================ #}
+{% if user.role in ('admin', 'teknisi') %}
+<div class="tab-pane fade" id="tab-zona" role="tabpanel">
+
+  <div class="alert alert-danger py-2 mb-3" style="font-size:.82rem;">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Semua cara di bawah ini <strong>hanya mencabut akses fisik</strong> (PIN + fingerprint) dari
+    alat. <strong>Data di database server (biodata, riwayat, template fingerprint) tetap aman,
+    tidak dihapus</strong> — kalau perlu, tinggal kirim lagi lewat tab "Transfer Data Alat" tanpa
+    perlu daftar ulang jari.
+  </div>
+
+    <ul class="nav clear-tabs clear-tabs--sub mb-3" id="tabHapusUser" role="tablist">
+      {% if user.role == 'admin' %}
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-hapus-orang-btn" data-bs-toggle="tab" data-bs-target="#tab-hapus-orang" type="button">
+          <i class="bi bi-person-dash me-1"></i>1. Per Orang / per Kelas
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-hapus-global-btn" data-bs-toggle="tab" data-bs-target="#tab-hapus-global" type="button">
+          <i class="bi bi-people-fill me-1"></i>2. Mahasiswa Global
+        </button>
+      </li>
+      {% endif %}
+      <li class="nav-item" role="presentation">
+        <button class="nav-link {% if user.role != 'admin' %}active{% endif %}" id="tab-hapus-scan-btn" data-bs-toggle="tab" data-bs-target="#tab-hapus-scan" type="button">
+          <i class="bi bi-router me-1"></i>3. Scan &amp; Pilih dari 1 Alat
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+
+      {% if user.role == 'admin' %}
+      {# ============ MODE 1: PER ORANG / PER KELAS (lintas semua alat) ============ #}
+      <div class="tab-pane fade show active" id="tab-hapus-orang" role="tabpanel">
+        <p style="font-size:.82rem;color:#64748b;" class="mb-3">
+          Cari 1/beberapa mahasiswa tertentu, atau langsung pilih 1 kelas — aksesnya akan dicabut
+          dari <strong>SEMUA alat</strong> tempat mereka pernah terdaftar (bukan cuma 1 alat).
+        </p>
+
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-12 col-md">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+              <input type="text" class="form-control" id="fSearchOrang" placeholder="Cari nama/NIM mahasiswa..." oninput="muatUserOrang()">
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="fKelasOrang" onchange="muatUserOrang()">
+              <option value="">Semua kelas</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row g-2 align-items-center mb-3">
+          <div class="col-12 col-md-7">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-mortarboard text-primary"></i></span>
+              <select class="form-select" id="pilihKelasCepatOrang">
+                <option value="">— Cabut akses 1 kelas penuh langsung —</option>
+              </select>
+              <button class="btn btn-outline-danger" onclick="cabutAksesKelasLangsung()">
+                <i class="bi bi-door-closed-fill me-1"></i>Cabut Kelas Ini
+              </button>
+            </div>
+          </div>
+          <div class="col-12 col-md-5 text-md-end">
+            <button class="btn btn-sm btn-outline-secondary" onclick="kosongkanPilihanOrang()">
+              <i class="bi bi-x-square me-1"></i>Kosongkan Pilihan
+            </button>
+          </div>
+        </div>
+
+        <div style="max-height:320px;overflow-y:auto;" class="border rounded">
+          <table class="table table-hover table-sm mb-0">
+            <thead style="position:sticky;top:0;background:#fff;">
+              <tr>
+                <th style="width:36px;"><input type="checkbox" class="form-check-input" id="chkSemuaOrang" onchange="toggleSemuaOrang(this.checked)"></th>
+                <th>PIN</th>
+                <th>Nama</th>
+                <th>Kelas</th>
+              </tr>
+            </thead>
+            <tbody id="daftarUserOrangBody"><tr><td colspan="4" class="text-center py-4 text-muted">Ketik nama/NIM atau pilih kelas untuk mencari...</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div style="font-size:.85rem;color:#64748b;"><span id="jumlahTerpilihOrang">0</span> user dipilih</div>
+          <button class="btn btn-danger" onclick="prosesHapusOrang()">
+            <i class="bi bi-trash3-fill me-1"></i>Cabut Akses User Terpilih dari Semua Alat
+          </button>
+        </div>
+        <div id="alertHapusOrang" class="mt-2"></div>
+      </div>
+
+      {# ============ MODE 2: MAHASISWA GLOBAL (semua alat) ============ #}
+      <div class="tab-pane fade" id="tab-hapus-global" role="tabpanel">
+        <p style="font-size:.85rem;color:#64748b;" class="mb-3">
+          Cabut akses fisik <strong>SEMUA</strong> user berrole "mahasiswa" dari <strong>SEMUA
+          alat</strong> sekaligus. User admin/dosen/teknisi tidak disentuh. Cocok dipakai misalnya
+          di akhir semester untuk "kosongkan" alat dari semua mahasiswa.
+        </p>
+        <button class="btn btn-danger" onclick="cabutAksesMahasiswaGlobal()">
+          <i class="bi bi-door-closed-fill me-1"></i>Cabut Akses SEMUA Mahasiswa dari Semua Alat
+        </button>
+        <div id="alertHapusGlobal" class="mt-2"></div>
+      </div>
+      {% endif %}
+
+      {# ============ MODE 3: SCAN & PILIH DARI 1 ALAT ============ #}
+      <div class="tab-pane fade {% if user.role != 'admin' %}show active{% endif %}" id="tab-hapus-scan" role="tabpanel">
+        <p style="font-size:.82rem;color:#64748b;" class="mb-3">
+          Pilih 1 alat, baca (scan) semua user yang ada di alat itu langsung dari device-nya,
+          lalu pilih mana saja yang mau dihapus. Hanya mempengaruhi <strong>1 alat ini saja</strong>.
+        </p>
+
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan</label>
+            <select class="form-select" id="pilihRuanganScan">
+              <option value="">Memuat daftar ruangan...</option>
+            </select>
+            <div id="infoRuanganScan" class="mt-1" style="font-size:.78rem;color:#64748b;"></div>
+          </div>
+        </div>
+        <button class="btn btn-outline-danger" id="btnScanUser" onclick="scanUserAlat()" disabled>
+          <i class="bi bi-search me-1"></i>Scan User di Alat Ini
+        </button>
+        <div id="alertScanUser" class="mt-2"></div>
+
+        <div id="areaDaftarUserScan" style="display:none;" class="mt-4">
+          <hr>
+          <div class="row g-2 align-items-center mb-2">
+            <div class="col-12 col-md">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+                <input type="text" class="form-control" id="fSearchUserScan" placeholder="Cari nama/PIN..." oninput="renderDaftarUserScan()">
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <select class="form-select form-select-sm" id="fKelasScan" onchange="renderDaftarUserScan()">
+                <option value="">Semua kelas</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <select class="form-select form-select-sm" id="fFingerprintScan" onchange="renderDaftarUserScan()">
+                <option value="">Semua status</option>
+                <option value="ada">Sudah punya fingerprint</option>
+                <option value="belum">Belum punya fingerprint</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row g-2 align-items-center mb-3">
+            <div class="col-12 col-md-7">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-mortarboard text-primary"></i></span>
+                <select class="form-select" id="pilihKelasCepatScan">
+                  <option value="">— Pilih kelas untuk seleksi cepat —</option>
+                </select>
+                <button class="btn btn-outline-secondary" onclick="pilihByKelasScan()">
+                  <i class="bi bi-check2-square me-1"></i>Pilih Semua di Kelas Ini
+                </button>
+              </div>
+            </div>
+            <div class="col-12 col-md-5 text-md-end">
+              <button class="btn btn-sm btn-outline-secondary" onclick="pilihSemuaTerlihatScan()">
+                <i class="bi bi-check2-square me-1"></i>Pilih Semua (Terlihat)
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="kosongkanPilihanScan()">
+                <i class="bi bi-x-square me-1"></i>Kosongkan Pilihan
+              </button>
+            </div>
+          </div>
+
+          <div style="max-height:360px;overflow-y:auto;" class="border rounded">
+            <table class="table table-hover table-sm mb-0">
+              <thead style="position:sticky;top:0;background:#fff;">
+                <tr>
+                  <th style="width:36px;"><input type="checkbox" class="form-check-input" id="chkSemuaUserScan" onchange="toggleSemuaUserScan(this.checked)"></th>
+                  <th>PIN</th>
+                  <th>Nama</th>
+                  <th>Kelas</th>
+                  <th>Fingerprint</th>
+                </tr>
+              </thead>
+              <tbody id="daftarUserScanBody"><tr><td colspan="5" class="text-center py-4 text-muted">Belum ada data</td></tr></tbody>
+            </table>
+          </div>
+
+          <div class="mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div style="font-size:.85rem;color:#64748b;"><span id="jumlahTerpilihScan">0</span> user dipilih</div>
+            <button class="btn btn-danger" onclick="prosesHapusScan()">
+              <i class="bi bi-trash3-fill me-1"></i>Hapus User Terpilih dari Alat Ini
+            </button>
+          </div>
+          <div id="alertHapusScan" class="mt-2"></div>
+        </div>
+      </div>
+
+    </div>
+
+</div>
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* =====================================================================
+   STATE BERSAMA (dipakai lintas tab)
+===================================================================== */
+let daftarRuangan = [];
+
+// Ada 5 dropdown ruangan di halaman ini (1 di tab Registrasi, 3 di tab
+// Transfer Data, 1 di menu Hapus > Scan & Pilih dari 1 Alat) — semuanya
+// diisi dari 1x fetch yang sama, supaya tidak perlu request terpisah
+// ke endpoint yang sama berkali-kali.
+async function loadRuanganDropdown() {
+  const res = await fetch('/device-bridge/status-semua-ruangan');
+  daftarRuangan = await res.json();
+  const opts = '<option value="">— Pilih ruangan —</option>' + daftarRuangan.map(r =>
+    `<option value="${r.ruangan_id}" data-online="${r.bridge_aktif}">${r.nama_ruangan} ${r.bridge_aktif ? '🟢' : '🔴'}</option>`
+  ).join('');
+  ['pilihRuangan', 'pilihAsal', 'pilihTujuan', 'pilihTujuanDb', 'pilihRuanganScan'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+/* =====================================================================
+   TAB SYNC BIOMETRIK
+===================================================================== */
+function statusStyle(s) {
+  if (s === 'synced') return 'background:#dcfce7;color:#15803d';
+  if (s === 'provisioned') return 'background:#dbeafe;color:#1d4ed8';
+  if (s === 'gagal') return 'background:#fee2e2;color:#b91c1c';
+  return 'background:#e2e8f0;color:#475569'; // removed
+}
+
+function formatWaktu(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('id-ID', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+}
+
+async function loadRingkasan() {
+  const res = await fetch('/device-bridge/sync-status/ringkasan');
+  const data = await res.json();
+  const el = document.getElementById('ringkasanCards');
+
+  if (!data.length) {
+    el.innerHTML = '<div class="col-12"><div class="section-card p-3 text-center text-muted">Belum ada data sync</div></div>';
+    return;
+  }
+
+  el.innerHTML = data.map(r => `
+    <div class="col-6 col-md-3">
+      <div class="section-card p-3">
+        <div class="fw-bold mb-2" style="font-size:.85rem;">${r.nama_ruangan}</div>
+        <div class="d-flex flex-wrap gap-1">
+          <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ ${r.synced}</span>
+          <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">⏳ ${r.provisioned}</span>
+          ${r.gagal > 0 ? `<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;">✗ ${r.gagal}</span>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadSyncStatus() {
+  const params = new URLSearchParams();
+  const ruangan = document.getElementById('fRuangan').value;
+  const status = document.getElementById('fStatus').value;
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  if (ruangan) params.set('ruangan_id', ruangan);
+  if (status) params.set('status', status);
+
+  const res = await fetch(`/device-bridge/sync-status?${params.toString()}`);
+  let data = await res.json();
+
+  if (search) {
+    data = data.filter(d => d.nama.toLowerCase().includes(search));
+  }
+
+  const desktop = document.getElementById('syncBodyDesktop');
+  const mobile = document.getElementById('syncBodyMobile');
+
+  if (!data.length) {
+    desktop.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data</td></tr>';
+    mobile.innerHTML = '<div class="text-center text-muted py-4">Tidak ada data</div>';
+    return;
+  }
+
+  desktop.innerHTML = data.map((d, i) => `
+    <tr>
+      <td class="text-muted" style="font-size:.75rem;">${i + 1}</td>
+      <td style="font-size:.85rem;">${d.nama}</td>
+      <td><code style="font-size:.78rem;">${d.pin ?? '—'}</code></td>
+      <td style="font-size:.82rem;">${d.nama_ruangan}</td>
+      <td><span style="${statusStyle(d.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${d.status}</span></td>
+      <td style="font-size:.78rem;color:#64748b;">${formatWaktu(d.updated_at)}</td>
+    </tr>`).join('');
+
+  mobile.innerHTML = data.map(d => `
+    <div class="section-card p-3">
+      <div class="d-flex justify-content-between align-items-start mb-1">
+        <div class="fw-bold" style="font-size:.88rem;">${d.nama}</div>
+        <span style="${statusStyle(d.status)};padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">${d.status}</span>
+      </div>
+      <div style="font-size:.78rem;color:#64748b;">
+        PIN ${d.pin ?? '—'} · ${d.nama_ruangan}<br>
+        Update: ${formatWaktu(d.updated_at)}
+      </div>
+    </div>`).join('');
+}
+
+['fSearch', 'fRuangan', 'fStatus'].forEach(id => {
+  document.getElementById(id).addEventListener('input', loadSyncStatus);
+  document.getElementById(id).addEventListener('change', loadSyncStatus);
+});
+
+/* ==================================================================== */
+/* HAPUS DATA USER DARI ALAT — 3 MODE                                    */
+/* ==================================================================== */
+
+/* ---------- MODE 1: PER ORANG / PER KELAS (lintas semua alat) ---------- */
+
+let userTerpilihIdOrang = new Set();   // Set<number> id user di database
+
+async function muatUserOrang() {
+  const kw = document.getElementById('fSearchOrang').value.trim();
+  const kelas = document.getElementById('fKelasOrang').value;
+  const body = document.getElementById('daftarUserOrangBody');
+
+  if (!kw && !kelas) {
+    body.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Ketik nama/NIM atau pilih kelas untuk mencari...</td></tr>';
+    perbaruiChkSemuaOrang();
+    return;
+  }
+
+  body.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Mencari...</td></tr>';
+
+  const params = new URLSearchParams();
+  params.set('role', 'mahasiswa');
+  if (kw) params.set('search', kw);
+  if (kelas) params.set('kelas', kelas);
+
+  try {
+    const res = await fetch(`/transfer/database-users?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) {
+      body.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-danger">${data.detail || 'Gagal memuat data'}</td></tr>`;
+      return;
+    }
+    if (!data.length) {
+      body.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Tidak ada mahasiswa yang cocok</td></tr>';
+      perbaruiChkSemuaOrang();
+      return;
+    }
+    body.innerHTML = data.map(u => `
+      <tr>
+        <td><input type="checkbox" class="form-check-input chkOrang" value="${u.id}"
+                   ${userTerpilihIdOrang.has(u.id) ? 'checked' : ''}
+                   onchange="toggleOrang(${u.id}, this.checked)"></td>
+        <td><code style="font-size:.8rem;">${u.pin ?? '—'}</code></td>
+        <td style="font-size:.85rem;">${u.nama || '—'}</td>
+        <td style="font-size:.82rem;">${u.kelas || '—'}</td>
+      </tr>`).join('');
+    perbaruiChkSemuaOrang();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-danger">Gagal menghubungi server: ${e}</td></tr>`;
+  }
+}
+
+function toggleOrang(id, checked) {
+  if (checked) userTerpilihIdOrang.add(id); else userTerpilihIdOrang.delete(id);
+  document.getElementById('jumlahTerpilihOrang').textContent = userTerpilihIdOrang.size;
+  perbaruiChkSemuaOrang();
+}
+
+function toggleSemuaOrang(checked) {
+  document.querySelectorAll('.chkOrang').forEach(chk => {
+    chk.checked = checked;
+    const id = parseInt(chk.value);
+    if (checked) userTerpilihIdOrang.add(id); else userTerpilihIdOrang.delete(id);
+  });
+  document.getElementById('jumlahTerpilihOrang').textContent = userTerpilihIdOrang.size;
+}
+
+function perbaruiChkSemuaOrang() {
+  const chkSemua = document.getElementById('chkSemuaOrang');
+  if (!chkSemua) return;
+  const semuaChk = document.querySelectorAll('.chkOrang');
+  chkSemua.checked = semuaChk.length > 0 && Array.from(semuaChk).every(c => c.checked);
+  chkSemua.indeterminate = !chkSemua.checked && Array.from(semuaChk).some(c => c.checked);
+}
+
+function kosongkanPilihanOrang() {
+  userTerpilihIdOrang = new Set();
+  document.getElementById('jumlahTerpilihOrang').textContent = 0;
+  document.querySelectorAll('.chkOrang').forEach(chk => chk.checked = false);
+  perbaruiChkSemuaOrang();
+}
+
+async function prosesHapusOrang() {
+  const alertEl = document.getElementById('alertHapusOrang');
+  if (!userTerpilihIdOrang.size) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>';
+    return;
+  }
+
+  if (!confirm(`Cabut akses ${userTerpilihIdOrang.size} user terpilih dari SEMUA alat? Data di server tidak akan terhapus.`)) return;
+
+  const konfirmasi = prompt('Ketik persis "CABUT AKSES SEMUA MAHASISWA" untuk melanjutkan:');
+  if (konfirmasi !== 'CABUT AKSES SEMUA MAHASISWA') {
+    alertEl.innerHTML = '<div class="alert alert-warning py-2">Dibatalkan — teks konfirmasi tidak sesuai.</div>';
+    return;
+  }
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mencabut akses di semua alat, mohon tunggu...</div>';
+
+  try {
+    const params = new URLSearchParams();
+    params.set('konfirmasi', konfirmasi);
+    userTerpilihIdOrang.forEach(id => params.append('user_ids', id));
+
+    const res = await fetch(`/users/cabut-akses-alat-mahasiswa?${params.toString()}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal mencabut akses.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}`;
+    if (data.peringatan) pesan += `<br><span class="text-warning">${data.peringatan}</span>`;
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+
+    kosongkanPilihanOrang();
+    muatUserOrang();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+async function cabutAksesKelasLangsung() {
+  const alertEl = document.getElementById('alertHapusOrang');
+  const kelas = document.getElementById('pilihKelasCepatOrang').value;
+  if (!kelas) {
+    alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih kelas dulu.</div>';
+    return;
+  }
+
+  if (!confirm(`Cabut akses SEMUA mahasiswa kelas ${kelas} dari SEMUA alat? Data di server tidak akan terhapus.`)) return;
+
+  const konfirmasi = prompt('Ketik persis "CABUT AKSES SEMUA MAHASISWA" untuk melanjutkan:');
+  if (konfirmasi !== 'CABUT AKSES SEMUA MAHASISWA') {
+    alertEl.innerHTML = '<div class="alert alert-warning py-2">Dibatalkan — teks konfirmasi tidak sesuai.</div>';
+    return;
+  }
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mencabut akses di semua alat, mohon tunggu...</div>';
+
+  try {
+    const params = new URLSearchParams();
+    params.set('konfirmasi', konfirmasi);
+    params.set('kelas', kelas);
+
+    const res = await fetch(`/users/cabut-akses-alat-mahasiswa?${params.toString()}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal mencabut akses.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}`;
+    if (data.peringatan) pesan += `<br><span class="text-warning">${data.peringatan}</span>`;
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+    muatUserOrang();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ---------- MODE 2: MAHASISWA GLOBAL (semua alat) ---------- */
+
+async function cabutAksesMahasiswaGlobal() {
+  const alertEl = document.getElementById('alertHapusGlobal');
+  if (!confirm('Cabut akses fisik SEMUA mahasiswa dari SEMUA alat? Data user & fingerprint di server tetap aman, tidak dihapus.')) return;
+
+  const konfirmasi = prompt('Ketik persis "CABUT AKSES SEMUA MAHASISWA" untuk melanjutkan:');
+  if (konfirmasi !== 'CABUT AKSES SEMUA MAHASISWA') {
+    alertEl.innerHTML = '<div class="alert alert-warning py-2">Dibatalkan — teks konfirmasi tidak sesuai.</div>';
+    return;
+  }
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mencabut akses di semua alat, mohon tunggu...</div>';
+
+  try {
+    const res = await fetch(`/users/cabut-akses-alat-mahasiswa?konfirmasi=${encodeURIComponent(konfirmasi)}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal mencabut akses.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}`;
+    if (data.peringatan) pesan += `<br><span class="text-warning">${data.peringatan}</span>`;
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ---------- MODE 3: SCAN & PILIH DARI 1 ALAT ---------- */
+
+let daftarUserScan = [];   // [{pin, nama, punya_fingerprint, jumlah_jari, kelas, role, dikenal_server}]
+let userTerpilihPinScan = new Set();
+
+function onRuanganScanDipilih() {
+  const sel = document.getElementById('pilihRuanganScan');
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById('infoRuanganScan');
+  document.getElementById('btnScanUser').disabled = !sel.value;
+  if (!sel.value) { info.textContent = ''; return; }
+  const online = opt.dataset.online === 'true';
+  info.innerHTML = online
+    ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge online</span>'
+    : '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Bridge tidak online — kemungkinan gagal terhubung</span>';
+}
+
+async function scanUserAlat() {
+  const ruanganId = document.getElementById('pilihRuanganScan').value;
+  const alertEl = document.getElementById('alertScanUser');
+  if (!ruanganId) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Membaca daftar user dari alat, mohon tunggu...</div>';
+  document.getElementById('areaDaftarUserScan').style.display = 'none';
+
+  try {
+    const res = await fetch(`/transfer/device-users?ruangan_id=${ruanganId}`);
+    const data = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal memuat data dari alat.'}</div>`;
+      return;
+    }
+    daftarUserScan = data;
+    userTerpilihPinScan = new Set();
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.length} user ditemukan di alat ini.</div>`;
+    document.getElementById('areaDaftarUserScan').style.display = 'block';
+    isiDropdownKelasScan();
+    renderDaftarUserScan();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+function isiDropdownKelasScan() {
+  const daftarKelas = Array.from(new Set(
+    daftarUserScan.map(u => u.kelas).filter(k => k)
+  )).sort();
+
+  const optsKosong = '<option value="">Semua kelas</option>';
+  const optsKelas = daftarKelas.map(k => `<option value="${k}">${k}</option>`).join('');
+
+  document.getElementById('fKelasScan').innerHTML = optsKosong + optsKelas;
+  document.getElementById('pilihKelasCepatScan').innerHTML =
+    '<option value="">— Pilih kelas untuk seleksi cepat —</option>' + optsKelas;
+}
+
+function dataTerfilterScan() {
+  const kw = document.getElementById('fSearchUserScan').value.trim().toLowerCase();
+  const filterKelas = document.getElementById('fKelasScan').value;
+  const filterFp = document.getElementById('fFingerprintScan').value;
+
+  let data = daftarUserScan;
+  if (kw) {
+    data = data.filter(u => (u.nama || '').toLowerCase().includes(kw) || String(u.pin).includes(kw));
+  }
+  if (filterKelas) data = data.filter(u => u.kelas === filterKelas);
+  if (filterFp === 'ada') data = data.filter(u => u.punya_fingerprint);
+  if (filterFp === 'belum') data = data.filter(u => !u.punya_fingerprint);
+  return data;
+}
+
+function toggleUserScan(pin, checked) {
+  if (checked) userTerpilihPinScan.add(pin); else userTerpilihPinScan.delete(pin);
+  document.getElementById('jumlahTerpilihScan').textContent = userTerpilihPinScan.size;
+  perbaruiChkSemuaUserScan();
+}
+
+function pilihSemuaTerlihatScan() {
+  document.querySelectorAll('.chkUserScan').forEach(chk => {
+    chk.checked = true;
+    userTerpilihPinScan.add(chk.value);
+  });
+  document.getElementById('jumlahTerpilihScan').textContent = userTerpilihPinScan.size;
+  perbaruiChkSemuaUserScan();
+}
+
+function toggleSemuaUserScan(checked) {
+  document.querySelectorAll('.chkUserScan').forEach(chk => {
+    chk.checked = checked;
+    if (checked) userTerpilihPinScan.add(chk.value); else userTerpilihPinScan.delete(chk.value);
+  });
+  document.getElementById('jumlahTerpilihScan').textContent = userTerpilihPinScan.size;
+}
+
+function kosongkanPilihanScan() {
+  userTerpilihPinScan = new Set();
+  document.getElementById('jumlahTerpilihScan').textContent = 0;
+  renderDaftarUserScan();
+}
+
+function pilihByKelasScan() {
+  const kelas = document.getElementById('pilihKelasCepatScan').value;
+  if (!kelas) return;
+  daftarUserScan.filter(u => u.kelas === kelas).forEach(u => userTerpilihPinScan.add(String(u.pin)));
+  document.getElementById('jumlahTerpilihScan').textContent = userTerpilihPinScan.size;
+  renderDaftarUserScan();
+}
+
+function renderDaftarUserScan() {
+  const data = dataTerfilterScan();
+  const body = document.getElementById('daftarUserScanBody');
+
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Tidak ada user yang cocok</td></tr>';
+    document.getElementById('chkSemuaUserScan').checked = false;
+    document.getElementById('chkSemuaUserScan').indeterminate = false;
+    return;
+  }
+
+  body.innerHTML = data.map(u => `
+    <tr>
+      <td><input type="checkbox" class="form-check-input chkUserScan" value="${u.pin}"
+                 ${userTerpilihPinScan.has(String(u.pin)) ? 'checked' : ''}
+                 onchange="toggleUserScan('${u.pin}', this.checked)"></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">
+        ${u.nama || '—'}
+        ${!u.dikenal_server ? '<div style="font-size:.7rem;color:#f59e0b;">Tidak dikenal di database server</div>' : ''}
+      </td>
+      <td style="font-size:.82rem;">${u.kelas || '—'}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? `<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ ${u.jumlah_jari ?? ''} jari</span>`
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+  perbaruiChkSemuaUserScan();
+}
+
+function perbaruiChkSemuaUserScan() {
+  const chkSemua = document.getElementById('chkSemuaUserScan');
+  const semuaChk = document.querySelectorAll('.chkUserScan');
+  chkSemua.checked = semuaChk.length > 0 && Array.from(semuaChk).every(c => c.checked);
+  chkSemua.indeterminate = !chkSemua.checked && Array.from(semuaChk).some(c => c.checked);
+}
+
+async function prosesHapusScan() {
+  const alertEl = document.getElementById('alertHapusScan');
+  const ruanganId = document.getElementById('pilihRuanganScan').value;
+
+  if (!ruanganId) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih alat/ruangan dulu.</div>'; return; }
+  if (!userTerpilihPinScan.size) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  const namaRuangan = document.getElementById('pilihRuanganScan').selectedOptions[0]?.text || 'alat ini';
+  if (!confirm(`Hapus ${userTerpilihPinScan.size} user dari ${namaRuangan}? Akses fisik mereka akan langsung dicabut dari alat ini. Data di database server tidak akan terhapus.`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Menghapus dari alat, mohon tunggu...</div>';
+
+  try {
+    const res = await fetch('/transfer/hapus-dari-alat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ruangan_id: parseInt(ruanganId),
+        pins: Array.from(userTerpilihPinScan),
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Hapus gagal.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}.`;
+    if (data.gagal && data.gagal.length) {
+      pesan += `<br><strong>Gagal:</strong> PIN ${data.gagal.join(', ')}`;
+    }
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+
+    const berhasilSet = new Set((data.berhasil || []).map(String));
+    daftarUserScan = daftarUserScan.filter(u => !berhasilSet.has(String(u.pin)));
+    berhasilSet.forEach(pin => userTerpilihPinScan.delete(pin));
+    document.getElementById('jumlahTerpilihScan').textContent = userTerpilihPinScan.size;
+    isiDropdownKelasScan();
+    renderDaftarUserScan();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* =====================================================================
+   TAB REGISTRASI BIOMETRIK
+===================================================================== */
+let userTerpilih = [];   // [{id, nama, nim_nip, id_perangkat}]
+let semuaUserCache = [];
+let sesiAktifId = null;
+
+function onRuanganDipilih() {
+  const sel = document.getElementById('pilihRuangan');
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById('infoRuanganDipilih');
+  if (!sel.value) { info.textContent = ''; return; }
+  const online = opt.dataset.online === 'true';
+  info.innerHTML = online
+    ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge online, siap dipakai untuk sesi.</span>'
+    : '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Bridge tidak online — sesi mungkin gagal push ke device.</span>';
+}
+
+async function loadKelasDropdown() {
+  const res = await fetch('/jadwal/kelas-list');
+  const data = await res.json();
+  const opts = data.map(k => `<option value="${k}">${k}</option>`).join('');
+
+  document.getElementById('pilihKelasCepat').innerHTML = '<option value="">— Pilih kelas —</option>' + opts;
+
+  // Dropdown kelas milik menu "Hapus > Per Orang / per Kelas" dipakaikan
+  // dari data yang sama, supaya tidak perlu request terpisah.
+  const selFilterOrang = document.getElementById('fKelasOrang');
+  if (selFilterOrang) selFilterOrang.innerHTML = '<option value="">Semua kelas</option>' + opts;
+  const selCepatOrang = document.getElementById('pilihKelasCepatOrang');
+  if (selCepatOrang) selCepatOrang.innerHTML = '<option value="">— Cabut akses 1 kelas penuh langsung —</option>' + opts;
+}
+
+async function loadSemuaUserCache() {
+  semuaUserCache = [];
+  try {
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const res = await fetch(`/users/?limit=200&page=${page}`);
+      if (!res.ok) {
+        console.error('Gagal load user, status:', res.status);
+        break;
+      }
+      const data = await res.json();
+      semuaUserCache = semuaUserCache.concat(data.data || []);
+      totalPages = data.pagination ? data.pagination.total_pages : 1;
+      page++;
+    } while (page <= totalPages);
+  } catch (e) {
+    console.error('Gagal load daftar user:', e);
+  }
+}
+
+function tambahUser(u) {
+  if (!u.id_perangkat) return; // skip user tanpa ID Perangkat, tidak bisa di-provision
+  if (userTerpilih.find(x => x.id === u.id)) return; // sudah ada
+  userTerpilih.push(u);
+  renderDaftarTerpilih();
+}
+
+function hapusUserTerpilih(id) {
+  userTerpilih = userTerpilih.filter(u => u.id !== id);
+  renderDaftarTerpilih();
+}
+
+function tambahSemuaKelas() {
+  const kelas = document.getElementById('pilihKelasCepat').value;
+  if (!kelas) return;
+  semuaUserCache.filter(u => u.kelas === kelas && u.role === 'mahasiswa').forEach(tambahUser);
+}
+
+function cariUser() {
+  const kw = document.getElementById('cariUserManual').value.trim().toLowerCase();
+  const hasil = document.getElementById('hasilCariUser');
+  if (kw.length < 2) { hasil.innerHTML = ''; return; }
+  const cocok = semuaUserCache.filter(u =>
+    (u.nama.toLowerCase().includes(kw) || (u.nim_nip||'').toLowerCase().includes(kw))
+    && !userTerpilih.find(x => x.id === u.id)
+  ).slice(0, 8);
+  hasil.innerHTML = cocok.map(u => `
+    <button type="button" class="list-group-item list-group-item-action py-1 px-2"
+            onclick='tambahUser(${JSON.stringify(u)}); document.getElementById("cariUserManual").value=""; document.getElementById("hasilCariUser").innerHTML="";'>
+      ${u.nama} <small class="text-muted">${u.nim_nip}</small>
+    </button>`).join('');
+}
+
+function renderDaftarTerpilih() {
+  document.getElementById('jumlahTerpilihSesi').textContent = userTerpilih.length;
+  const el = document.getElementById('daftarTerpilih');
+  if (!userTerpilih.length) {
+    el.innerHTML = '<div class="text-muted text-center py-3" style="font-size:.82rem;">Belum ada user dipilih</div>';
+    return;
+  }
+  el.innerHTML = userTerpilih.map(u => `
+    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+      <div style="font-size:.82rem;">${u.nama} <small class="text-muted">(${u.nim_nip}, PIN ${u.id_perangkat})</small></div>
+      <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="hapusUserTerpilih(${u.id})"><i class="bi bi-x"></i></button>
+    </div>`).join('');
+}
+
+async function mulaiSesi() {
+  const ruanganId = document.getElementById('pilihRuangan').value;
+  const alertEl = document.getElementById('alertMulai');
+  if (!ruanganId) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih ruangan dulu.</div>'; return; }
+  if (!userTerpilih.length) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Memulai sesi & push ke device...</div>';
+
+  const res = await fetch('/sesi-finger/mulai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ ruangan_id: parseInt(ruanganId), user_ids: userTerpilih.map(u => u.id) }),
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal memulai sesi.'}</div>`;
+    return;
+  }
+  if (data.peringatan) {
+    alertEl.innerHTML = `<div class="alert alert-warning py-2">${data.peringatan}</div>`;
+  }
+  sesiAktifId = data.sesi_id;
+  tampilkanSesiAktif();
+}
+
+function tampilkanSesiAktif() {
+  document.getElementById('areaMulaiSesi').style.display = 'none';
+  document.getElementById('areaSesiAktif').style.display = 'block';
+
+  const ruanganNama = document.getElementById('pilihRuangan').selectedOptions[0]?.text || '—';
+  document.getElementById('infoSesiAktif').innerHTML = `Ruangan: <strong>${ruanganNama}</strong> · ${userTerpilih.length} user`;
+
+  document.getElementById('daftarPesertaSesi').innerHTML = userTerpilih.map((u, i) => `
+    <div class="d-flex justify-content-between align-items-center py-2 ${i < userTerpilih.length-1 ? 'border-bottom' : ''}">
+      <div style="font-size:.85rem;">
+        <span class="text-muted" style="font-size:.75rem;">${i+1}.</span>
+        <strong>${u.nama}</strong> <small class="text-muted">PIN ${u.id_perangkat}</small>
+      </div>
+      <span class="text-muted" style="font-size:.78rem;"><i class="bi bi-fingerprint me-1"></i>Silakan daftarkan di alat</span>
+    </div>`).join('');
+}
+
+async function selesaikanSesi() {
+  const alertEl = document.getElementById('alertSelesai');
+  if (!confirm('Pastikan semua user sudah selesai daftar fingerprint di alat. Lanjutkan ekstrak & simpan?')) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mengekstrak template dari device, mohon tunggu...</div>';
+
+  const res = await fetch('/sesi-finger/selesai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ sesi_id: sesiAktifId }),
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal menyelesaikan sesi.'}</div>`;
+    return;
+  }
+
+  let pesan = `<div class="alert alert-success py-2">Sesi selesai! ${data.tersimpan} user berhasil disimpan templatenya.`;
+  if (data.gagal && data.gagal.length) {
+    pesan += `<br><strong>Gagal (belum enroll / error):</strong> PIN ${data.gagal.join(', ')}`;
+  }
+  pesan += '</div>';
+  alertEl.innerHTML = pesan;
+
+  setTimeout(resetKeFormAwal, 2500);
+}
+
+async function batalkanSesi() {
+  if (!confirm('Batalkan sesi ini? Data yang belum di-ekstrak akan hilang (jadwal akan diaktifkan lagi).')) return;
+  await fetch('/sesi-finger/batal', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ sesi_id: sesiAktifId }),
+  });
+  resetKeFormAwal();
+}
+
+function resetKeFormAwal() {
+  userTerpilih = [];
+  sesiAktifId = null;
+  document.getElementById('areaSesiAktif').style.display = 'none';
+  document.getElementById('areaMulaiSesi').style.display = 'block';
+  document.getElementById('alertMulai').innerHTML = '';
+  document.getElementById('alertSelesai').innerHTML = '';
+  renderDaftarTerpilih();
+  loadSemuaUserCache(); // refresh status punya_template
+}
+
+async function cekSesiAktifSaatBuka() {
+  const res = await fetch('/sesi-finger/aktif');
+  const data = await res.json();
+  if (data.aktif) {
+    sesiAktifId = data.id;
+    userTerpilih = data.peserta.map(p => ({ id: p.id, nama: p.nama, id_perangkat: p.pin, nim_nip: '' }));
+    document.getElementById('pilihRuangan').value = data.ruangan_id;
+    tampilkanSesiAktif();
+  }
+}
+
+/* =====================================================================
+   TAB TRANSFER DATA ALAT
+===================================================================== */
+let daftarUserAsal = [];   // [{pin, nama, punya_fingerprint, jumlah_jari}]
+let userTerpilihPin = new Set();
+
+let daftarUserDb = [];     // [{id, pin, nama, nim_nip, role, punya_fingerprint}]
+let userTerpilihIdDb = new Set();
+let halamanUserDb = 1;
+const UKURAN_HALAMAN_DB = 20;
+
+function infoOnline(selectId, infoId) {
+  const sel = document.getElementById(selectId);
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById(infoId);
+  if (!sel.value) { info.textContent = ''; return; }
+  const online = opt.dataset.online === 'true';
+  info.innerHTML = online
+    ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge online</span>'
+    : '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Bridge tidak online — kemungkinan gagal terhubung</span>';
+}
+
+function onAsalDipilih() {
+  infoOnline('pilihAsal', 'infoAsal');
+  document.getElementById('btnMuatUser').disabled = !document.getElementById('pilihAsal').value;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('pilihTujuan').addEventListener('change', () => infoOnline('pilihTujuan', 'infoTujuan'));
+  document.getElementById('pilihTujuanDb').addEventListener('change', () => infoOnline('pilihTujuanDb', 'infoTujuanDb'));
+  const selScan = document.getElementById('pilihRuanganScan');
+  if (selScan) selScan.addEventListener('change', onRuanganScanDipilih);
+});
+
+/* ---------- MODE 1: ALAT KE ALAT ---------- */
+
+async function muatUserAsal() {
+  const ruanganId = document.getElementById('pilihAsal').value;
+  const alertEl = document.getElementById('alertMuat');
+  if (!ruanganId) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Membaca daftar user dari alat, mohon tunggu...</div>';
+  document.getElementById('areaDaftarUser').style.display = 'none';
+
+  try {
+    const res = await fetch(`/transfer/device-users?ruangan_id=${ruanganId}`);
+    const data = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal memuat data dari alat.'}</div>`;
+      return;
+    }
+    daftarUserAsal = data;
+    userTerpilihPin = new Set();
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.length} user ditemukan di alat asal.</div>`;
+    document.getElementById('areaDaftarUser').style.display = 'block';
+    renderDaftarUser();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+function toggleUser(pin, checked) {
+  if (checked) userTerpilihPin.add(pin); else userTerpilihPin.delete(pin);
+  document.getElementById('jumlahTerpilihAlat').textContent = userTerpilihPin.size;
+}
+
+function pilihSemuaUser() {
+  document.querySelectorAll('.chkUser').forEach(chk => {
+    chk.checked = true;
+    userTerpilihPin.add(chk.value);
+  });
+  document.getElementById('jumlahTerpilihAlat').textContent = userTerpilihPin.size;
+}
+
+function renderDaftarUser() {
+  const kw = document.getElementById('fSearchUser').value.trim().toLowerCase();
+  const filterFp = document.getElementById('fFingerprint').value;
+
+  let data = daftarUserAsal;
+  if (kw) {
+    data = data.filter(u => u.nama.toLowerCase().includes(kw) || String(u.pin).includes(kw));
+  }
+  if (filterFp === 'ada') data = data.filter(u => u.punya_fingerprint);
+  if (filterFp === 'belum') data = data.filter(u => !u.punya_fingerprint);
+
+  const body = document.getElementById('daftarUserBody');
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Tidak ada user yang cocok</td></tr>';
+    return;
+  }
+
+  body.innerHTML = data.map(u => `
+    <tr>
+      <td><input type="checkbox" class="form-check-input chkUser" value="${u.pin}"
+                 ${userTerpilihPin.has(String(u.pin)) ? 'checked' : ''}
+                 onchange="toggleUser('${u.pin}', this.checked)"></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">${u.nama || '—'}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? `<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ ${u.jumlah_jari} jari</span>`
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+}
+
+async function prosesTransfer() {
+  const alertEl = document.getElementById('alertTransfer');
+  const asal = document.getElementById('pilihAsal').value;
+  const tujuan = document.getElementById('pilihTujuan').value;
+
+  if (!tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih ruangan/alat tujuan dulu.</div>'; return; }
+  if (asal === tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Alat asal dan tujuan tidak boleh sama.</div>'; return; }
+  if (!userTerpilihPin.size) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  const namaTujuan = document.getElementById('pilihTujuan').selectedOptions[0]?.text || 'alat tujuan';
+  if (!confirm(`Pindahkan ${userTerpilihPin.size} user ke ${namaTujuan}?`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Memindahkan data, mohon tunggu (bisa beberapa detik per user)...</div>';
+
+  try {
+    const res = await fetch('/transfer/push', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ruangan_asal_id: parseInt(asal),
+        ruangan_tujuan_id: parseInt(tujuan),
+        pins: Array.from(userTerpilihPin),
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Transfer gagal.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}.`;
+    if (data.template_disalin_ke_server) {
+      pesan += ` ${data.template_disalin_ke_server} template disalin ke database server.`;
+    }
+    if (data.gagal && data.gagal.length) {
+      pesan += `<br><strong>Gagal:</strong> PIN ${data.gagal.join(', ')}`;
+    }
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ---------- MODE 2: DATABASE KE ALAT ---------- */
+
+async function muatUserDatabase() {
+  const kw = document.getElementById('fSearchUserDb').value.trim();
+  const role = document.getElementById('fRoleDb').value;
+  const body = document.getElementById('daftarUserDbBody');
+  body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat data...</td></tr>';
+
+  const params = new URLSearchParams();
+  if (kw) params.set('search', kw);
+  if (role) params.set('role', role);
+
+  try {
+    const res = await fetch(`/transfer/database-users?${params.toString()}`);
+    daftarUserDb = await res.json();
+    halamanUserDb = 1;
+    renderDaftarUserDb();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">Gagal memuat data: ${e}</td></tr>`;
+  }
+}
+
+function toggleUserDb(id, checked) {
+  id = parseInt(id);
+  if (checked) userTerpilihIdDb.add(id); else userTerpilihIdDb.delete(id);
+  document.getElementById('jumlahTerpilihDb').textContent = userTerpilihIdDb.size;
+}
+
+function pilihSemuaUserDb() {
+  // Sengaja hanya pilih yang TERLIHAT DI HALAMAN INI (bukan lintas semua
+  // halaman), supaya "pilih semua" tidak diam-diam menyertakan ratusan
+  // user di halaman lain yang tidak sedang dilihat admin.
+  document.querySelectorAll('.chkUserDb').forEach(chk => {
+    chk.checked = true;
+    userTerpilihIdDb.add(parseInt(chk.value));
+  });
+  document.getElementById('jumlahTerpilihDb').textContent = userTerpilihIdDb.size;
+}
+
+function gantiHalamanUserDb(halaman) {
+  halamanUserDb = halaman;
+  renderDaftarUserDb();
+}
+
+function renderDaftarUserDb() {
+  const filterFp = document.getElementById('fFingerprintDb').value;
+  let data = daftarUserDb;
+  if (filterFp === 'ada') data = data.filter(u => u.punya_fingerprint);
+  if (filterFp === 'belum') data = data.filter(u => !u.punya_fingerprint);
+
+  const body = document.getElementById('daftarUserDbBody');
+  const paginasiEl = document.getElementById('paginasiUserDb');
+
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Tidak ada user yang cocok (atau belum punya PIN)</td></tr>';
+    paginasiEl.innerHTML = '';
+    return;
+  }
+
+  const totalHalaman = Math.max(1, Math.ceil(data.length / UKURAN_HALAMAN_DB));
+  if (halamanUserDb > totalHalaman) halamanUserDb = totalHalaman;
+  const mulai = (halamanUserDb - 1) * UKURAN_HALAMAN_DB;
+  const dataHalaman = data.slice(mulai, mulai + UKURAN_HALAMAN_DB);
+
+  body.innerHTML = dataHalaman.map(u => `
+    <tr>
+      <td><input type="checkbox" class="form-check-input chkUserDb" value="${u.id}"
+                 ${userTerpilihIdDb.has(u.id) ? 'checked' : ''}
+                 onchange="toggleUserDb('${u.id}', this.checked)"></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">${u.nama || '—'}<div style="font-size:.72rem;color:#94a3b8;">${u.nim_nip || ''}</div></td>
+      <td style="font-size:.8rem;text-transform:capitalize;">${u.role}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? '<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ Ada</span>'
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+
+  renderPaginasiUserDb(totalHalaman, data.length, mulai, dataHalaman.length);
+}
+
+function renderPaginasiUserDb(totalHalaman, totalData, mulai, jumlahDiHalaman) {
+  const el = document.getElementById('paginasiUserDb');
+  if (totalHalaman <= 1) {
+    el.innerHTML = `<span>Menampilkan semua ${totalData} user</span>`;
+    return;
+  }
+
+  let tombol = '';
+  tombol += `<button class="btn btn-sm btn-outline-secondary" ${halamanUserDb <= 1 ? 'disabled' : ''} onclick="gantiHalamanUserDb(${halamanUserDb - 1})"><i class="bi bi-chevron-left"></i></button>`;
+  for (let i = 1; i <= totalHalaman; i++) {
+    tombol += `<button class="btn btn-sm ${i === halamanUserDb ? 'btn-primary' : 'btn-outline-secondary'}" onclick="gantiHalamanUserDb(${i})">${i}</button>`;
+  }
+  tombol += `<button class="btn btn-sm btn-outline-secondary" ${halamanUserDb >= totalHalaman ? 'disabled' : ''} onclick="gantiHalamanUserDb(${halamanUserDb + 1})"><i class="bi bi-chevron-right"></i></button>`;
+
+  el.innerHTML = `
+    <span>Menampilkan ${mulai + 1}–${mulai + jumlahDiHalaman} dari ${totalData} user</span>
+    <div class="d-flex gap-1 flex-wrap">${tombol}</div>
+  `;
+}
+
+async function prosesKirimDb() {
+  const alertEl = document.getElementById('alertKirimDb');
+  const tujuan = document.getElementById('pilihTujuanDb').value;
+
+  if (!tujuan) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih alat tujuan dulu.</div>'; return; }
+  if (!userTerpilihIdDb.size) { alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 user.</div>'; return; }
+
+  const namaTujuan = document.getElementById('pilihTujuanDb').selectedOptions[0]?.text || 'alat tujuan';
+  if (!confirm(`Kirim ${userTerpilihIdDb.size} user dari database server ke ${namaTujuan}?`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Mengirim data, mohon tunggu...</div>';
+
+  try {
+    const res = await fetch('/transfer/push-dari-database', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ruangan_tujuan_id: parseInt(tujuan),
+        user_ids: Array.from(userTerpilihIdDb),
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Kirim gagal.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}.`;
+    if (data.template_disalin_ke_server) {
+      pesan += ` ${data.template_disalin_ke_server} template ikut disinkronkan ke database server.`;
+    }
+    if (data.gagal && data.gagal.length) {
+      pesan += `<br><strong>Gagal:</strong> PIN ${data.gagal.join(', ')}`;
+    }
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* =====================================================================
+   INISIALISASI SAAT HALAMAN DIBUKA
+   (semua tab dimuat sekaligus — Bootstrap tab hanya toggle CSS, ketiga
+   tab tetap ada di DOM, jadi datanya harus siap sejak awal)
+===================================================================== */
+loadRuanganDropdown();
+loadKelasDropdown();
+loadSemuaUserCache().then(cekSesiAktifSaatBuka);
+muatUserDatabase();
+loadRingkasan();
+loadSyncStatus();
+</script>
+{% endblock %}

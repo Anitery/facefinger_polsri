@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.models import Ruangan, User
-from app.schemas import RuanganCreate, RuanganOut, RuanganDoorServiceUpdate
+from app.schemas import RuanganCreate, RuanganOut, RuanganDoorServiceUpdate, RuanganNonaktifkanHapusOtomatisUpdate
 from app.services.auth_service import get_current_user_session
 
 router = APIRouter(prefix="/ruangan", tags=["Ruangan"])
@@ -193,3 +193,45 @@ def set_door_service(
     db.commit()
     db.refresh(ruangan)
     return ruangan
+
+
+@router.patch("/nonaktifkan-hapus-otomatis", response_model=list[RuanganOut])
+def set_nonaktifkan_hapus_otomatis(
+    payload: RuanganNonaktifkanHapusOtomatisUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_session),
+):
+    """
+    Menu "Nonaktifkan Penghapusan Otomatis" versi PER-RUANGAN (1 atau
+    beberapa alat saja) di halaman Pengaturan — beda dengan toggle
+    global di PengaturanSistem yang mempengaruhi SEMUA alat sekaligus.
+
+    Saat nonaktifkan=True untuk ruangan tertentu, endpoint
+    GET /device-bridge/to-remove akan selalu kosong untuk ruangan itu,
+    jadi data user di alat ruangan tersebut TIDAK dihapus otomatis lagi
+    walau jadwalnya sudah tidak ada — user yang baru ditambah lewat
+    Transfer Data / provisioning tetap bisa masuk seperti biasa, cuma
+    proses "hapus karena jadwal habis"-nya saja yang dimatikan.
+
+    Contoh body:
+        {"ruangan_ids": [1, 3], "nonaktifkan": true}
+    """
+    if user["role"] not in ("admin", "teknisi"):
+        raise HTTPException(status_code=403, detail="Hanya admin/teknisi yang boleh mengubah pengaturan ini")
+
+    if not payload.ruangan_ids:
+        raise HTTPException(status_code=400, detail="Pilih minimal 1 ruangan/alat")
+
+    daftar_ruangan = db.query(Ruangan).filter(Ruangan.id.in_(payload.ruangan_ids)).all()
+    ditemukan_ids = {r.id for r in daftar_ruangan}
+    tidak_ditemukan = set(payload.ruangan_ids) - ditemukan_ids
+    if tidak_ditemukan:
+        raise HTTPException(status_code=404, detail=f"Ruangan tidak ditemukan: {sorted(tidak_ditemukan)}")
+
+    for r in daftar_ruangan:
+        r.nonaktifkan_hapus_otomatis = payload.nonaktifkan
+
+    db.commit()
+    for r in daftar_ruangan:
+        db.refresh(r)
+    return daftar_ruangan

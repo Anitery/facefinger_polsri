@@ -21,6 +21,8 @@
 
 {% block extra_js %}
 <script>
+const bolehBukaPintu = "{{ 'true' if user.role in ('admin', 'teknisi') else 'false' }}" === "true";
+
 function timeAgo(dateStr) {
   if (!dateStr) return "—";
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -30,10 +32,52 @@ function timeAgo(dateStr) {
   return Math.floor(diff/86400) + " hr lalu";
 }
 
+async function bukaPintuRuangan(ruanganId, btn) {
+  if (!confirm('Buka pintu ruangan ini sekarang?')) return;
+
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Membuka...';
+
+  try {
+    const res = await fetch(`/device-bridge/open-door?ruangan_id=${ruanganId}`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Pintu Terbuka';
+      btn.classList.remove('btn-outline-danger');
+      btn.classList.add('btn-success');
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-danger');
+      }, 3000);
+    } else {
+      alert(data.detail || 'Gagal membuka pintu.');
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  } catch (e) {
+    alert('Gagal menghubungi server.');
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
 async function loadStatus() {
   try {
-    const res  = await fetch(`/device-bridge/status-semua-ruangan?role={{ user.role }}`);
-    const data = await res.json();
+    const [resBridge, resRuangan, resPengaturan] = await Promise.all([
+      fetch(`/device-bridge/status-semua-ruangan?role={{ user.role }}`),
+      fetch('/ruangan/?include_inactive=true'),
+      fetch('/pengaturan/'),
+    ]);
+    const data = await resBridge.json();
+    const daftarRuangan = await resRuangan.json();
+    const pengaturan = await resPengaturan.json();
+
+    const nonaktifGlobal = pengaturan.nonaktifkan_hapus_otomatis_global;
+    const nonaktifPerRuangan = {};
+    daftarRuangan.forEach(r => { nonaktifPerRuangan[r.id] = r.nonaktifkan_hapus_otomatis; });
 
     let online = 0, offline = 0;
     const grid = document.getElementById('gridLab');
@@ -46,14 +90,27 @@ async function loadStatus() {
       const borderColor = aktif ? '#86efac'       : '#fca5a5';
       const statusLabel = aktif ? '🟢 Terhubung'  : '🔴 Terputus';
 
+      // Sync biometrik (penghapusan otomatis berbasis jadwal) dianggap
+      // OFF untuk ruangan ini kalau toggle GLOBAL di Pengaturan aktif,
+      // ATAU toggle KHUSUS ruangan ini aktif — mana pun yang aktif,
+      // sync-nya nonaktif.
+      const syncOff  = nonaktifGlobal || !!nonaktifPerRuangan[d.ruangan_id];
+      const syncLabel = syncOff ? '🔴 OFF' : '🟢 ON';
+      const syncTitle = nonaktifGlobal
+        ? 'Dinonaktifkan lewat toggle GLOBAL di halaman Pengaturan'
+        : (nonaktifPerRuangan[d.ruangan_id] ? 'Dinonaktifkan khusus untuk ruangan ini di halaman Pengaturan' : 'Berjalan normal');
+
       return `
         <div class="section-card p-3" style="border-left:3px solid ${borderColor};">
           <div class="fw-bold mb-2" style="font-size:.85rem;color:#1e293b;">
             ${d.nama_ruangan}
           </div>
-          <div class="mb-2">
+          <div class="mb-2 d-flex flex-wrap gap-1">
             <span class="badge-${aktif ? 'ok' : 'no'}" style="font-size:.72rem;">
               ${statusLabel}
+            </span>
+            <span class="badge-${syncOff ? 'no' : 'ok'}" style="font-size:.72rem;" title="${syncTitle}">
+              Sync Biometrik: ${syncLabel}
             </span>
           </div>
           <div class="d-flex flex-column gap-1" style="font-size:.75rem;color:#64748b;">
@@ -75,6 +132,11 @@ async function loadStatus() {
               <span class="${aktif ? '' : 'text-danger'}">${timeAgo(d.last_bridge)}</span>
             </div>
           </div>
+          ${bolehBukaPintu ? `
+          <button class="btn btn-sm btn-outline-danger w-100 mt-2"
+                  onclick="bukaPintuRuangan(${d.ruangan_id}, this)">
+            <i class="bi bi-unlock-fill me-1"></i>Buka Pintu
+          </button>` : ''}
         </div>`;
     }).join('');
 

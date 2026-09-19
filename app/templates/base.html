@@ -340,21 +340,13 @@
       {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
       <div class="nav-section mt-3">Manajemen Pengguna</div>
       {% if user.role in ['admin', 'teknisi'] %}
-      <a href="/dashboard/sync-biometrik" class="nav-link {% if active=='sync_biometrik' %}active{% endif %}">
-        <i class="bi bi-fingerprint"></i> Sync Biometrik
+      <a href="/dashboard/biometrik" class="nav-link {% if active=='biometrik' %}active{% endif %}">
+        <i class="bi bi-fingerprint"></i> Biometrik &amp; Transfer Data
       </a>
       {% endif %}
       <a href="/dashboard/pengguna" class="nav-link {% if active=='pengguna' %}active{% endif %}">
         <i class="bi bi-people"></i> Pengguna
       </a>
-      {% if user.role in ['admin', 'teknisi'] %}
-      <a href="/dashboard/registrasi-biometrik" class="nav-link {% if active=='registrasi_biometrik' %}active{% endif %}">
-        <i class="bi bi-person-fill-add"></i> Registrasi Biometrik
-      </a>
-      <a href="/dashboard/transfer-data" class="nav-link {% if active=='transfer_data' %}active{% endif %}">
-        <i class="bi bi-arrow-left-right"></i> Transfer Data Alat
-      </a>
-      {% endif %}
       {% endif %}
 
       {% if user and user.role in ['admin', 'teknisi'] %}
@@ -384,7 +376,7 @@
     </div>
 
     <div class="sidebar-footer">
-      <small style="color:rgba(255,255,255,.45); font-size:.72rem;">Versi 1.1.0</small>
+      <small style="color:rgba(255,255,255,.45); font-size:.72rem;">Versi 1.2.0</small>
     </div>
   </nav>
 
