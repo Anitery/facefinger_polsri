@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional
 import json
 import logging
+import re
 import requests
 from app.database import get_db
 from app.models.models import User, BiometricTemplate, UserDeviceSync
@@ -11,6 +13,41 @@ from app.schemas import UserCreate, UserOut, UserUpdate
 import bcrypt
 
 log = logging.getLogger(__name__)
+
+
+def _generate_pin_dari_nim(nim_nip: str, db: Session, exclude_user_id: Optional[int] = None) -> str:
+    """
+    Hasilkan ID Perangkat (PIN) mahasiswa dari NIM/NPM secara otomatis.
+
+    BUG LAMA: PIN selalu diambil dari 4 digit terakhir NIM tanpa
+    pengecekan sama sekali — dua NIM yang beda tapi kebetulan 4 digit
+    terakhirnya sama (misal 062330701514 dan 062320701514, sama-sama
+    berakhiran "1514") akan diberi PIN IDENTIK, dan sistem tidak pernah
+    memberi peringatan soal itu. Akibatnya di alat, dua mahasiswa itu
+    bisa saling tertukar datanya.
+
+    Perbaikannya: tetap mulai dari 4 digit terakhir (supaya PIN singkat
+    seperti kebiasaan lama), tapi begitu ternyata sudah dipakai user
+    lain, otomatis diperpanjang jadi 5, 6, 7 digit dst. dari belakang
+    NIM sampai ketemu yang belum dipakai siapapun.
+    """
+    digits_only = re.sub(r"\D", "", nim_nip or "")
+    if not digits_only:
+        raise HTTPException(400, "NIM/NPM harus mengandung angka untuk menghasilkan ID Perangkat otomatis")
+
+    for panjang in range(4, len(digits_only) + 1):
+        kandidat = digits_only[-panjang:]
+        q = db.query(User).filter(User.id_perangkat == int(kandidat))
+        if exclude_user_id:
+            q = q.filter(User.id != exclude_user_id)
+        if not q.first():
+            return kandidat
+
+    raise HTTPException(
+        400,
+        f"Tidak bisa membuat ID Perangkat unik dari NIM {nim_nip} — kemungkinan "
+        f"NIM ini sendiri sudah pernah dipakai user lain. Isi ID Perangkat manual."
+    )
 
 
 def _hapus_akses_fisik_dari_semua_device(user: User, db: Session, hapus_template_db: bool):
@@ -138,9 +175,111 @@ def update_fingerprint(user_id: int, fingerprint_id: int, db: Session = Depends(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
+
+    # BUG LAMA: tidak ada pengecekan sama sekali, jadi 2 user bisa saja
+    # diberi ID Perangkat yang sama persis tanpa peringatan.
+    pemilik_lain = db.query(User).filter(
+        User.id_perangkat == fingerprint_id, User.id != user_id
+    ).first()
+    if pemilik_lain:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"ID Perangkat {fingerprint_id} sudah dipakai oleh {pemilik_lain.nama} "
+                f"({pemilik_lain.nim_nip}). Setiap ID Perangkat harus unik — gunakan PIN lain."
+            ),
+        )
+
     user.id_perangkat = fingerprint_id
     db.commit()
     return {"pesan": f"ID Perangkat {fingerprint_id} disimpan untuk {user.nama}"}
+
+
+@router.post("/{user_id}/fingerprint-otomatis")
+def set_fingerprint_otomatis(user_id: int, db: Session = Depends(get_db)):
+    """
+    Hasilkan & simpan ID Perangkat mahasiswa otomatis dari NIM-nya,
+    dengan pengecekan anti-duplikat (lihat _generate_pin_dari_nim).
+    Dipakai frontend menggantikan perhitungan 4-digit-terakhir yang dulu
+    dilakukan di JS tanpa validasi apapun ke server.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+
+    pin = _generate_pin_dari_nim(user.nim_nip, db, exclude_user_id=user.id)
+    user.id_perangkat = int(pin)
+    db.commit()
+    return {
+        "pesan": f"ID Perangkat {pin} disimpan untuk {user.nama}",
+        "id_perangkat": pin,
+        "diperpanjang": len(pin) > 4,
+    }
+
+
+@router.get("/duplikat-id-perangkat")
+def get_duplikat_id_perangkat(db: Session = Depends(get_db)):
+    """
+    Cari ID Perangkat yang kebetulan dipakai lebih dari 1 user — sisa
+    dari bug lama sebelum ada validasi keunikan. Dipakai admin untuk
+    membersihkan data yang sudah kadung bentrok di database saat ini.
+    """
+    dup_ids = db.query(User.id_perangkat).filter(
+        User.id_perangkat.isnot(None)
+    ).group_by(User.id_perangkat).having(func.count(User.id) > 1).all()
+    dup_ids = [d[0] for d in dup_ids]
+    if not dup_ids:
+        return []
+
+    users = db.query(User).filter(User.id_perangkat.in_(dup_ids)).order_by(User.id_perangkat).all()
+    kelompok = {}
+    for u in users:
+        kelompok.setdefault(u.id_perangkat, []).append({
+            "id": u.id, "nama": u.nama, "nim_nip": u.nim_nip,
+            "role": u.role, "kelas": u.kelas, "aktif": u.aktif,
+        })
+    return [{"id_perangkat": pin, "users": daftar} for pin, daftar in sorted(kelompok.items())]
+
+
+@router.post("/{user_id}/hapus-fingerprint")
+def hapus_fingerprint_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Hapus SEMUA data fingerprint milik 1 user — dari database server DAN
+    dari semua alat yang pernah menyimpannya (lewat door_service
+    /remove-users di tiap alat terkait). User TETAP AKTIF dan datanya
+    yang lain (nama, NIM, riwayat) TIDAK disentuh — cuma template
+    fingerprint-nya yang dihapus, supaya bisa didaftarkan ulang dari nol
+    lewat Registrasi Biometrik.
+
+    Dibuat khusus untuk membereskan akibat bug duplikasi ID Perangkat
+    lama: kalau 2 mahasiswa pernah berbagi 1 PIN yang sama, fingerprint
+    salah satu bisa tertimpa/tercampur jadi milik user yang lain di
+    database. Setelah PIN masing-masing dibetulkan (lewat Cek Duplikat
+    ID Perangkat), gunakan tombol ini untuk menghapus template yang
+    salah, baru daftarkan ulang jarinya yang benar.
+    """
+    current_role = get_current_role(request)
+    if current_role not in ("admin", "teknisi"):
+        raise HTTPException(403, "Hanya admin/teknisi yang boleh menghapus data fingerprint")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User tidak ditemukan")
+
+    jumlah_template = db.query(BiometricTemplate).filter(BiometricTemplate.user_id == user_id).count()
+    if jumlah_template == 0:
+        return {"pesan": f"{user.nama} memang belum punya data fingerprint tersimpan.", "dihapus": 0}
+
+    _hapus_akses_fisik_dari_semua_device(user, db, hapus_template_db=True)
+    db.commit()
+
+    return {
+        "pesan": (
+            f"Data fingerprint {user.nama} berhasil dihapus dari server & semua alat. "
+            f"Silakan daftar ulang lewat menu Registrasi Biometrik."
+        ),
+        "dihapus": jumlah_template,
+    }
 
 # --- Read Endpoints ---
 @router.get("/daftar-kelas")
@@ -152,13 +291,88 @@ def get_daftar_kelas(db: Session = Depends(get_db)):
     return [r[0] for r in rows]
 
 
+def _hitung_kelas_tujuan(kelas_asal: str):
+    """
+    Kelas mengikuti pola [tingkat 1-6][kode kelas], contoh '2CF'. Naik
+    tingkat = tingkat + 1, kecuali tingkat 6 -> jadi "Alumni" (dianggap
+    lulus). Return (tingkat_asal, kelas_tujuan, jadi_alumni).
+    """
+    m = re.match(r"^([1-6])([A-Za-z].*)$", kelas_asal.strip())
+    if not m:
+        raise HTTPException(
+            400,
+            f"Format kelas '{kelas_asal}' tidak dikenali — harus diawali angka tingkat 1–6 "
+            f"lalu kode kelas, contoh: 2CF",
+        )
+    tingkat = int(m.group(1))
+    kode = m.group(2)
+    jadi_alumni = tingkat == 6
+    kelas_tujuan = "Alumni" if jadi_alumni else f"{tingkat + 1}{kode}"
+    return tingkat, kelas_tujuan, jadi_alumni
+
+
+@router.get("/preview-naik-tingkat")
+def preview_naik_tingkat(kelas_asal: str, db: Session = Depends(get_db)):
+    """Pratinjau sebelum eksekusi: kelas tujuan + berapa mahasiswa yang terdampak."""
+    _, kelas_tujuan, jadi_alumni = _hitung_kelas_tujuan(kelas_asal)
+    jumlah = db.query(User).filter(
+        User.role == "mahasiswa", User.kelas == kelas_asal, User.aktif == True
+    ).count()
+    return {"kelas_asal": kelas_asal, "kelas_tujuan": kelas_tujuan,
+            "jumlah_mahasiswa": jumlah, "jadi_alumni": jadi_alumni}
+
+
+@router.post("/naikkan-tingkat")
+def naikkan_tingkat_kelas(
+    request: Request,
+    kelas_asal: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Naikkan tingkat SEMUA mahasiswa aktif di 1 kelas sekaligus — jauh
+    lebih cepat daripada edit satu-satu tiap akhir semester. Kelas
+    mengikuti pola [1-6][kode], contoh 2CF -> 3CF. Begitu tingkat sudah
+    6, mahasiswa otomatis dipindah ke kelas "Alumni" DAN dinonaktifkan
+    (akses fisik dicabut dari semua alat — data & riwayat tetap aman di
+    server, sama seperti mekanisme nonaktifkan biasa).
+    """
+    current_role = get_current_role(request)
+    if current_role != "admin":
+        raise HTTPException(403, "Hanya admin yang boleh menaikkan tingkat kelas")
+
+    _, kelas_tujuan, jadi_alumni = _hitung_kelas_tujuan(kelas_asal)
+
+    mahasiswa_list = db.query(User).filter(
+        User.role == "mahasiswa", User.kelas == kelas_asal, User.aktif == True
+    ).all()
+    if not mahasiswa_list:
+        return {"pesan": f"Tidak ada mahasiswa aktif di kelas {kelas_asal}", "dipindah": 0}
+
+    for m in mahasiswa_list:
+        m.kelas = kelas_tujuan
+        if jadi_alumni:
+            _hapus_akses_fisik_dari_semua_device(m, db, hapus_template_db=False)
+            m.aktif = False
+
+    db.commit()
+
+    return {
+        "pesan": (
+            f"{len(mahasiswa_list)} mahasiswa dari kelas {kelas_asal} dipindah ke {kelas_tujuan}"
+            + (" dan dinonaktifkan (alumni)" if jadi_alumni else "")
+        ),
+        "dipindah": len(mahasiswa_list),
+        "kelas_tujuan": kelas_tujuan,
+    }
+
+
 @router.get("/")
 def get_users(
     request: Request,  # <-- Tambahkan parameter request di sini
     include_inactive: bool = False,
     role:             Optional[str] = None,
     kelas:            Optional[str] = None,
-    fingerprint:      Optional[str] = Query(None, description="Filter: 'ada' atau 'belum'"),
+    fingerprint:      Optional[str] = Query(None, description="Filter: 'ada', 'belum', atau 'ganda' (>1 jari)"),
     search:           Optional[str] = None,
     limit:            int = Query(50, ge=1, le=200),
     page:             int = Query(1,  ge=1),
@@ -196,22 +410,30 @@ def get_users(
 
     all_users = q.all()
 
-    # Status fingerprint dihitung untuk SELURUH hasil filter di atas (bukan
-    # cuma 1 halaman) — supaya filter "punya/belum fingerprint" bisa
-    # dikombinasikan dengan filter lain + pagination secara konsisten,
-    # bukan cuma menyaring apa yang kebetulan ada di halaman saat ini.
-    ids_dgn_template = set()
+    # Jumlah jari (finger_id unik) dihitung per user untuk SELURUH hasil
+    # filter di atas (bukan cuma 1 halaman) — supaya filter fingerprint
+    # bisa dikombinasikan dengan filter lain + pagination secara
+    # konsisten. Dihitung sebagai jumlah, bukan cuma ada/tidak, supaya
+    # bisa mendeteksi user dengan >1 jari — indikasi kemungkinan data
+    # fingerprint tercampur (bug lama duplikasi ID Perangkat: 2 orang
+    # beda sempat berbagi 1 PIN, jadi template salah satunya nempel ke
+    # user yang lain).
+    jumlah_finger_per_user = {}
     all_ids = [u.id for u in all_users]
     if all_ids:
-        rows = db.query(BiometricTemplate.user_id).filter(
+        rows = db.query(
+            BiometricTemplate.user_id, func.count(BiometricTemplate.finger_id)
+        ).filter(
             BiometricTemplate.user_id.in_(all_ids)
-        ).distinct().all()
-        ids_dgn_template = {r[0] for r in rows}
+        ).group_by(BiometricTemplate.user_id).all()
+        jumlah_finger_per_user = {r[0]: r[1] for r in rows}
 
     if fingerprint == "ada":
-        all_users = [u for u in all_users if u.id in ids_dgn_template]
+        all_users = [u for u in all_users if jumlah_finger_per_user.get(u.id, 0) > 0]
     elif fingerprint == "belum":
-        all_users = [u for u in all_users if u.id not in ids_dgn_template]
+        all_users = [u for u in all_users if jumlah_finger_per_user.get(u.id, 0) == 0]
+    elif fingerprint == "ganda":
+        all_users = [u for u in all_users if jumlah_finger_per_user.get(u.id, 0) > 1]
 
     ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "mahasiswa": 3}
     all_users.sort(key=lambda u: (
@@ -234,7 +456,8 @@ def get_users(
                 "kelas":          u.kelas,
                 "aktif":          u.aktif,
                 "id_perangkat":   u.id_perangkat,
-                "punya_template": u.id in ids_dgn_template,
+                "punya_template": jumlah_finger_per_user.get(u.id, 0) > 0,
+                "jumlah_finger":  jumlah_finger_per_user.get(u.id, 0),
             }
             for u in users
         ],

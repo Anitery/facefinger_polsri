@@ -116,6 +116,20 @@
   </div>
 </div>
 
+<div class="section-card p-4 mb-3">
+  <h6 class="fw-bold mb-1"><i class="bi bi-door-open me-2 text-primary"></i>Toleransi Masuk Lebih Awal</h6>
+  <p class="text-muted mb-3" style="font-size:.82rem;">
+    Berapa menit sebelum jam mulai jadwal, alat sudah mengizinkan mahasiswa scan &amp; masuk ruangan?
+    Contoh: jadwal jam 15:00 dengan toleransi 15 menit → mahasiswa sudah bisa masuk sejak jam 14:45.
+    Ini hanya memperlebar jendela akses, <strong>tidak mengubah</strong> status presensi (tetap
+    dihitung dari jam mulai jadwal yang asli, bukan dari toleransi ini).
+  </p>
+  <div class="d-flex align-items-center gap-2">
+    <input type="number" min="0" class="form-control" id="inToleransiAwal" style="width:100px;">
+    <span class="text-muted" style="font-size:.85rem;">menit</span>
+  </div>
+</div>
+
 <div id="alertPengaturan" class="mb-3"></div>
 <button class="btn btn-primary" onclick="simpanPengaturan()">
   <i class="bi bi-check-lg me-1"></i>Simpan Pengaturan
@@ -133,6 +147,7 @@ async function loadPengaturan() {
   document.getElementById('swPemeliharaan').checked = p.mode_pemeliharaan;
   document.getElementById('swNonaktifHapusGlobal').checked = p.nonaktifkan_hapus_otomatis_global;
   document.getElementById('inToleransi').value = p.toleransi_keterlambatan_menit;
+  document.getElementById('inToleransiAwal').value = p.toleransi_masuk_awal_menit;
   toggleWarnings();
 }
 
@@ -154,6 +169,7 @@ async function simpanPengaturan() {
     mode_pemeliharaan: document.getElementById('swPemeliharaan').checked,
     nonaktifkan_hapus_otomatis_global: document.getElementById('swNonaktifHapusGlobal').checked,
     toleransi_keterlambatan_menit: parseInt(document.getElementById('inToleransi').value) || 0,
+    toleransi_masuk_awal_menit: parseInt(document.getElementById('inToleransiAwal').value) || 0,
   };
 
   if (body.mode_pemeliharaan && !confirm('Aktifkan mode pemeliharaan? Semua mahasiswa & dosen akan ditolak aksesnya sampai dimatikan lagi.')) {

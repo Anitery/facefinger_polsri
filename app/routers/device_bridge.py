@@ -76,9 +76,10 @@ def resolve_door_service(ruangan_id: int, db: Session) -> "tuple[str, str]":
       3. DOOR_SERVICE_URL lama (satu alamat global) — fallback supaya
          deployment lama/single-lab yang belum migrasi tetap jalan.
 
-    Raise HTTPException(400) kalau tidak ada satupun yang cocok, supaya
-    error-nya jelas ("ruangan X belum dikonfigurasi") daripada diam-diam
-    salah kirim ke STB/port yang salah.
+    Raise HTTPException(400) kalau tidak ada satupun yang cocok, dengan pesan
+    yang mengarahkan admin ke halaman Ruangan (bukan istilah API) — pesan ini
+    tampil langsung ke pengguna lewat alert() di dashboard, jadi harus bisa
+    dipahami tanpa perlu tahu apa itu endpoint/PATCH.
     """
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
 
@@ -99,12 +100,13 @@ def resolve_door_service(ruangan_id: int, db: Session) -> "tuple[str, str]":
         )
         return DOOR_SERVICE_URL_FALLBACK.rstrip("/"), DOOR_SERVICE_API_KEY_DEFAULT
 
+    ruangan_nama = ruangan.nama if ruangan else f"ID {ruangan_id}"
     raise HTTPException(
         status_code=400,
         detail=(
-            f"Ruangan {ruangan_id} belum dikonfigurasi door_service_url-nya. "
-            f"Set lewat PATCH /ruangan/{ruangan_id}/door-service, atau env "
-            f"DOOR_SERVICE_URL_L{ruangan_id}."
+            f'Alamat alat untuk ruangan "{ruangan_nama}" belum diatur. '
+            f'Buka menu Ruangan → klik ikon pensil (Edit) pada ruangan ini → '
+            f'isi kolom "Alamat Alat (Door Service)", lalu simpan.'
         ),
     )
 

@@ -55,6 +55,37 @@
           <input type="number" class="form-control" id="rLantai"
                  min="0" max="10" value="1">
         </div>
+        <hr>
+        <div class="mb-1">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            Alamat Alat (Door Service)
+            <span class="text-muted fw-normal" style="font-size:.75rem;">— opsional</span>
+          </label>
+          <input class="form-control" id="rDoorServiceUrl"
+                 placeholder="contoh: http://10.17.47.163:8102">
+          <div class="form-text" style="font-size:.75rem;">
+            Alamat layanan pintu (door service) di STB ruangan ini. <strong>Wajib diisi</strong>
+            sebelum fitur "Buka Pintu Manual" atau "Transfer Data Alat" bisa dipakai untuk
+            ruangan ini — kalau kosong, kedua fitur itu akan gagal dengan pesan untuk kembali
+            ke sini.
+          </div>
+        </div>
+        <div class="mb-3" id="areaDoorServiceKey" style="display:none;">
+          <label class="form-label fw-bold" style="font-size:.85rem;">
+            API Key Alat <span class="text-muted fw-normal">— opsional</span>
+          </label>
+          <input class="form-control" id="rDoorServiceApiKey"
+                 placeholder="Kosongkan untuk pakai API key default server">
+          <div class="form-text" style="font-size:.75rem;">
+            Isi hanya kalau alat ini pakai <code>DOOR_SERVICE_API_KEY</code> yang berbeda dari
+            default server. Kebanyakan kasus tidak perlu diisi.
+          </div>
+        </div>
+        <button type="button" class="btn btn-link btn-sm p-0 mb-3"
+                onclick="document.getElementById('areaDoorServiceKey').style.display='block'; this.style.display='none';"
+                id="btnTampilkanKey">
+          + Pakai API key khusus untuk alat ini
+        </button>
         <div id="alertRuangan"></div>
       </div>
       <div class="modal-footer px-4">
@@ -208,6 +239,14 @@ async function loadRuangan() {
             </span>
           </div>
 
+          ${!r.door_service_url ? `
+            <div class="mb-2" style="font-size:.72rem;background:#fef3c7;color:#92400e;
+                        padding:4px 8px;border-radius:8px;">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              Alamat alat belum diatur — buka pintu manual & transfer data belum bisa dipakai
+              untuk ruangan ini. Klik <i class="bi bi-pencil"></i> untuk mengatur.
+            </div>` : ''}
+
           <div class="mb-3 flex-grow-1">
             <div style="font-size:.72rem;font-weight:700;color:#94a3b8;
                         text-transform:uppercase;letter-spacing:.05em;
@@ -273,9 +312,11 @@ document.getElementById('showInactiveRuangan')?.addEventListener('change', loadR
 // ── Modal Tambah Ruangan ─────────────────────────────────
 function openModalRuangan() {
   editRuanganMode = false;
-  ['editRuanganId','rNama','rLokasi'].forEach(id =>
+  ['editRuanganId','rNama','rLokasi','rDoorServiceUrl','rDoorServiceApiKey'].forEach(id =>
     document.getElementById(id).value = '');
   document.getElementById('rLantai').value = '1';
+  document.getElementById('areaDoorServiceKey').style.display = 'none';
+  document.getElementById('btnTampilkanKey').style.display = 'inline-block';
   document.getElementById('alertRuangan').innerHTML = '';
   document.getElementById('modalRuanganTitle').innerHTML =
     '<i class="bi bi-building me-2"></i>Tambah Ruangan';
@@ -289,6 +330,13 @@ function openEditRuangan(r) {
   document.getElementById('rLokasi').value       = r.lokasi || '';
   // PERBAIKAN: Menggunakan r.lantai ?? 1 (nullish coalescing) agar nilai 0 tidak berubah jadi 1
   document.getElementById('rLantai').value       = r.lantai ?? 1;
+  document.getElementById('rDoorServiceUrl').value = r.door_service_url || '';
+  // API key tidak pernah dikirim balik dari server (write-only, demi keamanan),
+  // jadi field ini selalu dikosongkan & disembunyikan saat edit — tidak berarti
+  // ruangan ini belum punya key custom, cuma tidak ditampilkan lagi.
+  document.getElementById('rDoorServiceApiKey').value = '';
+  document.getElementById('areaDoorServiceKey').style.display = 'none';
+  document.getElementById('btnTampilkanKey').style.display = 'inline-block';
   document.getElementById('alertRuangan').innerHTML = '';
   document.getElementById('modalRuanganTitle').innerHTML =
     '<i class="bi bi-pencil me-2"></i>Edit Ruangan';
@@ -319,19 +367,47 @@ async function simpanRuangan() {
         body: JSON.stringify(body)
       });
 
-  if (res.ok) {
-    alertEl.innerHTML =
-      '<div class="alert alert-success py-2">Tersimpan!</div>';
-    loadRuangan();
-    setTimeout(() => {
-      bootstrap.Modal.getInstance(
-        document.getElementById('modalRuangan')).hide();
-    }, 900);
-  } else {
+  if (!res.ok) {
     const err = await res.json();
     alertEl.innerHTML =
       `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    return;
   }
+
+  const ruanganTersimpan = await res.json();
+  const ruanganId = editRuanganMode ? id : ruanganTersimpan.id;
+
+  // Alamat alat (door service) disimpan lewat endpoint terpisah — cuma
+  // dipanggil kalau memang diisi/disentuh, supaya tidak mengirim request
+  // kosong tiap kali admin cuma ganti nama/lokasi/lantai saja.
+  const doorUrl = document.getElementById('rDoorServiceUrl').value.trim();
+  const keyAreaTerbuka = document.getElementById('areaDoorServiceKey').style.display === 'block';
+
+  if (doorUrl || keyAreaTerbuka) {
+    const doorBody = { door_service_url: doorUrl || null };
+    if (keyAreaTerbuka) {
+      doorBody.door_service_api_key = document.getElementById('rDoorServiceApiKey').value.trim() || null;
+    }
+    const resDoor = await fetch(`/ruangan/${ruanganId}/door-service`, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(doorBody),
+    });
+    if (!resDoor.ok) {
+      const errDoor = await resDoor.json();
+      alertEl.innerHTML =
+        `<div class="alert alert-warning py-2">Data ruangan tersimpan, tapi alamat alat gagal disimpan: ${errDoor.detail}</div>`;
+      loadRuangan();
+      return;
+    }
+  }
+
+  alertEl.innerHTML =
+    '<div class="alert alert-success py-2">Tersimpan!</div>';
+  loadRuangan();
+  setTimeout(() => {
+    bootstrap.Modal.getInstance(
+      document.getElementById('modalRuangan')).hide();
+  }, 900);
 }
 
 async function toggleRuangan(id, nama, aktif) {

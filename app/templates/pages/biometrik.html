@@ -410,6 +410,11 @@
             </select>
           </div>
           <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="fKelasDb" onchange="muatUserDatabase()">
+              <option value="">Semua kelas</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
             <select class="form-select form-select-sm" id="fFingerprintDb" onchange="halamanUserDb=1; renderDaftarUserDb();">
               <option value="">Semua status</option>
               <option value="ada">Sudah punya fingerprint</option>
@@ -1177,15 +1182,25 @@ let userTerpilih = [];   // [{id, nama, nim_nip, id_perangkat}]
 let semuaUserCache = [];
 let sesiAktifId = null;
 
-function onRuanganDipilih() {
+async function onRuanganDipilih() {
   const sel = document.getElementById('pilihRuangan');
   const opt = sel.options[sel.selectedIndex];
   const info = document.getElementById('infoRuanganDipilih');
-  if (!sel.value) { info.textContent = ''; return; }
+  if (!sel.value) {
+    info.textContent = '';
+    document.getElementById('areaSesiAktif').style.display = 'none';
+    document.getElementById('areaMulaiSesi').style.display = 'block';
+    return;
+  }
   const online = opt.dataset.online === 'true';
   info.innerHTML = online
     ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge online, siap dipakai untuk sesi.</span>'
     : '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Bridge tidak online — sesi mungkin gagal push ke device.</span>';
+
+  // Dicek PER RUANGAN yang baru dipilih (bukan global) — supaya 2 operator
+  // di lab berbeda bisa menjalankan sesi registrasi biometrik SECARA
+  // BERSAMAAN tanpa tampilan sesi salah satunya "menimpa" yang lain.
+  await cekSesiAktifUntukRuangan(sel.value);
 }
 
 async function loadKelasDropdown() {
@@ -1360,14 +1375,21 @@ function resetKeFormAwal() {
   loadSemuaUserCache(); // refresh status punya_template
 }
 
-async function cekSesiAktifSaatBuka() {
-  const res = await fetch('/sesi-finger/aktif');
+async function cekSesiAktifUntukRuangan(ruanganId) {
+  const res = await fetch(`/sesi-finger/aktif?ruangan_id=${ruanganId}`);
   const data = await res.json();
   if (data.aktif) {
     sesiAktifId = data.id;
     userTerpilih = data.peserta.map(p => ({ id: p.id, nama: p.nama, id_perangkat: p.pin, nim_nip: '' }));
-    document.getElementById('pilihRuangan').value = data.ruangan_id;
     tampilkanSesiAktif();
+  } else {
+    // Ruangan ini tidak sedang punya sesi aktif — pastikan tampilan
+    // kembali ke form "mulai sesi" tanpa menghapus user yang mungkin
+    // sudah mulai dipilih operator (beda dengan resetKeFormAwal, yang
+    // sengaja membersihkan semuanya setelah sesi benar-benar selesai).
+    sesiAktifId = null;
+    document.getElementById('areaSesiAktif').style.display = 'none';
+    document.getElementById('areaMulaiSesi').style.display = 'block';
   }
 }
 
@@ -1526,12 +1548,14 @@ async function prosesTransfer() {
 async function muatUserDatabase() {
   const kw = document.getElementById('fSearchUserDb').value.trim();
   const role = document.getElementById('fRoleDb').value;
+  const kelas = document.getElementById('fKelasDb').value;
   const body = document.getElementById('daftarUserDbBody');
   body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat data...</td></tr>';
 
   const params = new URLSearchParams();
   if (kw) params.set('search', kw);
   if (role) params.set('role', role);
+  if (kelas) params.set('kelas', kelas);
 
   try {
     const res = await fetch(`/transfer/database-users?${params.toString()}`);
@@ -1540,6 +1564,17 @@ async function muatUserDatabase() {
     renderDaftarUserDb();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">Gagal memuat data: ${e}</td></tr>`;
+  }
+}
+
+async function loadKelasDbDropdown() {
+  try {
+    const res = await fetch('/users/daftar-kelas');
+    const kelasList = await res.json();
+    document.getElementById('fKelasDb').innerHTML =
+      '<option value="">Semua kelas</option>' + kelasList.map(k => `<option value="${k}">${k}</option>`).join('');
+  } catch (e) {
+    console.error('Gagal memuat daftar kelas:', e);
   }
 }
 
@@ -1671,7 +1706,8 @@ async function prosesKirimDb() {
 ===================================================================== */
 loadRuanganDropdown();
 loadKelasDropdown();
-loadSemuaUserCache().then(cekSesiAktifSaatBuka);
+loadSemuaUserCache();
+loadKelasDbDropdown();
 muatUserDatabase();
 loadRingkasan();
 loadSyncStatus();

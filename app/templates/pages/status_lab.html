@@ -25,7 +25,12 @@ const bolehBukaPintu = "{{ 'true' if user.role in ('admin', 'teknisi') else 'fal
 
 function timeAgo(dateStr) {
   if (!dateStr) return "—";
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  let diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  // Kalau hasilnya negatif, itu tandanya jam server rack sedikit lebih
+  // cepat dari jam browser (selisih detik/menit wajar akibat jeda
+  // sinkronisasi) — bukan berarti heartbeat datang dari masa depan.
+  // Daripada tampil aneh ("-3 mnt lalu"), dianggap saja "Baru saja".
+  if (diff < 0) diff = 0;
   if (diff < 60)   return diff + " dtk lalu";
   if (diff < 3600) return Math.floor(diff/60) + " mnt lalu";
   if (diff < 86400)return Math.floor(diff/3600) + " jam lalu";

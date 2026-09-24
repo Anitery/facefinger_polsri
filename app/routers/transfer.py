@@ -198,6 +198,7 @@ def push_transfer(
 @router.get("/database-users")
 def get_database_users(
     role: Optional[str] = None,
+    kelas: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user_session),
@@ -215,6 +216,8 @@ def get_database_users(
     q = db.query(User).filter(User.aktif == True, User.id_perangkat.isnot(None))
     if role:
         q = q.filter(User.role == role)
+    if kelas:
+        q = q.filter(User.kelas == kelas)
     if search:
         q = q.filter(User.nama.ilike(f"%{search}%") | User.nim_nip.ilike(f"%{search}%"))
 

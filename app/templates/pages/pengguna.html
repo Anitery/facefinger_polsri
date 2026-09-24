@@ -7,9 +7,19 @@
   <p class="text-muted mb-0" style="font-size:.84rem;">
     Kelola akun pengguna sistem Smart Door Lock Teknik Komputer Polsri.
   </p>
-  <button class="btn btn-primary btn-sm" onclick="openModal()">
-    <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
-  </button>
+  <div class="d-flex flex-wrap gap-2">
+    {% if user.role == 'admin' %}
+    <button class="btn btn-outline-warning btn-sm" onclick="bukaCekDuplikat()">
+      <i class="bi bi-exclamation-diamond me-1"></i>Cek Duplikat ID Perangkat
+    </button>
+    <button class="btn btn-outline-primary btn-sm" onclick="bukaNaikTingkat()">
+      <i class="bi bi-arrow-up-circle me-1"></i>Naikkan Tingkat Kelas
+    </button>
+    {% endif %}
+    <button class="btn btn-primary btn-sm" onclick="openModal()">
+      <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
+    </button>
+  </div>
 </div>
 
 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
@@ -33,6 +43,7 @@
       <option value="">Semua Status Fingerprint</option>
       <option value="ada">Sudah Punya Fingerprint</option>
       <option value="belum">Belum Punya Fingerprint</option>
+      <option value="ganda">⚠ Lebih dari 1 Jari (cek duplikat)</option>
     </select>
     <button class="btn btn-sm btn-outline-secondary" onclick="resetFilterPengguna()" title="Reset filter">
       <i class="bi bi-arrow-counterclockwise"></i>
@@ -198,6 +209,69 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════ MODAL: NAIKKAN TINGKAT KELAS ══════════ -->
+<div class="modal fade" id="modalNaikTingkat" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;">
+          <i class="bi bi-arrow-up-circle me-2"></i>Naikkan Tingkat Kelas
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p style="font-size:.83rem;color:#64748b;" class="mb-3">
+          Pindahkan SEMUA mahasiswa aktif di 1 kelas ke tingkat berikutnya sekaligus — cocok
+          dipakai tiap pergantian semester/tahun ajaran. Kelas harus mengikuti pola
+          <code>[tingkat 1-6][kode]</code>, contoh <code>2CF</code>. Kalau tingkat asal sudah
+          <strong>6</strong>, mahasiswa otomatis dipindah ke kelas <strong>"Alumni"</strong> dan
+          dinonaktifkan (akses fisik dicabut dari semua alat — data &amp; riwayat tetap aman).
+        </p>
+        <label class="form-label fw-bold" style="font-size:.85rem;">Kelas Asal</label>
+        <select class="form-select mb-3" id="ntKelasAsal" onchange="previewNaikTingkat()">
+          <option value="">— Pilih kelas —</option>
+        </select>
+        <div id="ntPreview"></div>
+        <div id="alertNaikTingkat" class="mt-2"></div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-primary" id="btnEksekusiNaikTingkat" onclick="eksekusiNaikTingkat()" disabled>
+          <i class="bi bi-check-lg me-1"></i>Naikkan Sekarang
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: CEK DUPLIKAT ID PERANGKAT ══════════ -->
+<div class="modal fade" id="modalDuplikat" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background:#1F3864; color:#fff;">
+        <h5 class="modal-title" style="font-size:.9rem;">
+          <i class="bi bi-exclamation-diamond me-2"></i>Cek Duplikat ID Perangkat
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p style="font-size:.83rem;color:#64748b;" class="mb-3">
+          Mencari ID Perangkat (PIN) yang kebetulan dipakai lebih dari 1 pengguna — biasanya
+          peninggalan sebelum ada validasi keunikan. Kalau ditemukan, edit salah satu pengguna
+          di daftar ini dan ubah ID Perangkat-nya jadi nilai lain.
+        </p>
+        <div id="hasilDuplikat">
+          <div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Memeriksa...</div>
+        </div>
+      </div>
+      <div class="modal-footer px-4">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -230,9 +304,11 @@ function toggleKelasField() {
   const isMahasiswa = role === 'mahasiswa';
   document.getElementById('kelasFieldWrap').style.display = isMahasiswa ? 'block' : 'none';
 
-  // Mahasiswa: ID Perangkat diambil OTOMATIS dari 4 digit terakhir NIM/NPM,
-  // jadi field manualnya disembunyikan. Role lain (admin/teknisi/dosen)
-  // tetap isi manual karena tidak semua NIP formatnya konsisten.
+  // Mahasiswa: ID Perangkat dihasilkan OTOMATIS DI SERVER dari NIM/NPM
+  // (mulai 4 digit terakhir, diperpanjang otomatis kalau bentrok dengan
+  // mahasiswa lain), jadi field manualnya disembunyikan. Role lain
+  // (admin/teknisi/dosen) tetap isi manual karena tidak semua NIP
+  // formatnya konsisten.
   document.getElementById('sectionFp').style.display = isMahasiswa ? 'none' : 'block';
 }
 
@@ -292,18 +368,13 @@ async function simpanUser() {
   const nimNip   = document.getElementById('inputNimNip').value.trim();
   const alertEl  = document.getElementById('alertModal');
 
-  // Mahasiswa: ID Perangkat = 4 digit terakhir NIM/NPM (otomatis).
+  // Mahasiswa: ID Perangkat dihasilkan OTOMATIS DI SERVER dari NIM/NPM
+  // (mulai 4 digit terakhir, diperpanjang otomatis kalau ternyata sudah
+  // dipakai user lain — lihat POST /users/{id}/fingerprint-otomatis).
   // Role lain: pakai nilai yang diisi manual di field ID Perangkat.
-  let fpId;
-  if (role === 'mahasiswa') {
-    const digitsOnly = nimNip.replace(/\D/g, '');
-    fpId = digitsOnly.length >= 4 ? digitsOnly.slice(-4) : digitsOnly;
-    if (!fpId) {
-      alertEl.innerHTML = '<div class="alert alert-danger py-2">NIM/NPM mahasiswa harus mengandung angka untuk menghasilkan ID Perangkat otomatis.</div>';
-      return;
-    }
-  } else {
-    fpId = document.getElementById('pIdPerangkat').value;
+  let fpIdManual = null;
+  if (role !== 'mahasiswa') {
+    fpIdManual = document.getElementById('pIdPerangkat').value;
   }
 
   const body = {
@@ -349,19 +420,29 @@ async function simpanUser() {
 
   if (res.ok) {
     const saved = responseData;
+    let pesanTambahan = '';
 
-    if (fpId) {
-      try {
-        await fetch(
-          `/users/${saved.id}/fingerprint?fingerprint_id=${fpId}`,
-          { method: 'PATCH' }
-        );
-      } catch(e) { console.warn('Gagal set fingerprint:', e); }
-    }
+    try {
+      if (role === 'mahasiswa') {
+        const fpRes = await fetch(`/users/${saved.id}/fingerprint-otomatis`, { method: 'POST' });
+        const fpData = await fpRes.json();
+        if (fpRes.ok && fpData.diperpanjang) {
+          pesanTambahan = ` ID Perangkat otomatis diperpanjang jadi <strong>${fpData.id_perangkat}</strong> karena 4 digit terakhir NIM sudah dipakai mahasiswa lain.`;
+        } else if (!fpRes.ok) {
+          pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
+        }
+      } else if (fpIdManual) {
+        const fpRes = await fetch(`/users/${saved.id}/fingerprint?fingerprint_id=${fpIdManual}`, { method: 'PATCH' });
+        if (!fpRes.ok) {
+          const fpData = await fpRes.json();
+          pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
+        }
+      }
+    } catch(e) { console.warn('Gagal set fingerprint:', e); }
 
     alertEl.innerHTML = `
       <div class="alert alert-success py-2">
-        ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}
+        ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}${pesanTambahan}
       </div>`;
       
     // Refresh table (remain on same page on edit, back to 1 on add)
@@ -401,6 +482,133 @@ async function doResetPassword() {
     }, 1000);
   } else {
     alertEl.innerHTML = '<div class="alert alert-danger py-2">Gagal reset password.</div>';
+  }
+}
+
+/* ==================== NAIKKAN TINGKAT KELAS ==================== */
+
+async function bukaNaikTingkat() {
+  document.getElementById('ntPreview').innerHTML = '';
+  document.getElementById('alertNaikTingkat').innerHTML = '';
+  document.getElementById('btnEksekusiNaikTingkat').disabled = true;
+
+  const sel = document.getElementById('ntKelasAsal');
+  sel.innerHTML = '<option value="">Memuat...</option>';
+  try {
+    const res = await fetch('/users/daftar-kelas');
+    const kelasList = await res.json();
+    // "Alumni" tidak relevan sebagai kelas ASAL untuk dinaikkan lagi
+    const bisaDinaikkan = kelasList.filter(k => k.toLowerCase() !== 'alumni');
+    sel.innerHTML = '<option value="">— Pilih kelas —</option>' +
+      bisaDinaikkan.map(k => `<option value="${k}">${k}</option>`).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">Gagal memuat kelas</option>';
+  }
+  new bootstrap.Modal(document.getElementById('modalNaikTingkat')).show();
+}
+
+async function previewNaikTingkat() {
+  const kelasAsal = document.getElementById('ntKelasAsal').value;
+  const previewEl = document.getElementById('ntPreview');
+  const btn = document.getElementById('btnEksekusiNaikTingkat');
+  document.getElementById('alertNaikTingkat').innerHTML = '';
+
+  if (!kelasAsal) { previewEl.innerHTML = ''; btn.disabled = true; return; }
+
+  previewEl.innerHTML = '<div class="text-muted" style="font-size:.82rem;"><span class="spinner-border spinner-border-sm me-2"></span>Memeriksa...</div>';
+  try {
+    const res = await fetch(`/users/preview-naik-tingkat?kelas_asal=${encodeURIComponent(kelasAsal)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      previewEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail}</div>`;
+      btn.disabled = true;
+      return;
+    }
+    if (data.jumlah_mahasiswa === 0) {
+      previewEl.innerHTML = `<div class="alert alert-warning py-2">Tidak ada mahasiswa aktif di kelas ${kelasAsal}.</div>`;
+      btn.disabled = true;
+      return;
+    }
+    previewEl.innerHTML = data.jadi_alumni
+      ? `<div class="alert alert-warning py-2"><strong>${data.jumlah_mahasiswa} mahasiswa</strong> dari ${kelasAsal} akan dipindah ke <strong>Alumni</strong> dan <strong>dinonaktifkan</strong> (akses fisik dicabut, data tetap aman).</div>`
+      : `<div class="alert alert-info py-2"><strong>${data.jumlah_mahasiswa} mahasiswa</strong> dari ${kelasAsal} akan dipindah ke kelas <strong>${data.kelas_tujuan}</strong>.</div>`;
+    btn.disabled = false;
+  } catch (e) {
+    previewEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+    btn.disabled = true;
+  }
+}
+
+async function eksekusiNaikTingkat() {
+  const kelasAsal = document.getElementById('ntKelasAsal').value;
+  const alertEl = document.getElementById('alertNaikTingkat');
+  if (!kelasAsal) return;
+  if (!confirm(`Naikkan tingkat semua mahasiswa aktif di kelas ${kelasAsal}? Tindakan ini akan langsung diterapkan.`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Memproses...</div>';
+  try {
+    const res = await fetch(`/users/naikkan-tingkat?kelas_asal=${encodeURIComponent(kelasAsal)}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail}</div>`;
+      return;
+    }
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.pesan}</div>`;
+    loadDaftarKelas();
+    loadUsers(1);
+    setTimeout(() => {
+      bootstrap.Modal.getInstance(document.getElementById('modalNaikTingkat')).hide();
+    }, 1500);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ==================== CEK DUPLIKAT ID PERANGKAT ==================== */
+
+async function bukaCekDuplikat() {
+  const hasilEl = document.getElementById('hasilDuplikat');
+  hasilEl.innerHTML = '<div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Memeriksa...</div>';
+  new bootstrap.Modal(document.getElementById('modalDuplikat')).show();
+
+  try {
+    const res = await fetch('/users/duplikat-id-perangkat');
+    const data = await res.json();
+
+    if (!data.length) {
+      hasilEl.innerHTML = '<div class="alert alert-success py-2"><i class="bi bi-check-circle-fill me-1"></i>Tidak ditemukan ID Perangkat yang duplikat.</div>';
+      return;
+    }
+
+    hasilEl.innerHTML = data.map(grup => `
+      <div class="section-card p-3 mb-2 border border-warning-subtle">
+        <div class="fw-bold mb-2" style="font-size:.85rem;">
+          <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+          ID Perangkat <code>${grup.id_perangkat}</code> dipakai ${grup.users.length} pengguna:
+        </div>
+        <ul class="mb-0" style="font-size:.82rem;">
+          ${grup.users.map(u => `<li>${u.nama} — ${u.nim_nip} (${u.role}${u.kelas ? ', ' + u.kelas : ''})${!u.aktif ? ' <span class="text-muted">[nonaktif]</span>' : ''}</li>`).join('')}
+        </ul>
+      </div>`).join('');
+  } catch (e) {
+    hasilEl.innerHTML = `<div class="alert alert-danger py-2">Gagal memeriksa: ${e}</div>`;
+  }
+}
+
+async function hapusFingerprintUser(userId, nama) {
+  if (!confirm(`Hapus SEMUA data fingerprint milik ${nama}?\n\nDihapus dari server dan dari semua alat yang pernah menyimpannya. Data pengguna & riwayat lain TIDAK terpengaruh — cuma fingerprint-nya saja, supaya bisa didaftarkan ulang dari nol lewat Registrasi Biometrik.`)) return;
+
+  try {
+    const res = await fetch(`/users/${userId}/hapus-fingerprint`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.detail || 'Gagal menghapus data fingerprint.');
+      return;
+    }
+    alert(data.pesan);
+    loadUsers(currentPageUsers);
+  } catch (e) {
+    alert('Gagal menghubungi server: ' + e);
   }
 }
 
@@ -560,9 +768,13 @@ function renderUsers() {
       <td>  ${u.id_perangkat
         ? `<code style="font-size:.75rem;">#${u.id_perangkat}</code>`
         : '<span class="text-muted" style="font-size:.75rem;">Belum diset</span>'}</td>
-      <td>${u.punya_template
-        ? '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Sudah</span>'
-        : '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Belum</span>'}</td>
+      <td>${
+        u.jumlah_finger > 1
+          ? `<span style="background:#fee2e2;color:#b91c1c;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;" title="Lebih dari 1 jari — cek kemungkinan data tercampur"><i class="bi bi-exclamation-triangle-fill me-1"></i>${u.jumlah_finger} jari</span>`
+        : u.punya_template
+          ? '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Sudah</span>'
+          : '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Belum</span>'
+      }</td>
       <td>${statusBadge}</td>
       <td>
         <div class="d-flex gap-1 justify-content-center">
@@ -580,17 +792,24 @@ function renderUsers() {
             </button>
             ` : ''}
 
+            ${u.punya_template && (myRole === 'admin' || myRole === 'teknisi') ? `
+            <button class="btn btn-outline-danger btn-sm" title="Hapus Data Fingerprint"
+                  onclick="hapusFingerprintUser(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
+              <i class="bi bi-fingerprint"></i>
+            </button>
+            ` : ''}
+
+            <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
+                    onclick="toggleAktif(${u.id})">
+              <i class="bi bi-power"></i>
+            </button>
+
             ${myRole === 'admin' ? `
               <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
                       onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
                 <i class="bi bi-trash"></i>
               </button>
-            ` : `
-              <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
-                      onclick="toggleAktif(${u.id})">
-                <i class="bi bi-power"></i>
-              </button>
-            `}
+            ` : ''}
           ` : `<span class="text-muted" style="font-size:.75rem;">Tidak ada akses</span>`}
         </div>
       </td>
@@ -625,9 +844,11 @@ function renderUsers() {
         ID Perangkat: ${u.id_perangkat ? `#${u.id_perangkat}` : '<span class="text-muted">Belum diset</span>'}
       </div>
       <div class="mb-2">
-        ${u.punya_template
-          ? '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Fingerprint Sudah</span>'
-          : '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Fingerprint Belum</span>'}
+        ${u.jumlah_finger > 1
+          ? `<span style="background:#fee2e2;color:#b91c1c;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-exclamation-triangle-fill me-1"></i>${u.jumlah_finger} Jari (cek duplikat)</span>`
+          : u.punya_template
+            ? '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Fingerprint Sudah</span>'
+            : '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Fingerprint Belum</span>'}
       </div>
       <div class="d-flex gap-2">
         ${editable ? `
@@ -644,17 +865,24 @@ function renderUsers() {
           </button>
           ` : ''}
 
+          ${u.punya_template && (myRole === 'admin' || myRole === 'teknisi') ? `
+          <button class="btn btn-outline-danger btn-sm" title="Hapus Data Fingerprint"
+                  onclick="hapusFingerprintUser(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
+            <i class="bi bi-fingerprint"></i>
+          </button>
+          ` : ''}
+
+          <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
+                  onclick="toggleAktif(${u.id})">
+            <i class="bi bi-power"></i>
+          </button>
+
           ${myRole === 'admin' ? `
-            <button class="btn btn-outline-danger btn-sm"
+            <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
                     onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
               <i class="bi bi-trash"></i>
             </button>
-          ` : `
-            <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}"
-                    onclick="toggleAktif(${u.id})">
-              <i class="bi bi-power"></i>
-            </button>
-          `}
+          ` : ''}
         ` : `<span class="text-muted text-center flex-fill" style="font-size:.75rem;">Tidak ada akses modifikasi</span>`}
       </div>
     </div>`;
