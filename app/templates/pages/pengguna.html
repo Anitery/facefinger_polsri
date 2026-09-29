@@ -361,7 +361,7 @@
 
         <div class="mb-3" id="kelasFieldWrap" style="display:none;">
           <label class="form-label fw-bold" style="font-size:.85rem;">
-            Kelas <small class="text-muted fw-normal">(contoh: 6CC, 6CM)</small>
+            Kelas <small class="text-muted fw-normal">(contoh: 6CC, 6CM, 4TIA)</small>
           </label>
           <input type="text" class="form-control" id="inputKelas" placeholder="6CC">
         </div>
@@ -444,8 +444,17 @@
 </div>
 
 <!-- ══════════ MODAL: NAIKKAN TINGKAT KELAS ══════════ -->
+<style>
+  .nt-list { max-height: 260px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .nt-row { display: flex; align-items: center; gap: .6rem; padding: .4rem .75rem; margin: 0;
+            border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: .84rem; }
+  .nt-row:last-child { border-bottom: 0; }
+  .nt-row:hover { background: #f8fafc; }
+  .nt-row.nt-blocked { background: #fef2f2; }
+  .nt-row.nt-blocked .nt-nama { color: #b91c1c; font-weight: 600; }
+</style>
 <div class="modal fade" id="modalNaikTingkat" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content" style="border-radius:14px; overflow:hidden;">
       <div class="modal-header" style="background:#1F3864; color:#fff;">
         <h5 class="modal-title" style="font-size:.9rem;">
@@ -455,12 +464,17 @@
       </div>
       <div class="modal-body p-4">
         <p style="font-size:.83rem;color:#64748b;" class="mb-3">
-          Pindahkan SEMUA mahasiswa aktif di 1 kelas ke tingkat berikutnya sekaligus — cocok
-          dipakai tiap pergantian semester/tahun ajaran. Kelas harus mengikuti pola
-          <code>[tingkat 1-6][kode]</code>, contoh <code>2CF</code>. Kalau tingkat asal sudah
-          <strong>6</strong>, mahasiswa otomatis dipindah ke kelas <strong>"Alumni"</strong> dan
-          dinonaktifkan (akses fisik dicabut dari semua alat — data &amp; riwayat tetap aman).
+          Pindahkan mahasiswa aktif di 1 kelas ke tingkat berikutnya sekaligus — cocok dipakai
+          tiap pergantian tahun ajaran. Aturan per jurusan:
         </p>
+        <ul style="font-size:.82rem;color:#64748b;" class="mb-3 ps-3">
+          <li><strong>Teknik Komputer</strong> (<code>1CF</code>, <code>4CA</code>, …): tingkat
+              <strong>1–6</strong>, setelah <code>6C?</code> menjadi <strong>Alumni</strong>.</li>
+          <li><strong>Teknologi Informasi</strong> (<code>1TIA</code>, <code>4TIN</code>, …): tingkat
+              <strong>1–8</strong>, setelah <code>8TI?</code> menjadi <strong>Alumni</strong>.</li>
+          <li>Alumni otomatis <strong>dinonaktifkan</strong> (akses fisik dicabut dari semua alat —
+              data &amp; riwayat tetap aman).</li>
+        </ul>
         <label class="form-label fw-bold" style="font-size:.85rem;">Kelas Asal</label>
         <select class="form-select mb-3" id="ntKelasAsal" onchange="previewNaikTingkat()">
           <option value="">— Pilih kelas —</option>
@@ -760,7 +774,16 @@ async function doResetPassword() {
 
 /* ==================== NAIKKAN TINGKAT KELAS ==================== */
 
+let ntData = null; // hasil preview terakhir (kelas tujuan + daftar mahasiswa)
+
+function escHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 async function bukaNaikTingkat() {
+  ntData = null;
   document.getElementById('ntPreview').innerHTML = '';
   document.getElementById('alertNaikTingkat').innerHTML = '';
   document.getElementById('btnEksekusiNaikTingkat').disabled = true;
@@ -773,11 +796,54 @@ async function bukaNaikTingkat() {
     // "Alumni" tidak relevan sebagai kelas ASAL untuk dinaikkan lagi
     const bisaDinaikkan = kelasList.filter(k => k.toLowerCase() !== 'alumni');
     sel.innerHTML = '<option value="">— Pilih kelas —</option>' +
-      bisaDinaikkan.map(k => `<option value="${k}">${k}</option>`).join('');
+      bisaDinaikkan.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('');
   } catch (e) {
     sel.innerHTML = '<option value="">Gagal memuat kelas</option>';
   }
   new bootstrap.Modal(document.getElementById('modalNaikTingkat')).show();
+}
+
+// ID mahasiswa yang dicentang blacklist (tidak ikut naik)
+function ntBlacklistIds() {
+  return Array.from(document.querySelectorAll('.nt-bl-check:checked'))
+    .map(c => parseInt(c.value, 10));
+}
+
+// Update ringkasan + status tombol setiap kali centang berubah
+function ntRenderRingkasan() {
+  const el = document.getElementById('ntRingkasan');
+  const btn = document.getElementById('btnEksekusiNaikTingkat');
+  if (!ntData || !el) return;
+
+  const blacklist = ntBlacklistIds().length;
+  const naik = ntData.jumlah_mahasiswa - blacklist;
+  const kelasAsal = escHtml(ntData.kelas_asal);
+
+  let html = ntData.jadi_alumni
+    ? `<div class="alert alert-warning py-2 mb-2"><strong>${naik} mahasiswa</strong> dari ${kelasAsal} akan dipindah ke <strong>Alumni</strong> dan <strong>dinonaktifkan</strong> (akses fisik dicabut, data tetap aman).</div>`
+    : `<div class="alert alert-info py-2 mb-2"><strong>${naik} mahasiswa</strong> dari ${kelasAsal} akan dipindah ke kelas <strong>${escHtml(ntData.kelas_tujuan)}</strong>.</div>`;
+
+  if (blacklist > 0) {
+    html += `<div class="alert alert-danger py-2 mb-2"><strong>${blacklist} mahasiswa di-blacklist</strong> — tetap di kelas <strong>${kelasAsal}</strong> dan tetap aktif (mengulang semester).</div>`;
+  }
+  if (!ntData.jadi_alumni && ntData.kelas_tujuan_terisi > 0) {
+    html += `<div class="text-muted mb-2" style="font-size:.78rem;"><i class="bi bi-info-circle me-1"></i>Kelas tujuan <strong>${escHtml(ntData.kelas_tujuan)}</strong> saat ini masih berisi ${ntData.kelas_tujuan_terisi} mahasiswa aktif. Pastikan kelas itu sudah dinaikkan lebih dulu (urutan dari tingkat tertinggi), kecuali memang sengaja digabung.</div>`;
+  }
+  el.innerHTML = html;
+  btn.disabled = naik <= 0;
+}
+
+function ntToggleRow(cb) {
+  cb.closest('.nt-row').classList.toggle('nt-blocked', cb.checked);
+  ntRenderRingkasan();
+}
+
+function ntKosongkanBlacklist() {
+  document.querySelectorAll('.nt-bl-check').forEach(c => {
+    c.checked = false;
+    c.closest('.nt-row').classList.remove('nt-blocked');
+  });
+  ntRenderRingkasan();
 }
 
 async function previewNaikTingkat() {
@@ -785,6 +851,7 @@ async function previewNaikTingkat() {
   const previewEl = document.getElementById('ntPreview');
   const btn = document.getElementById('btnEksekusiNaikTingkat');
   document.getElementById('alertNaikTingkat').innerHTML = '';
+  ntData = null;
 
   if (!kelasAsal) { previewEl.innerHTML = ''; btn.disabled = true; return; }
 
@@ -793,21 +860,40 @@ async function previewNaikTingkat() {
     const res = await fetch(`/users/preview-naik-tingkat?kelas_asal=${encodeURIComponent(kelasAsal)}`);
     const data = await res.json();
     if (!res.ok) {
-      previewEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail}</div>`;
+      previewEl.innerHTML = `<div class="alert alert-danger py-2">${escHtml(data.detail)}</div>`;
       btn.disabled = true;
       return;
     }
     if (data.jumlah_mahasiswa === 0) {
-      previewEl.innerHTML = `<div class="alert alert-warning py-2">Tidak ada mahasiswa aktif di kelas ${kelasAsal}.</div>`;
+      previewEl.innerHTML = `<div class="alert alert-warning py-2">Tidak ada mahasiswa aktif di kelas ${escHtml(kelasAsal)}.</div>`;
       btn.disabled = true;
       return;
     }
-    previewEl.innerHTML = data.jadi_alumni
-      ? `<div class="alert alert-warning py-2"><strong>${data.jumlah_mahasiswa} mahasiswa</strong> dari ${kelasAsal} akan dipindah ke <strong>Alumni</strong> dan <strong>dinonaktifkan</strong> (akses fisik dicabut, data tetap aman).</div>`
-      : `<div class="alert alert-info py-2"><strong>${data.jumlah_mahasiswa} mahasiswa</strong> dari ${kelasAsal} akan dipindah ke kelas <strong>${data.kelas_tujuan}</strong>.</div>`;
-    btn.disabled = false;
+
+    ntData = data;
+    const baris = data.mahasiswa.map(u => `
+      <label class="nt-row">
+        <input type="checkbox" class="form-check-input mt-0 nt-bl-check" value="${u.id}" onchange="ntToggleRow(this)">
+        <span class="nt-nama">${escHtml(u.nama)}</span>
+        <small class="text-muted ms-auto">${escHtml(u.nim_nip)}</small>
+      </label>`).join('');
+
+    previewEl.innerHTML = `
+      <div class="mb-2" style="font-size:.78rem;color:#64748b;">
+        ${escHtml(data.nama_jurusan)} · tingkat ${data.tingkat} dari ${data.maks_tingkat}
+      </div>
+      <div id="ntRingkasan"></div>
+      <div class="d-flex justify-content-between align-items-end mt-3 mb-1">
+        <div>
+          <div class="fw-bold" style="font-size:.85rem;"><i class="bi bi-slash-circle text-danger me-1"></i>Blacklist (tidak ikut naik)</div>
+          <div style="font-size:.75rem;color:#64748b;">Centang mahasiswa yang gagal / harus mengulang semester. Mereka tetap di ${escHtml(kelasAsal)} dan tetap aktif.</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" onclick="ntKosongkanBlacklist()">Kosongkan</button>
+      </div>
+      <div class="nt-list">${baris}</div>`;
+    ntRenderRingkasan();
   } catch (e) {
-    previewEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+    previewEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${escHtml(e)}</div>`;
     btn.disabled = true;
   }
 }
@@ -815,25 +901,44 @@ async function previewNaikTingkat() {
 async function eksekusiNaikTingkat() {
   const kelasAsal = document.getElementById('ntKelasAsal').value;
   const alertEl = document.getElementById('alertNaikTingkat');
-  if (!kelasAsal) return;
-  if (!confirm(`Naikkan tingkat semua mahasiswa aktif di kelas ${kelasAsal}? Tindakan ini akan langsung diterapkan.`)) return;
+  if (!kelasAsal || !ntData) return;
 
+  const blacklistIds = ntBlacklistIds();
+  const naik = ntData.jumlah_mahasiswa - blacklistIds.length;
+  const tujuan = ntData.jadi_alumni ? 'Alumni (dinonaktifkan)' : ntData.kelas_tujuan;
+  let konfirmasi = `Naikkan ${naik} mahasiswa kelas ${kelasAsal} ke ${tujuan}?`;
+  if (blacklistIds.length) konfirmasi += `\n${blacklistIds.length} mahasiswa di-blacklist dan tetap di ${kelasAsal}.`;
+  konfirmasi += '\n\nTindakan ini akan langsung diterapkan.';
+  if (!confirm(konfirmasi)) return;
+
+  const btn = document.getElementById('btnEksekusiNaikTingkat');
+  btn.disabled = true;
   alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Memproses...</div>';
   try {
-    const res = await fetch(`/users/naikkan-tingkat?kelas_asal=${encodeURIComponent(kelasAsal)}`, { method: 'POST' });
+    const res = await fetch(`/users/naikkan-tingkat?kelas_asal=${encodeURIComponent(kelasAsal)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blacklist_user_ids: blacklistIds }),
+    });
     const data = await res.json();
     if (!res.ok) {
-      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail}</div>`;
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${escHtml(data.detail)}</div>`;
+      btn.disabled = false;
       return;
     }
-    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.pesan}</div>`;
+    let ekstra = '';
+    if (data.ditahan_nama && data.ditahan_nama.length) {
+      ekstra = `<div class="mt-1" style="font-size:.78rem;">Di-blacklist: ${data.ditahan_nama.map(escHtml).join(', ')}</div>`;
+    }
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${escHtml(data.pesan)}${ekstra}</div>`;
     loadDaftarKelas();
     loadUsers('mahasiswa', 1);
     setTimeout(() => {
       bootstrap.Modal.getInstance(document.getElementById('modalNaikTingkat')).hide();
-    }, 1500);
+    }, data.ditahan ? 3500 : 1500);
   } catch (e) {
-    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${escHtml(e)}</div>`;
+    btn.disabled = false;
   }
 }
 

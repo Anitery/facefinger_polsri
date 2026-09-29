@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, String
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import json
 import logging
@@ -349,64 +349,163 @@ def get_daftar_kelas(db: Session = Depends(get_db)):
     return [r[0] for r in rows]
 
 
-def _hitung_kelas_tujuan(kelas_asal: str):
+# ── Aturan kelas per jurusan ────────────────────────────────────────────────
+# Format kelas: [tingkat][kode jurusan][kode kelas]
+#   Teknik Komputer      -> {tingkat}C{A-F/M/N}   contoh 1CF ... 6CF  (tingkat 1–6)
+#   Teknologi Informasi  -> {tingkat}TI{A-F/M/N}  contoh 1TIA ... 8TIA (tingkat 1–8)
+# Begitu sebuah kelas berada di tingkat maksimal jurusannya, kenaikan
+# berikutnya = "Alumni". Ubah konstanta di bawah kalau aturan berubah.
+KELAS_ALUMNI = "Alumni"
+KODE_KELAS_VALID = "ABCDEFMN"
+JURUSAN_KELAS = {
+    "C":  {"nama": "Teknik Komputer",     "maks_tingkat": 6},
+    "TI": {"nama": "Teknologi Informasi", "maks_tingkat": 8},
+}
+_POLA_KELAS = re.compile(
+    rf"^(\d{{1,2}})(TI|C)([{KODE_KELAS_VALID}])$", re.IGNORECASE
+)
+
+
+def _parse_kelas(kelas_asal: str) -> dict:
     """
-    Kelas mengikuti pola [tingkat 1-6][kode kelas], contoh '2CF'. Naik
-    tingkat = tingkat + 1, kecuali tingkat 6 -> jadi "Alumni" (dianggap
-    lulus). Return (tingkat_asal, kelas_tujuan, jadi_alumni).
+    Urai nama kelas lalu hitung kelas tujuannya menurut aturan jurusan.
+
+    Return dict: jurusan ('C'/'TI'), nama_jurusan, tingkat, kode, maks_tingkat,
+    kelas_tujuan, jadi_alumni. Raise HTTPException 400 kalau formatnya tidak
+    dikenali atau tingkatnya melebihi batas jurusan (mis. 7CF, 9TIA).
     """
-    m = re.match(r"^([1-6])([A-Za-z].*)$", kelas_asal.strip())
+    m = _POLA_KELAS.match((kelas_asal or "").strip())
     if not m:
         raise HTTPException(
             400,
-            f"Format kelas '{kelas_asal}' tidak dikenali — harus diawali angka tingkat 1–6 "
-            f"lalu kode kelas, contoh: 2CF",
+            f"Format kelas '{kelas_asal}' tidak dikenali. Format yang benar: "
+            f"[tingkat]C[{KODE_KELAS_VALID[:6]}/{KODE_KELAS_VALID[6]}/{KODE_KELAS_VALID[7]}] "
+            f"untuk Teknik Komputer (contoh 1CF) atau [tingkat]TI[...] untuk "
+            f"Teknologi Informasi (contoh 1TIA).",
         )
     tingkat = int(m.group(1))
-    kode = m.group(2)
-    jadi_alumni = tingkat == 6
-    kelas_tujuan = "Alumni" if jadi_alumni else f"{tingkat + 1}{kode}"
-    return tingkat, kelas_tujuan, jadi_alumni
+    jurusan = m.group(2).upper()
+    kode = m.group(3).upper()
+    cfg = JURUSAN_KELAS[jurusan]
+    maks = cfg["maks_tingkat"]
+
+    if not (1 <= tingkat <= maks):
+        raise HTTPException(
+            400,
+            f"Tingkat {tingkat} tidak valid untuk {cfg['nama']} pada kelas '{kelas_asal}' "
+            f"(tingkat 1–{maks}).",
+        )
+
+    jadi_alumni = tingkat == maks
+    kelas_tujuan = KELAS_ALUMNI if jadi_alumni else f"{tingkat + 1}{jurusan}{kode}"
+    return {
+        "jurusan": jurusan,
+        "nama_jurusan": cfg["nama"],
+        "tingkat": tingkat,
+        "kode": kode,
+        "maks_tingkat": maks,
+        "kelas_tujuan": kelas_tujuan,
+        "jadi_alumni": jadi_alumni,
+    }
+
+
+def _mahasiswa_aktif_di_kelas(db: Session, kelas: str):
+    return db.query(User).filter(
+        User.role == "mahasiswa", User.kelas == kelas, User.aktif == True
+    ).order_by(User.nama).all()
 
 
 @router.get("/preview-naik-tingkat")
 def preview_naik_tingkat(kelas_asal: str, db: Session = Depends(get_db)):
-    """Pratinjau sebelum eksekusi: kelas tujuan + berapa mahasiswa yang terdampak."""
-    _, kelas_tujuan, jadi_alumni = _hitung_kelas_tujuan(kelas_asal)
-    jumlah = db.query(User).filter(
-        User.role == "mahasiswa", User.kelas == kelas_asal, User.aktif == True
-    ).count()
-    return {"kelas_asal": kelas_asal, "kelas_tujuan": kelas_tujuan,
-            "jumlah_mahasiswa": jumlah, "jadi_alumni": jadi_alumni}
+    """
+    Pratinjau sebelum eksekusi: kelas tujuan, aturan jurusan, dan DAFTAR
+    mahasiswa aktif di kelas itu (dipakai UI untuk memilih siapa yang
+    di-blacklist / tidak ikut naik).
+    """
+    info = _parse_kelas(kelas_asal)
+    mahasiswa = _mahasiswa_aktif_di_kelas(db, kelas_asal)
+
+    # Peringatan urutan: kalau kelas tujuan masih berisi mahasiswa aktif,
+    # kemungkinan kelas itu belum dinaikkan duluan (harusnya top-down:
+    # tingkat tertinggi dulu) atau sengaja digabung dengan yang tinggal kelas.
+    tujuan_terisi = 0
+    if not info["jadi_alumni"]:
+        tujuan_terisi = db.query(User).filter(
+            User.role == "mahasiswa", User.kelas == info["kelas_tujuan"], User.aktif == True
+        ).count()
+
+    return {
+        "kelas_asal": kelas_asal,
+        "kelas_tujuan": info["kelas_tujuan"],
+        "jadi_alumni": info["jadi_alumni"],
+        "jurusan": info["jurusan"],
+        "nama_jurusan": info["nama_jurusan"],
+        "tingkat": info["tingkat"],
+        "maks_tingkat": info["maks_tingkat"],
+        "kelas_tujuan_terisi": tujuan_terisi,
+        "jumlah_mahasiswa": len(mahasiswa),
+        "mahasiswa": [
+            {"id": u.id, "nama": u.nama, "nim_nip": u.nim_nip} for u in mahasiswa
+        ],
+    }
+
+
+class NaikTingkatBody(BaseModel):
+    # ID mahasiswa yang di-blacklist pada proses ini: TIDAK ikut naik /
+    # tidak diluluskan (mis. gagal & mengulang semester). Mereka tetap di
+    # kelas asal dan tetap aktif (akses alat tidak dicabut).
+    blacklist_user_ids: List[int] = Field(default_factory=list)
 
 
 @router.post("/naikkan-tingkat")
 def naikkan_tingkat_kelas(
     request: Request,
     kelas_asal: str = Query(...),
+    body: Optional[NaikTingkatBody] = None,
     db: Session = Depends(get_db),
 ):
     """
-    Naikkan tingkat SEMUA mahasiswa aktif di 1 kelas sekaligus — jauh
-    lebih cepat daripada edit satu-satu tiap akhir semester. Kelas
-    mengikuti pola [1-6][kode], contoh 2CF -> 3CF. Begitu tingkat sudah
-    6, mahasiswa otomatis dipindah ke kelas "Alumni" DAN dinonaktifkan
-    (akses fisik dicabut dari semua alat — data & riwayat tetap aman di
-    server, sama seperti mekanisme nonaktifkan biasa).
+    Naikkan tingkat mahasiswa aktif di 1 kelas sekaligus, dengan aturan
+    per jurusan:
+      • Teknik Komputer (xC?)     : tingkat 1–6, setelah 6 -> Alumni
+      • Teknologi Informasi (xTI?) : tingkat 1–8, setelah 8 -> Alumni
+    Mahasiswa yang lulus dari tingkat maksimal dipindah ke kelas "Alumni"
+    DAN dinonaktifkan (akses fisik dicabut dari semua alat — data &
+    riwayat tetap aman di server).
+
+    `blacklist_user_ids` (opsional, body JSON): mahasiswa yang tidak ikut
+    naik / tidak lulus. Kelas & status aktif mereka TIDAK diubah, jadi bisa
+    mengulang semester dan otomatis bergabung dengan angkatan berikutnya
+    yang naik ke kelas yang sama.
     """
     current_role = get_current_role(request)
     if current_role != "admin":
         raise HTTPException(403, "Hanya admin yang boleh menaikkan tingkat kelas")
 
-    _, kelas_tujuan, jadi_alumni = _hitung_kelas_tujuan(kelas_asal)
+    info = _parse_kelas(kelas_asal)
+    kelas_tujuan = info["kelas_tujuan"]
+    jadi_alumni = info["jadi_alumni"]
 
-    mahasiswa_list = db.query(User).filter(
-        User.role == "mahasiswa", User.kelas == kelas_asal, User.aktif == True
-    ).all()
+    mahasiswa_list = _mahasiswa_aktif_di_kelas(db, kelas_asal)
     if not mahasiswa_list:
-        return {"pesan": f"Tidak ada mahasiswa aktif di kelas {kelas_asal}", "dipindah": 0}
+        return {"pesan": f"Tidak ada mahasiswa aktif di kelas {kelas_asal}", "dipindah": 0, "ditahan": 0}
 
-    for m in mahasiswa_list:
+    blacklist_ids = set(body.blacklist_user_ids) if body else set()
+    ditahan = [m for m in mahasiswa_list if m.id in blacklist_ids]
+    dinaikkan = [m for m in mahasiswa_list if m.id not in blacklist_ids]
+
+    if not dinaikkan:
+        return {
+            "pesan": (
+                f"Semua {len(ditahan)} mahasiswa kelas {kelas_asal} di-blacklist — "
+                f"tidak ada yang dipindah."
+            ),
+            "dipindah": 0,
+            "ditahan": len(ditahan),
+            "ditahan_nama": [m.nama for m in ditahan],
+        }
+
+    for m in dinaikkan:
         m.kelas = kelas_tujuan
         if jadi_alumni:
             _hapus_akses_fisik_dari_semua_device(m, db, hapus_template_db=False)
@@ -414,13 +513,26 @@ def naikkan_tingkat_kelas(
 
     db.commit()
 
+    if ditahan:
+        log.info(
+            "Naik tingkat %s -> %s: %d ditahan (blacklist): %s",
+            kelas_asal, kelas_tujuan, len(ditahan),
+            ", ".join(f"{m.nama} ({m.nim_nip})" for m in ditahan),
+        )
+
+    pesan = (
+        f"{len(dinaikkan)} mahasiswa dari kelas {kelas_asal} dipindah ke {kelas_tujuan}"
+        + (" dan dinonaktifkan (alumni)" if jadi_alumni else "")
+    )
+    if ditahan:
+        pesan += f". {len(ditahan)} mahasiswa di-blacklist dan tetap di kelas {kelas_asal}"
+
     return {
-        "pesan": (
-            f"{len(mahasiswa_list)} mahasiswa dari kelas {kelas_asal} dipindah ke {kelas_tujuan}"
-            + (" dan dinonaktifkan (alumni)" if jadi_alumni else "")
-        ),
-        "dipindah": len(mahasiswa_list),
+        "pesan": pesan,
+        "dipindah": len(dinaikkan),
         "kelas_tujuan": kelas_tujuan,
+        "ditahan": len(ditahan),
+        "ditahan_nama": [m.nama for m in ditahan],
     }
 
 
