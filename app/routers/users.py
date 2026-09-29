@@ -102,18 +102,21 @@ class FaceEncodingPayload(BaseModel):
     encoding: List[float]
 
 # --- Ranks & Permissions Constants ---
-ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "mahasiswa": 3}
+ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "magang": 3, "mahasiswa": 4}
 
 ROLE_ALLOWED_TO_CREATE = {
-    "admin":   {"admin", "teknisi", "dosen", "mahasiswa"},
+    "admin":   {"admin", "teknisi", "dosen", "magang", "mahasiswa"},
     "dosen":   {"mahasiswa"},
     "teknisi": {"dosen"},
+    # Magang: sesuai batasan aksesnya, hanya boleh menginput data mahasiswa.
+    "magang":  {"mahasiswa"},
 }
 
 ROLE_ALLOWED_TO_MODIFY = {
-    "admin":   {"admin", "teknisi", "dosen", "mahasiswa"},
+    "admin":   {"admin", "teknisi", "dosen", "magang", "mahasiswa"},
     "dosen":   {"mahasiswa"},
     "teknisi": {"dosen"},
+    "magang":  {"mahasiswa"},
 }
 
 # --- Helper Functions ---
@@ -371,6 +374,7 @@ def get_users(
     request: Request,  # <-- Tambahkan parameter request di sini
     include_inactive: bool = False,
     role:             Optional[str] = None,
+    group:            Optional[str] = Query(None, description="Kelompok tabel: 'staff' (semua role selain mahasiswa) atau 'mahasiswa'"),
     kelas:            Optional[str] = None,
     fingerprint:      Optional[str] = Query(None, description="Filter: 'ada', 'belum', atau 'ganda' (>1 jari)"),
     search:           Optional[str] = None,
@@ -383,6 +387,14 @@ def get_users(
         q = q.filter(User.aktif == True)
     if role:
         q = q.filter(User.role == role)
+    # Halaman Pengguna dipisah jadi 2 menu (tab): Staff & Mahasiswa.
+    # Filter dilakukan di server (bukan di browser) supaya paginasi
+    # masing-masing tab akurat — sebelumnya staff & mahasiswa tercampur
+    # dalam satu daftar berpaginasi lalu dipisah belakangan di JS.
+    if group == "staff":
+        q = q.filter(User.role != "mahasiswa")
+    elif group == "mahasiswa":
+        q = q.filter(User.role == "mahasiswa")
     if kelas:
         q = q.filter(User.kelas == kelas)
     if search:
@@ -435,7 +447,6 @@ def get_users(
     elif fingerprint == "ganda":
         all_users = [u for u in all_users if jumlah_finger_per_user.get(u.id, 0) > 1]
 
-    ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "mahasiswa": 3}
     all_users.sort(key=lambda u: (
         ROLE_ORDER.get(u.role, 99),
         u.kelas or "",

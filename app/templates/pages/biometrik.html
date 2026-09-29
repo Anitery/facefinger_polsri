@@ -278,6 +278,11 @@
         <i class="bi bi-database-fill-gear me-1"></i>Database Server ke Alat
       </button>
     </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-tempel-btn" data-bs-toggle="tab" data-bs-target="#tab-tempel" type="button">
+        <i class="bi bi-bandaid me-1"></i>Tempel Fingerprint dari Alat
+      </button>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -451,6 +456,96 @@
           </button>
         </div>
         <div id="alertKirimDb" class="mt-2"></div>
+      </div>
+
+    </div>
+
+    {# ---------- MODE 3: TEMPEL FINGERPRINT DARI ALAT ---------- #}
+    <div class="tab-pane fade" id="tab-tempel" role="tabpanel">
+
+      <div class="alert alert-warning py-2 mb-3" style="font-size:.82rem;">
+        <i class="bi bi-tools me-1"></i>
+        <strong>Khusus perbaikan data.</strong> Dipakai kalau akibat bug duplikasi ID Perangkat lama,
+        ada PIN di sebuah alat yang templatenya bagus tapi sudah tidak cocok dengan user manapun yang
+        valid — sementara user yang SEBENARNYA butuh fingerprint itu belum punya template sama sekali.
+        Ambil template dari PIN "yatim" itu, lalu tempelkan sebagai milik user yang benar — tidak perlu
+        daftar ulang jari secara fisik.
+      </div>
+
+      <div class="section-card p-4 mb-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-router me-2 text-primary"></i>1. Pilih Alat &amp; PIN Sumber</h6>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Alat / Ruangan Sumber</label>
+            <select class="form-select" id="pilihAsalTempel" onchange="document.getElementById('btnMuatPinTempel').disabled = !this.value;">
+              <option value="">Memuat daftar ruangan...</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6 d-flex align-items-end">
+            <button class="btn btn-outline-primary" id="btnMuatPinTempel" onclick="muatPinTempel()" disabled>
+              <i class="bi bi-download me-1"></i>Muat Daftar PIN di Alat Ini
+            </button>
+          </div>
+        </div>
+        <div id="alertMuatPinTempel"></div>
+
+        <div id="areaPinTempel" style="display:none;">
+          <div class="input-group input-group-sm mb-2" style="max-width:320px;">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+            <input type="text" class="form-control" id="fSearchPinTempel" placeholder="Cari PIN/nama..." oninput="renderDaftarPinTempel()">
+          </div>
+          <div style="max-height:280px;overflow-y:auto;" class="border rounded">
+            <table class="table table-hover table-sm mb-0">
+              <thead style="position:sticky;top:0;background:#fff;">
+                <tr>
+                  <th style="width:36px;"></th>
+                  <th>PIN</th>
+                  <th>Nama di Alat</th>
+                  <th>Fingerprint</th>
+                </tr>
+              </thead>
+              <tbody id="daftarPinTempelBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card p-4 mb-3" id="areaUserTempel" style="display:none;">
+        <h6 class="fw-bold mb-3"><i class="bi bi-person-check me-2 text-primary"></i>2. Pilih User Tujuan yang Benar</h6>
+        <div class="input-group input-group-sm mb-2" style="max-width:320px;">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+          <input type="text" class="form-control" id="fSearchUserTempel" placeholder="Cari nama/NIM..." oninput="muatUserTempel()">
+        </div>
+        <div style="max-height:280px;overflow-y:auto;" class="border rounded">
+          <table class="table table-hover table-sm mb-0">
+            <thead style="position:sticky;top:0;background:#fff;">
+              <tr>
+                <th style="width:36px;"></th>
+                <th>PIN</th>
+                <th>Nama</th>
+                <th>Kelas</th>
+                <th>Fingerprint Saat Ini</th>
+              </tr>
+            </thead>
+            <tbody id="daftarUserTempelBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-card p-4 mb-3" id="areaKonfirmasiTempel" style="display:none;">
+        <h6 class="fw-bold mb-3"><i class="bi bi-check2-circle me-2 text-primary"></i>3. Konfirmasi</h6>
+        <div id="ringkasanTempel" class="alert alert-info py-2"></div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="chkHapusPinAsalTempel" checked>
+          <label class="form-check-label" for="chkHapusPinAsalTempel" style="font-size:.83rem;">
+            Hapus PIN sumber dari alat setelah berhasil ditempel (disarankan — PIN itu sudah tidak
+            relevan lagi dan sebaiknya tidak menggantung di alat)
+          </label>
+        </div>
+        <button class="btn btn-primary" onclick="prosesTempelFingerprint()">
+          <i class="bi bi-bandaid me-1"></i>Tempel Fingerprint Sekarang
+        </button>
+        <div id="alertTempel" class="mt-2"></div>
       </div>
 
     </div>
@@ -689,7 +784,7 @@ async function loadRuanganDropdown() {
   const opts = '<option value="">— Pilih ruangan —</option>' + daftarRuangan.map(r =>
     `<option value="${r.ruangan_id}" data-online="${r.bridge_aktif}">${r.nama_ruangan} ${r.bridge_aktif ? '🟢' : '🔴'}</option>`
   ).join('');
-  ['pilihRuangan', 'pilihAsal', 'pilihTujuan', 'pilihTujuanDb', 'pilihRuanganScan'].forEach(id => {
+  ['pilihRuangan', 'pilihAsal', 'pilihTujuan', 'pilihTujuanDb', 'pilihRuanganScan', 'pilihAsalTempel'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = opts;
   });
@@ -1694,6 +1789,172 @@ async function prosesKirimDb() {
     }
     pesan += '</div>';
     alertEl.innerHTML = pesan;
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+/* ==================== MODE 3: TEMPEL FINGERPRINT DARI ALAT ==================== */
+
+let daftarPinTempel = [];
+let pinTerpilihTempel = null;   // {pin, nama, jumlah_jari}
+let daftarUserTempel = [];
+let userTerpilihTempel = null;  // {id, pin, nama, kelas, punya_fingerprint}
+
+async function muatPinTempel() {
+  const ruanganId = document.getElementById('pilihAsalTempel').value;
+  const alertEl = document.getElementById('alertMuatPinTempel');
+  if (!ruanganId) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Membaca daftar PIN dari alat, mohon tunggu...</div>';
+  document.getElementById('areaPinTempel').style.display = 'none';
+  document.getElementById('areaUserTempel').style.display = 'none';
+  document.getElementById('areaKonfirmasiTempel').style.display = 'none';
+  pinTerpilihTempel = null;
+  userTerpilihTempel = null;
+
+  try {
+    const res = await fetch(`/transfer/device-users?ruangan_id=${ruanganId}`);
+    const data = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal memuat data dari alat.'}</div>`;
+      return;
+    }
+    daftarPinTempel = data;
+    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.length} PIN ditemukan di alat ini.</div>`;
+    document.getElementById('areaPinTempel').style.display = 'block';
+    renderDaftarPinTempel();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+  }
+}
+
+function renderDaftarPinTempel() {
+  const kw = document.getElementById('fSearchPinTempel').value.trim().toLowerCase();
+  let data = daftarPinTempel;
+  if (kw) data = data.filter(u => (u.nama||'').toLowerCase().includes(kw) || String(u.pin).includes(kw));
+
+  const body = document.getElementById('daftarPinTempelBody');
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">Tidak ada PIN yang cocok</td></tr>';
+    return;
+  }
+
+  body.innerHTML = data.map(u => `
+    <tr style="cursor:pointer;${pinTerpilihTempel && pinTerpilihTempel.pin === u.pin ? 'background:#eff6ff;' : ''}"
+        onclick='pilihPinTempel(${JSON.stringify(u)})'>
+      <td><input type="radio" name="radioPinTempel" ${pinTerpilihTempel && pinTerpilihTempel.pin === u.pin ? 'checked' : ''} onclick='pilihPinTempel(${JSON.stringify(u)})'></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">${u.nama || '<span class="text-muted">(tanpa nama)</span>'}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? `<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">✓ ${u.jumlah_jari} jari</span>`
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+}
+
+function pilihPinTempel(u) {
+  if (!u.punya_fingerprint) {
+    alert(`PIN ${u.pin} belum punya fingerprint tersimpan di alat — tidak ada yang bisa ditempel.`);
+    return;
+  }
+  pinTerpilihTempel = u;
+  renderDaftarPinTempel();
+  document.getElementById('areaUserTempel').style.display = 'block';
+  muatUserTempel();
+}
+
+async function muatUserTempel() {
+  if (!pinTerpilihTempel) return;
+  const kw = document.getElementById('fSearchUserTempel').value.trim();
+  const body = document.getElementById('daftarUserTempelBody');
+  body.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat...</td></tr>';
+
+  const params = new URLSearchParams();
+  if (kw) params.set('search', kw);
+
+  try {
+    const res = await fetch(`/transfer/database-users?${params.toString()}`);
+    daftarUserTempel = await res.json();
+    renderDaftarUserTempel();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-danger">Gagal memuat: ${e}</td></tr>`;
+  }
+}
+
+function renderDaftarUserTempel() {
+  const body = document.getElementById('daftarUserTempelBody');
+  if (!daftarUserTempel.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">Tidak ada user yang cocok</td></tr>';
+    return;
+  }
+
+  body.innerHTML = daftarUserTempel.map(u => `
+    <tr style="cursor:pointer;${userTerpilihTempel && userTerpilihTempel.id === u.id ? 'background:#eff6ff;' : ''}"
+        onclick='pilihUserTempel(${JSON.stringify(u)})'>
+      <td><input type="radio" name="radioUserTempel" ${userTerpilihTempel && userTerpilihTempel.id === u.id ? 'checked' : ''} onclick='pilihUserTempel(${JSON.stringify(u)})'></td>
+      <td><code style="font-size:.8rem;">${u.pin}</code></td>
+      <td style="font-size:.85rem;">${u.nama || '—'}<div style="font-size:.72rem;color:#94a3b8;">${u.nim_nip || ''}</div></td>
+      <td style="font-size:.82rem;">${u.kelas || '—'}</td>
+      <td>
+        ${u.punya_fingerprint
+          ? '<span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Sudah ada (akan ditimpa)</span>'
+          : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;">Belum ada</span>'}
+      </td>
+    </tr>`).join('');
+}
+
+function pilihUserTempel(u) {
+  userTerpilihTempel = u;
+  renderDaftarUserTempel();
+
+  const ringkasan = document.getElementById('ringkasanTempel');
+  ringkasan.innerHTML = `
+    Template dari PIN <strong>${pinTerpilihTempel.pin}</strong> (${pinTerpilihTempel.jumlah_jari} jari, nama di alat: "${pinTerpilihTempel.nama || '—'}")
+    akan ditempel sebagai milik <strong>${u.nama}</strong> (PIN ${u.pin}${u.kelas ? ', ' + u.kelas : ''}).
+    ${u.punya_fingerprint ? '<br><span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>User ini sudah punya fingerprint — data lama akan DITIMPA.</span>' : ''}
+  `;
+  document.getElementById('areaKonfirmasiTempel').style.display = 'block';
+  document.getElementById('alertTempel').innerHTML = '';
+}
+
+async function prosesTempelFingerprint() {
+  const alertEl = document.getElementById('alertTempel');
+  if (!pinTerpilihTempel || !userTerpilihTempel) return;
+
+  if (!confirm(`Tempel fingerprint PIN ${pinTerpilihTempel.pin} ke ${userTerpilihTempel.nama}? Tindakan ini akan langsung diterapkan.`)) return;
+
+  alertEl.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Menempel fingerprint, mohon tunggu...</div>';
+
+  try {
+    const res = await fetch('/transfer/tempel-fingerprint', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ruangan_asal_id: parseInt(document.getElementById('pilihAsalTempel').value),
+        pin_asal: String(pinTerpilihTempel.pin),
+        user_tujuan_id: userTerpilihTempel.id,
+        hapus_pin_asal_dari_alat: document.getElementById('chkHapusPinAsalTempel').checked,
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal menempel fingerprint.'}</div>`;
+      return;
+    }
+
+    let pesan = `<div class="alert alert-success py-2">${data.pesan}`;
+    if (data.peringatan) pesan += `<br><span class="text-warning">${data.peringatan}</span>`;
+    pesan += '</div>';
+    alertEl.innerHTML = pesan;
+
+    // Reset supaya siap buat pasangan PIN/user berikutnya
+    pinTerpilihTempel = null;
+    userTerpilihTempel = null;
+    document.getElementById('areaUserTempel').style.display = 'none';
+    document.getElementById('areaKonfirmasiTempel').style.display = 'none';
+    muatPinTempel();
   } catch (e) {
     alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
   }

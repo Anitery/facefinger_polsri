@@ -97,6 +97,10 @@ def redirect_default_page(role: str) -> str:
         return "/dashboard/jadwal"
     elif role == "teknisi":
         return "/dashboard/ruangan"
+    elif role == "magang":
+        # Magang tidak punya akses Dashboard/Ruangan/Jadwal — tugas
+        # utamanya menginput data mahasiswa, jadi diarahkan ke situ.
+        return "/dashboard/pengguna"
     return "/dashboard"
 
 def get_ruangan_list(db):
@@ -235,7 +239,7 @@ def dashboard_pengguna(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "dosen", "teknisi"):
+    if user["role"] not in ("admin", "dosen", "teknisi", "magang"):
         return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/pengguna.html",

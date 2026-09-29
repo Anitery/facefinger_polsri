@@ -2,23 +2,100 @@
 {% block title %}Pengguna{% endblock %}
 {% block page_title %}Manajemen Pengguna{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* ══════ Tab menu Staff / Mahasiswa — gaya sama dengan halaman Gudang & Biometrik ══════ */
+  .clear-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .clear-tabs .nav-item { flex: 1 1 160px; }
+  .clear-tabs .nav-link {
+    border: 2px solid #dbe3ee;
+    border-radius: 10px;
+    color: #475569;
+    font-weight: 600;
+    font-size: .85rem;
+    padding: 10px 14px;
+    width: 100%;
+    text-align: center;
+    background: #fff;
+    transition: all .18s ease;
+    white-space: nowrap;
+  }
+  .clear-tabs .nav-link:hover {
+    border-color: #1F3864;
+    color: #1F3864;
+    background: #f5f8fc;
+  }
+  .clear-tabs .nav-link.active {
+    background: #1F3864;
+    border-color: #1F3864;
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(31,56,100,.28);
+  }
+  .clear-tabs .tab-count {
+    background: #e2e8f0;
+    color: #334155;
+    font-size: .7rem;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+  .clear-tabs .nav-link.active .tab-count {
+    background: rgba(255,255,255,.22);
+    color: #fff;
+  }
+  @media (max-width: 767.98px) {
+    .clear-tabs .nav-item { flex: 1 1 calc(50% - 4px); }
+  }
+  @media (max-width: 575.98px) {
+    .clear-tabs { flex-direction: column; gap: 8px; }
+    .clear-tabs .nav-item { flex: 1 1 auto; }
+    .clear-tabs .nav-link {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: .88rem;
+      display: flex;
+      align-items: center;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+
+{# Magang hanya mengurus data mahasiswa, jadi tab Staff tidak ditampilkan untuknya. #}
+{% set showStaff = user.role in ('admin', 'teknisi', 'dosen') %}
+
+{# Panel isi satu tab. g = 'staff' atau 'mahasiswa'. ID elemen diberi akhiran -staff / -mahasiswa. #}
+{% macro panel(g, role) %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <p class="text-muted mb-0" style="font-size:.84rem;">
-    Kelola akun pengguna sistem Smart Door Lock Teknik Komputer Polsri.
+    {% if g == 'staff' %}
+    Admin, Teknisi, Dosen, dan Magang — pengelola sistem Smart Door Lock Teknik Komputer Polsri.
+    {% else %}
+    Mahasiswa Teknik Komputer Polsri pengguna akses pintu.
+    {% endif %}
   </p>
   <div class="d-flex flex-wrap gap-2">
-    {% if user.role == 'admin' %}
-    <button class="btn btn-outline-warning btn-sm" onclick="bukaCekDuplikat()">
-      <i class="bi bi-exclamation-diamond me-1"></i>Cek Duplikat ID Perangkat
-    </button>
+    {% if g == 'mahasiswa' and role == 'admin' %}
     <button class="btn btn-outline-primary btn-sm" onclick="bukaNaikTingkat()">
       <i class="bi bi-arrow-up-circle me-1"></i>Naikkan Tingkat Kelas
     </button>
     {% endif %}
-    <button class="btn btn-primary btn-sm" onclick="openModal()">
-      <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
+    {% if g == 'staff' and role in ('admin', 'teknisi') %}
+    <button class="btn btn-primary btn-sm" onclick="openModal('staff')">
+      <i class="bi bi-plus-lg me-1"></i>Tambah Staff
     </button>
+    {% elif g == 'mahasiswa' and role in ('admin', 'dosen', 'magang') %}
+    <button class="btn btn-primary btn-sm" onclick="openModal('mahasiswa')">
+      <i class="bi bi-plus-lg me-1"></i>Tambah Mahasiswa
+    </button>
+    {% endif %}
   </div>
 </div>
 
@@ -26,68 +103,106 @@
   <div class="d-flex flex-wrap gap-2 align-items-center">
     <div class="input-group" style="max-width:280px;">
       <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-      <input type="text" class="form-control" id="searchPengguna"
-            placeholder="Cari nama, NIM/NIP, atau kelas...">
+      <input type="text" class="form-control" id="search-{{ g }}"
+             placeholder="{% if g == 'staff' %}Cari nama atau NIP...{% else %}Cari nama, NIM, atau kelas...{% endif %}">
     </div>
-    <select class="form-select form-select-sm" id="filterRole" style="max-width:160px;">
+    {% if g == 'staff' %}
+    <select class="form-select form-select-sm" id="filterRole-staff" style="max-width:160px;">
       <option value="">Semua Role</option>
-      <option value="mahasiswa">Mahasiswa</option>
       <option value="dosen">Dosen</option>
       <option value="teknisi">Teknisi</option>
-      {% if user.role == 'admin' %}<option value="admin">Admin</option>{% endif %}
+      <option value="magang">Magang</option>
+      {% if role == 'admin' %}<option value="admin">Admin</option>{% endif %}
     </select>
-    <select class="form-select form-select-sm" id="filterKelas" style="max-width:150px;">
+    {% else %}
+    <select class="form-select form-select-sm" id="filterKelas-mahasiswa" style="max-width:150px;">
       <option value="">Semua Kelas</option>
     </select>
-    <select class="form-select form-select-sm" id="filterFingerprint" style="max-width:190px;">
+    {% endif %}
+    <select class="form-select form-select-sm" id="filterFp-{{ g }}" style="max-width:190px;">
       <option value="">Semua Status Fingerprint</option>
       <option value="ada">Sudah Punya Fingerprint</option>
       <option value="belum">Belum Punya Fingerprint</option>
       <option value="ganda">⚠ Lebih dari 1 Jari (cek duplikat)</option>
     </select>
-    <button class="btn btn-sm btn-outline-secondary" onclick="resetFilterPengguna()" title="Reset filter">
+    <button class="btn btn-sm btn-outline-secondary" onclick="resetFilterPengguna('{{ g }}')" title="Reset filter">
       <i class="bi bi-arrow-counterclockwise"></i>
     </button>
   </div>
-  {% if user.role == 'admin' %}
+  {% if role == 'admin' %}
   <div class="form-check">
-    <input class="form-check-input" type="checkbox" id="showInactive">
-    <label class="form-check-label" style="font-size:.83rem;" for="showInactive">
+    <input class="form-check-input" type="checkbox" id="showInactive-{{ g }}">
+    <label class="form-check-label" style="font-size:.83rem;" for="showInactive-{{ g }}">
       Tampilkan yang nonaktif
     </label>
   </div>
   {% endif %}
 </div>
 
-<div class="tbl-wrap d-none d-md-block">
+<div class="tbl-wrap d-none d-md-block mb-2">
   <div style="overflow-x:auto;">
     <table class="table table-hover table-bordered align-middle mb-0" style="min-width:680px;">
       <thead class="table-light">
         <tr>
           <th class="text-center">No</th>
           <th>Nama</th>
-          <th>NIM / NIP</th>
-          <th>Kelas</th>
-          <th>Role</th>
+          <th>{% if g == 'staff' %}NIP{% else %}NIM{% endif %}</th>
+          {% if g == 'staff' %}<th>Role</th>{% else %}<th>Kelas</th>{% endif %}
           <th>ID Perangkat <small class="text-muted fw-normal">(PIN X606-S)</small></th>
           <th>Fingerprint</th>
           <th>Status</th>
           <th style="text-align:center;">Aksi</th>
         </tr>
       </thead>
-      <tbody id="userBodyDesktop">
-        <tr><td colspan="9" class="text-center py-4 text-muted">Memuat...</td></tr>
+      <tbody id="bodyDesktop-{{ g }}">
+        <tr><td colspan="8" class="text-center py-4 text-muted">Memuat...</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<div id="userBodyMobile" class="d-md-none d-flex flex-column gap-2 mb-3">
+<div id="bodyMobile-{{ g }}" class="d-md-none d-flex flex-column gap-2 mb-3">
   <div class="text-center text-muted py-4">Memuat...</div>
 </div>
 
-<!-- Container Pagination -->
-<div id="paginasiPengguna" class="bg-white rounded border" style="overflow:hidden;"></div>
+<div id="paginasi-{{ g }}" class="bg-white rounded border" style="overflow:hidden;"></div>
+{% endmacro %}
+
+{% if user.role == 'admin' %}
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn btn-outline-warning btn-sm" onclick="bukaCekDuplikat()">
+    <i class="bi bi-exclamation-diamond me-1"></i>Cek Duplikat ID Perangkat
+  </button>
+</div>
+{% endif %}
+
+<ul class="nav clear-tabs mb-3" id="tabPengguna" role="tablist">
+  {% if showStaff %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tabbtn-staff" data-bs-toggle="tab" data-bs-target="#tab-staff" type="button">
+      <i class="bi bi-person-badge me-1"></i>Staff / Pengelola
+      <span class="badge rounded-pill tab-count ms-1" id="count-staff"></span>
+    </button>
+  </li>
+  {% endif %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if not showStaff %}active{% endif %}" id="tabbtn-mahasiswa" data-bs-toggle="tab" data-bs-target="#tab-mahasiswa" type="button">
+      <i class="bi bi-mortarboard me-1"></i>Mahasiswa
+      <span class="badge rounded-pill tab-count ms-1" id="count-mahasiswa"></span>
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  {% if showStaff %}
+  <div class="tab-pane fade show active" id="tab-staff" role="tabpanel">
+    {{ panel('staff', user.role) }}
+  </div>
+  {% endif %}
+  <div class="tab-pane fade {% if not showStaff %}show active{% endif %}" id="tab-mahasiswa" role="tabpanel">
+    {{ panel('mahasiswa', user.role) }}
+  </div>
+</div>
 
 <!-- Modal Tambah/Edit -->
 <div class="modal fade" id="modalUser" tabindex="-1">
@@ -117,11 +232,14 @@
               <option value="admin">Admin</option>
               <option value="teknisi">Teknisi</option>
               <option value="dosen">Dosen</option>
+              <option value="magang">Magang</option>
               <option value="mahasiswa">Mahasiswa</option>
             {% elif user.role == 'dosen' %}
               <option value="mahasiswa">Mahasiswa</option>
             {% elif user.role == 'teknisi' %}
               <option value="dosen">Dosen</option>
+            {% elif user.role == 'magang' %}
+              <option value="mahasiswa">Mahasiswa</option>
             {% endif %}
           </select>
         </div>
@@ -280,19 +398,40 @@ const roleBadge = {
   admin:     'bg-danger',
   teknisi:   'bg-warning text-dark',
   dosen:     'bg-primary',
+  magang:    'bg-info text-dark',
   mahasiswa: 'bg-secondary',
 };
 
 let editMode = false;
-let allUsers = [];
-let currentPageUsers = 1;
 const USER_LIMIT = 50;
+
+// Status tiap tab: halaman aktif & data terakhir yang dimuat (paginasi terpisah per tab).
+const GROUPS = {
+  staff:     { page: 1, list: [], enabled: false },
+  mahasiswa: { page: 1, list: [], enabled: true  },
+};
+
+// Daftar role di modal Tambah/Edit disimpan sekali, lalu disaring sesuai tab.
+const ROLE_OPTIONS_ALL = [];
+function initRoleOptions() {
+  const sel = document.getElementById('inputRole');
+  ROLE_OPTIONS_ALL.length = 0;
+  Array.from(sel.options).forEach(o => ROLE_OPTIONS_ALL.push({ value: o.value, text: o.text }));
+}
+// group: 'staff' -> semua role selain mahasiswa | 'mahasiswa' -> hanya mahasiswa | null -> semua
+function setRoleOptions(group) {
+  const sel = document.getElementById('inputRole');
+  const opts = ROLE_OPTIONS_ALL.filter(o =>
+    !group || (group === 'mahasiswa' ? o.value === 'mahasiswa' : o.value !== 'mahasiswa'));
+  sel.innerHTML = opts.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
+}
 
 const myRole = "{{ user.role }}";
 const ROLE_MODIFY_PERMISSION = {
-  admin:   ["admin", "teknisi", "dosen", "mahasiswa"],
+  admin:   ["admin", "teknisi", "dosen", "magang", "mahasiswa"],
   dosen:   ["mahasiswa"],
   teknisi: ["dosen"],
+  magang:  ["mahasiswa"],
 };
 
 function bisaModifikasi(targetRole) {
@@ -319,8 +458,9 @@ function togglePw(inputId, iconId) {
   icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
 }
 
-function openModal() {
+function openModal(group) {
   editMode = false;
+  setRoleOptions(group || null);
   document.getElementById('editUserId').value   = '';
   document.getElementById('inputNama').value    = '';
   document.getElementById('inputNimNip').value  = '';
@@ -335,7 +475,8 @@ function openModal() {
   document.getElementById('inputPassword').value = '';
   document.getElementById('alertModal').innerHTML = '';
   document.getElementById('modalUserTitle').innerHTML =
-    '<i class="bi bi-person-plus me-2"></i>Tambah Pengguna';
+    '<i class="bi bi-person-plus me-2"></i>' +
+    (group === 'mahasiswa' ? 'Tambah Mahasiswa' : group === 'staff' ? 'Tambah Staff' : 'Tambah Pengguna');
   document.getElementById('pwHint').textContent = '(wajib untuk admin/teknisi/dosen)';
   document.getElementById('pwEditNote').style.display = 'none';
   
@@ -345,6 +486,7 @@ function openModal() {
 
 function openEdit(u) {
   editMode = true;
+  setRoleOptions(null);
   document.getElementById('editUserId').value   = u.id;
   document.getElementById('inputNama').value    = u.nama;
   document.getElementById('inputNimNip').value  = u.nim_nip;
@@ -445,8 +587,8 @@ async function simpanUser() {
         ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}${pesanTambahan}
       </div>`;
       
-    // Refresh table (remain on same page on edit, back to 1 on add)
-    loadUsers(editMode ? currentPageUsers : 1);
+    // Refresh tabel (tetap di halaman yang sama saat edit, kembali ke 1 saat tambah)
+    refreshSetelahSimpan(role);
     
     setTimeout(() => {
       bootstrap.Modal.getInstance(document.getElementById('modalUser')).hide();
@@ -555,7 +697,7 @@ async function eksekusiNaikTingkat() {
     }
     alertEl.innerHTML = `<div class="alert alert-success py-2">${data.pesan}</div>`;
     loadDaftarKelas();
-    loadUsers(1);
+    loadUsers('mahasiswa', 1);
     setTimeout(() => {
       bootstrap.Modal.getInstance(document.getElementById('modalNaikTingkat')).hide();
     }, 1500);
@@ -595,7 +737,7 @@ async function bukaCekDuplikat() {
   }
 }
 
-async function hapusFingerprintUser(userId, nama) {
+async function hapusFingerprintUser(userId, nama, group) {
   if (!confirm(`Hapus SEMUA data fingerprint milik ${nama}?\n\nDihapus dari server dan dari semua alat yang pernah menyimpannya. Data pengguna & riwayat lain TIDAK terpengaruh — cuma fingerprint-nya saja, supaya bisa didaftarkan ulang dari nol lewat Registrasi Biometrik.`)) return;
 
   try {
@@ -606,18 +748,18 @@ async function hapusFingerprintUser(userId, nama) {
       return;
     }
     alert(data.pesan);
-    loadUsers(currentPageUsers);
+    loadUsers(group, GROUPS[group].page);
   } catch (e) {
     alert('Gagal menghubungi server: ' + e);
   }
 }
 
-async function toggleAktif(userId) {
+async function toggleAktif(userId, group) {
   await fetch(`/users/${userId}/toggle-aktif`, { method: 'PATCH' });
-  await loadUsers(currentPageUsers);
+  await loadUsers(group, GROUPS[group].page);
 }
 
-async function hapusUserPermanen(userId, nama) {
+async function hapusUserPermanen(userId, nama, group) {
   if (!confirm(`Hapus permanen ${nama}? Tindakan ini tidak dapat dibatalkan.`)) return;
 
   let res = await fetch(`/users/${userId}`, { method: 'DELETE' });
@@ -632,22 +774,48 @@ async function hapusUserPermanen(userId, nama) {
   }
 
   if (res.ok) {
-    await loadUsers(currentPageUsers);
+    await loadUsers(group, GROUPS[group].page);
   } else {
     const err = await res.json().catch(() => ({ detail: `Gagal menghapus pengguna (status ${res.status}).` }));
     alert(err.detail);
   }
 }
 
-async function loadUsers(page = 1) {
-  currentPageUsers = page;
-  const showInactive = document.getElementById('showInactive')?.checked || false;
-  const keyword      = (document.getElementById('searchPengguna')?.value || '').trim();
-  const role         = document.getElementById('filterRole')?.value || '';
-  const kelas        = document.getElementById('filterKelas')?.value || '';
-  const fingerprint  = document.getElementById('filterFingerprint')?.value || '';
 
-  let url = `/users/?limit=${USER_LIMIT}&page=${page}&include_inactive=${showInactive}`;
+/* ==================== DAFTAR PENGGUNA (2 TAB: STAFF & MAHASISWA) ==================== */
+
+function grupDariRole(role) {
+  return role === 'mahasiswa' ? 'mahasiswa' : 'staff';
+}
+
+function el(base, group) {
+  return document.getElementById(`${base}-${group}`);
+}
+
+function refreshSetelahSimpan(role) {
+  const g = grupDariRole(role);
+  // Tambah baru -> kembali ke halaman 1; edit -> tetap di halaman yang sama.
+  loadUsers(g, editMode ? GROUPS[g].page : 1);
+  // Saat edit, role bisa berpindah grup (mis. staff -> mahasiswa), jadi
+  // grup satunya ikut disegarkan supaya datanya tidak basi.
+  if (editMode) {
+    const other = g === 'staff' ? 'mahasiswa' : 'staff';
+    if (GROUPS[other].enabled) loadUsers(other, GROUPS[other].page);
+  }
+}
+
+async function loadUsers(group, page = 1) {
+  const st = GROUPS[group];
+  if (!st || !st.enabled) return;
+  st.page = page;
+
+  const showInactive = el('showInactive', group)?.checked || false;
+  const keyword      = (el('search', group)?.value || '').trim();
+  const role         = group === 'staff' ? (el('filterRole', group)?.value || '') : '';
+  const kelas        = group === 'mahasiswa' ? (el('filterKelas', group)?.value || '') : '';
+  const fingerprint  = el('filterFp', group)?.value || '';
+
+  let url = `/users/?group=${group}&limit=${USER_LIMIT}&page=${page}&include_inactive=${showInactive}`;
   if (keyword)     url += `&search=${encodeURIComponent(keyword)}`;
   if (role)        url += `&role=${encodeURIComponent(role)}`;
   if (kelas)       url += `&kelas=${encodeURIComponent(kelas)}`;
@@ -656,168 +824,175 @@ async function loadUsers(page = 1) {
   try {
     const res  = await fetch(url);
     const json = await res.json();
-    allUsers   = json.data || [];
-    const pg   = json.pagination || {};
-    renderUsers();
-    renderPaginasiPengguna(pg);
+    st.list = json.data || [];
+    const pg = json.pagination || {};
+    renderUsers(group);
+    renderPaginasiPengguna(group, pg);
+
+    // Badge jumlah di judul tab hanya diperbarui saat tidak ada filter
+    // aktif, supaya angkanya selalu berarti "total" bukan "hasil filter".
+    const tanpaFilter = !keyword && !role && !kelas && !fingerprint && !showInactive;
+    const badge = el('count', group);
+    if (badge && tanpaFilter) badge.textContent = pg.total ?? '';
   } catch(e) {
-    console.error("Gagal load users:", e);
+    console.error(`Gagal load users (${group}):`, e);
+    el('bodyDesktop', group).innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat data</td></tr>';
+    el('bodyMobile', group).innerHTML  = '<div class="text-center text-danger py-4">Gagal memuat data</div>';
   }
 }
 
-function resetFilterPengguna() {
-  document.getElementById('searchPengguna').value = '';
-  document.getElementById('filterRole').value = '';
-  document.getElementById('filterKelas').value = '';
-  document.getElementById('filterFingerprint').value = '';
-  if (document.getElementById('showInactive')) document.getElementById('showInactive').checked = false;
-  loadUsers(1);
+function resetFilterPengguna(group) {
+  el('search', group).value = '';
+  if (el('filterRole', group))  el('filterRole', group).value = '';
+  if (el('filterKelas', group)) el('filterKelas', group).value = '';
+  el('filterFp', group).value = '';
+  if (el('showInactive', group)) el('showInactive', group).checked = false;
+  loadUsers(group, 1);
 }
 
 async function loadDaftarKelas() {
-  const sel = document.getElementById('filterKelas');
+  const sel = document.getElementById('filterKelas-mahasiswa');
   if (!sel) return;
+  const terpilih = sel.value;
   try {
     const res = await fetch('/users/daftar-kelas');
     const kelasList = await res.json();
     sel.innerHTML = '<option value="">Semua Kelas</option>' +
       kelasList.map(k => `<option value="${k}">${k}</option>`).join('');
+    sel.value = terpilih;
   } catch (e) {
     console.error('Gagal memuat daftar kelas:', e);
   }
 }
 
-function renderPaginasiPengguna(pg) {
-  const wrap = document.getElementById('paginasiPengguna');
+function renderPaginasiPengguna(group, pg) {
+  const wrap = el('paginasi', group);
   if (!wrap) return;
   const { total, page, limit, total_pages, has_prev, has_next } = pg;
-  
+
   if (!total) { wrap.innerHTML = ''; return; }
-  
+
   const start  = (page - 1) * limit + 1;
   const end    = Math.min(page * limit, total);
   const delta  = 2;
   const pages  = [];
-  
+  const label  = group === 'staff' ? 'staff' : 'mahasiswa';
+
   for (let i = Math.max(1, page - delta); i <= Math.min(total_pages, page + delta); i++) {
     pages.push(i);
   }
-  
+
   wrap.innerHTML = `
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2
                 px-3 py-2" style="font-size:.8rem;color:#64748b;">
       <div>
-        Menampilkan <strong>${start}–${end}</strong> dari 
-        <strong>${total}</strong> pengguna
+        Menampilkan <strong>${start}–${end}</strong> dari
+        <strong>${total}</strong> ${label}
       </div>
       <nav>
         <ul class="pagination pagination-sm mb-0">
           <li class="page-item ${!has_prev ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadUsers(1)">«</button>
+            <button class="page-link" onclick="loadUsers('${group}', 1)">«</button>
           </li>
           <li class="page-item ${!has_prev ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadUsers(${page-1})">‹</button>
+            <button class="page-link" onclick="loadUsers('${group}', ${page-1})">‹</button>
           </li>
           ${pages.map(p => `
             <li class="page-item ${p === page ? 'active' : ''}">
-              <button class="page-link" onclick="loadUsers(${p})">${p}</button>
+              <button class="page-link" onclick="loadUsers('${group}', ${p})">${p}</button>
             </li>`).join('')}
           <li class="page-item ${!has_next ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadUsers(${page+1})">›</button>
+            <button class="page-link" onclick="loadUsers('${group}', ${page+1})">›</button>
           </li>
           <li class="page-item ${!has_next ? 'disabled' : ''}">
-            <button class="page-link" onclick="loadUsers(${total_pages})">»</button>
+            <button class="page-link" onclick="loadUsers('${group}', ${total_pages})">»</button>
           </li>
         </ul>
       </nav>
     </div>`;
 }
 
-function renderUsers() {
-  const desktop = document.getElementById('userBodyDesktop');
-  const mobile  = document.getElementById('userBodyMobile');
-  
-  const startIndex = (currentPageUsers - 1) * USER_LIMIT;
-
-  const filteredUsers = allUsers.filter(u => {
-    if (myRole === 'dosen' && u.role === 'admin') return false;
-    if (myRole === 'teknisi' && u.role === 'admin') return false;
-    return true;
-  });
-
-  if (!filteredUsers.length) {
-    desktop.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Data tidak ditemukan</td></tr>';
-    mobile.innerHTML  = '<div class="text-center text-muted py-4">Data tidak ditemukan</div>';
-    return;
+function badgeFingerprint(u, kecil) {
+  const fs = kecil ? '.7rem' : '.72rem';
+  if (u.jumlah_finger > 1) {
+    return `<span style="background:#fee2e2;color:#b91c1c;padding:3px 9px;border-radius:20px;font-size:${fs};font-weight:600;" title="Lebih dari 1 jari — cek kemungkinan data tercampur"><i class="bi bi-exclamation-triangle-fill me-1"></i>${u.jumlah_finger} jari</span>`;
   }
+  if (u.punya_template) {
+    return `<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:${fs};font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Sudah</span>`;
+  }
+  return `<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:${fs};font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Belum</span>`;
+}
 
-  // === RENDER DESKTOP (TABEL) ===
-  desktop.innerHTML = filteredUsers.map((u, i) => {
+function tombolAksi(u, group, mobile) {
+  const namaAman = u.nama.replace(/'/g, "\\'");
+  const fl = mobile ? ' flex-fill' : '';
+  return `
+    <button class="btn btn-outline-primary btn-sm${fl}" title="Edit"
+            onclick='openEdit(${JSON.stringify(u)})'>
+      <i class="bi bi-pencil${mobile ? ' me-1' : ''}"></i>${mobile ? 'Edit' : ''}
+    </button>
+
+    ${u.role !== 'mahasiswa' ? `
+    <button class="btn btn-outline-warning btn-sm${fl}" title="Reset Password"
+            onclick="openResetPw(${u.id},'${namaAman}')">
+      <i class="bi bi-key${mobile ? ' me-1' : ''}"></i>${mobile ? 'Reset PW' : ''}
+    </button>
+    ` : ''}
+
+    ${u.punya_template && (myRole === 'admin' || myRole === 'teknisi') ? `
+    <button class="btn btn-outline-danger btn-sm" title="Hapus Data Fingerprint"
+            onclick="hapusFingerprintUser(${u.id}, '${namaAman}', '${group}')">
+      <i class="bi bi-fingerprint"></i>
+    </button>
+    ` : ''}
+
+    <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
+            onclick="toggleAktif(${u.id}, '${group}')">
+      <i class="bi bi-power"></i>
+    </button>
+
+    ${myRole === 'admin' ? `
+      <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
+              onclick="hapusUserPermanen(${u.id}, '${namaAman}', '${group}')">
+        <i class="bi bi-trash"></i>
+      </button>
+    ` : ''}`;
+}
+
+function buatBarisDesktop(list, startIndex, group) {
+  return list.map((u, i) => {
     const editable = bisaModifikasi(u.role);
     const statusBadge = u.aktif
       ? '<span class="badge-ok">Aktif</span>'
       : '<span class="badge-no">Nonaktif</span>';
+    const kolomKhusus = group === 'staff'
+      ? `<td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>`
+      : `<td>${u.kelas || '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>`;
 
     return `
     <tr style="${!u.aktif ? 'opacity:.55;' : ''}">
       <td class="text-center text-muted" style="font-size:.75rem;">${startIndex + i + 1}</td>
       <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
       <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
-      <td>${u.kelas || '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>
-      <td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>
-      <td>  ${u.id_perangkat
+      ${kolomKhusus}
+      <td>${u.id_perangkat
         ? `<code style="font-size:.75rem;">#${u.id_perangkat}</code>`
         : '<span class="text-muted" style="font-size:.75rem;">Belum diset</span>'}</td>
-      <td>${
-        u.jumlah_finger > 1
-          ? `<span style="background:#fee2e2;color:#b91c1c;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;" title="Lebih dari 1 jari — cek kemungkinan data tercampur"><i class="bi bi-exclamation-triangle-fill me-1"></i>${u.jumlah_finger} jari</span>`
-        : u.punya_template
-          ? '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Sudah</span>'
-          : '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Belum</span>'
-      }</td>
+      <td>${badgeFingerprint(u, false)}</td>
       <td>${statusBadge}</td>
       <td>
         <div class="d-flex gap-1 justify-content-center">
-          ${editable ? `
-            <button class="btn btn-outline-primary btn-sm" title="Edit"
-                  onclick='openEdit(${JSON.stringify(u)})'>
-              <i class="bi bi-pencil"></i>
-            </button>
-
-            <!-- MENYEMBUNYIKAN TOMBOL RESET PASSWORD JIKA ROLE = MAHASISWA -->
-            ${u.role !== 'mahasiswa' ? `
-            <button class="btn btn-outline-warning btn-sm" title="Reset Password"
-                  onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
-              <i class="bi bi-key"></i>
-            </button>
-            ` : ''}
-
-            ${u.punya_template && (myRole === 'admin' || myRole === 'teknisi') ? `
-            <button class="btn btn-outline-danger btn-sm" title="Hapus Data Fingerprint"
-                  onclick="hapusFingerprintUser(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
-              <i class="bi bi-fingerprint"></i>
-            </button>
-            ` : ''}
-
-            <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
-                    onclick="toggleAktif(${u.id})">
-              <i class="bi bi-power"></i>
-            </button>
-
-            ${myRole === 'admin' ? `
-              <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
-                      onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
-                <i class="bi bi-trash"></i>
-              </button>
-            ` : ''}
-          ` : `<span class="text-muted" style="font-size:.75rem;">Tidak ada akses</span>`}
+          ${editable
+            ? tombolAksi(u, group, false)
+            : `<span class="text-muted" style="font-size:.75rem;">Tidak ada akses</span>`}
         </div>
       </td>
     </tr>`;
   }).join('');
+}
 
-  // === RENDER MOBILE (CARD) ===
-  mobile.innerHTML = filteredUsers.map((u, i) => {
+function buatBarisMobile(list, startIndex, group) {
+  return list.map((u, i) => {
     const editable = bisaModifikasi(u.role);
     const statusBadge = u.aktif
       ? '<span class="badge-ok" style="font-size:.7rem;">Aktif</span>'
@@ -832,10 +1007,10 @@ function renderUsers() {
             ${u.nama}
           </div>
           <code style="font-size:.74rem;color:#64748b;">${u.nim_nip}</code>
-          ${u.kelas ? `<div style="font-size:.74rem;color:#64748b;">Kelas: <strong>${u.kelas}</strong></div>` : ''}
+          ${group === 'mahasiswa' && u.kelas ? `<div style="font-size:.74rem;color:#64748b;">Kelas: <strong>${u.kelas}</strong></div>` : ''}
         </div>
         <div class="d-flex flex-column align-items-end gap-1">
-          <span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span>
+          ${group === 'staff' ? `<span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span>` : ''}
           ${statusBadge}
         </div>
       </div>
@@ -843,61 +1018,69 @@ function renderUsers() {
         <i class="bi bi-cpu me-1"></i>
         ID Perangkat: ${u.id_perangkat ? `#${u.id_perangkat}` : '<span class="text-muted">Belum diset</span>'}
       </div>
-      <div class="mb-2">
-        ${u.jumlah_finger > 1
-          ? `<span style="background:#fee2e2;color:#b91c1c;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-exclamation-triangle-fill me-1"></i>${u.jumlah_finger} Jari (cek duplikat)</span>`
-          : u.punya_template
-            ? '<span style="background:#dcfce7;color:#15803d;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-check-circle-fill me-1"></i>Fingerprint Sudah</span>'
-            : '<span style="background:#fef9c3;color:#a16207;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;"><i class="bi bi-exclamation-circle-fill me-1"></i>Fingerprint Belum</span>'}
-      </div>
+      <div class="mb-2">${badgeFingerprint(u, true)}</div>
       <div class="d-flex gap-2">
-        ${editable ? `
-          <button class="btn btn-outline-primary btn-sm flex-fill"
-                  onclick='openEdit(${JSON.stringify(u)})'>
-            <i class="bi bi-pencil me-1"></i>Edit
-          </button>
-
-          <!-- MENYEMBUNYIKAN TOMBOL RESET PASSWORD JIKA ROLE = MAHASISWA -->
-          ${u.role !== 'mahasiswa' ? `
-          <button class="btn btn-outline-warning btn-sm flex-fill"
-                  onclick="openResetPw(${u.id},'${u.nama.replace(/'/g,"\\'")}')">
-            <i class="bi bi-key me-1"></i>Reset PW
-          </button>
-          ` : ''}
-
-          ${u.punya_template && (myRole === 'admin' || myRole === 'teknisi') ? `
-          <button class="btn btn-outline-danger btn-sm" title="Hapus Data Fingerprint"
-                  onclick="hapusFingerprintUser(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
-            <i class="bi bi-fingerprint"></i>
-          </button>
-          ` : ''}
-
-          <button class="btn btn-sm ${u.aktif ? 'btn-outline-secondary' : 'btn-outline-success'}" title="${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}"
-                  onclick="toggleAktif(${u.id})">
-            <i class="bi bi-power"></i>
-          </button>
-
-          ${myRole === 'admin' ? `
-            <button class="btn btn-outline-danger btn-sm" title="Hapus Permanen"
-                    onclick="hapusUserPermanen(${u.id}, '${u.nama.replace(/'/g,"\\'")}')">
-              <i class="bi bi-trash"></i>
-            </button>
-          ` : ''}
-        ` : `<span class="text-muted text-center flex-fill" style="font-size:.75rem;">Tidak ada akses modifikasi</span>`}
+        ${editable
+          ? tombolAksi(u, group, true)
+          : `<span class="text-muted text-center flex-fill" style="font-size:.75rem;">Tidak ada akses modifikasi</span>`}
       </div>
     </div>`;
   }).join('');
 }
 
+function renderUsers(group) {
+  const st = GROUPS[group];
+  const startIndex = (st.page - 1) * USER_LIMIT;
+
+  const list = st.list.filter(u => {
+    if (myRole === 'dosen' && u.role === 'admin') return false;
+    if (myRole === 'teknisi' && u.role === 'admin') return false;
+    // Magang: aksesnya cuma seputar data mahasiswa (lihat batasan role).
+    if (myRole === 'magang' && u.role !== 'mahasiswa') return false;
+    return true;
+  });
+
+  const dt = el('bodyDesktop', group);
+  const mb = el('bodyMobile', group);
+
+  if (!list.length) {
+    dt.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Data tidak ditemukan</td></tr>';
+    mb.innerHTML = '<div class="text-center text-muted py-4">Data tidak ditemukan</div>';
+    return;
+  }
+  dt.innerHTML = buatBarisDesktop(list, startIndex, group);
+  mb.innerHTML = buatBarisMobile(list, startIndex, group);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Tab Staff hanya ada untuk admin/teknisi/dosen (lihat showStaff di template).
+  GROUPS.staff.enabled = !!document.getElementById('tab-staff');
+  initRoleOptions();
   toggleKelasField();
-  document.getElementById('searchPengguna')?.addEventListener('input', () => loadUsers(1));
-  document.getElementById('showInactive')?.addEventListener('change', () => loadUsers(1));
-  document.getElementById('filterRole')?.addEventListener('change', () => loadUsers(1));
-  document.getElementById('filterKelas')?.addEventListener('change', () => loadUsers(1));
-  document.getElementById('filterFingerprint')?.addEventListener('change', () => loadUsers(1));
+
+  Object.keys(GROUPS).forEach(g => {
+    if (!GROUPS[g].enabled) return;
+    el('search', g)?.addEventListener('input', () => loadUsers(g, 1));
+    el('showInactive', g)?.addEventListener('change', () => loadUsers(g, 1));
+    el('filterRole', g)?.addEventListener('change', () => loadUsers(g, 1));
+    el('filterKelas', g)?.addEventListener('change', () => loadUsers(g, 1));
+    el('filterFp', g)?.addEventListener('change', () => loadUsers(g, 1));
+
+    // Ingat tab terakhir lewat hash URL (#staff / #mahasiswa)
+    el('tabbtn', g)?.addEventListener('shown.bs.tab', () => {
+      history.replaceState(null, '', '#' + g);
+    });
+  });
+
+  // Buka tab sesuai hash URL kalau valid & boleh diakses
+  const hash = (location.hash || '').replace('#', '');
+  if (GROUPS[hash] && GROUPS[hash].enabled) {
+    const btn = el('tabbtn', hash);
+    if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+  }
+
   loadDaftarKelas();
-  loadUsers(1);
+  Object.keys(GROUPS).forEach(g => loadUsers(g, 1));
 });
 </script>
 {% endblock %}

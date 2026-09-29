@@ -289,3 +289,106 @@ def push_dari_database(
         "pesan": f"Kirim dari database selesai: {len(hasil['berhasil'])}/{len(payload.user_ids)} user berhasil dikirim ke alat",
         **hasil,
     }
+
+
+class TempelFingerprintPayload(BaseModel):
+    ruangan_asal_id: int
+    pin_asal: str
+    user_tujuan_id: int
+    hapus_pin_asal_dari_alat: bool = True
+
+
+@router.post("/tempel-fingerprint")
+def tempel_fingerprint(
+    payload: TempelFingerprintPayload,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_session),
+):
+    """
+    Perbaikan akibat bug lama duplikasi ID Perangkat: kadang ada PIN di
+    alat yang templatenya sebenarnya bagus, tapi PIN itu sekarang sudah
+    "yatim" atau salah kaitan (bukan milik siapapun yang valid di
+    database, atau nyasar ke user yang salah) — sementara user yang
+    SEBENARNYA butuh fingerprint itu tidak punya template sama sekali.
+
+    Endpoint ini mengambil template dari 1 PIN tertentu di 1 alat, lalu
+    menempelkannya sebagai milik user tujuan yang BENAR di database —
+    tanpa perlu mahasiswa/dosen itu daftar ulang jari secara fisik.
+    Setelah ini, template barunya sudah siap dikirim ke alat manapun
+    lewat tab "Database Server ke Alat" seperti biasa.
+    """
+    _wajib_teknisi(user)
+
+    target = db.query(User).filter(User.id == payload.user_tujuan_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User tujuan tidak ditemukan")
+    if not target.id_perangkat:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{target.nama} belum punya ID Perangkat — set dulu ID Perangkat-nya di menu Pengguna sebelum menempel fingerprint.",
+        )
+
+    url_asal, key_asal = resolve_door_service(payload.ruangan_asal_id, db)
+
+    try:
+        r = requests.post(
+            f"{url_asal}/export-users",
+            headers={"X-API-Key": key_asal},
+            json={"pins": [payload.pin_asal]},
+            timeout=60,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gagal mengambil data dari alat asal ({url_asal}): {e}")
+
+    if not data or not data[0].get("templates"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"PIN {payload.pin_asal} di alat itu tidak ditemukan atau belum punya fingerprint tersimpan.",
+        )
+
+    templates = data[0]["templates"]
+    nama_di_alat = data[0].get("nama", "") or "(tanpa nama)"
+
+    for t in templates:
+        existing = db.query(BiometricTemplate).filter(
+            BiometricTemplate.user_id == target.id,
+            BiometricTemplate.finger_id == int(t["finger_id"]),
+        ).first()
+        if existing:
+            existing.size = t.get("size")
+            existing.template = t.get("template")
+            existing.valid = t.get("valid", "1")
+        else:
+            db.add(BiometricTemplate(
+                user_id=target.id, finger_id=int(t["finger_id"]),
+                size=t.get("size"), template=t.get("template"), valid=t.get("valid", "1"),
+            ))
+
+    peringatan = None
+    if payload.hapus_pin_asal_dari_alat:
+        try:
+            r2 = requests.post(
+                f"{url_asal}/remove-users",
+                headers={"X-API-Key": key_asal},
+                json={"pins": [payload.pin_asal]},
+                timeout=15,
+            )
+            r2.raise_for_status()
+        except Exception as e:
+            peringatan = f"Template berhasil ditempel, tapi gagal menghapus PIN lama {payload.pin_asal} dari alat: {e}"
+
+    db.commit()
+
+    hasil = {
+        "pesan": (
+            f"{len(templates)} template fingerprint dari PIN {payload.pin_asal} ({nama_di_alat}) "
+            f"berhasil ditempel ke {target.nama}. Kirim ke alat yang sesuai lewat tab "
+            f"\"Database Server ke Alat\"."
+        ),
+        "disimpan": len(templates),
+    }
+    if peringatan:
+        hasil["peringatan"] = peringatan
+    return hasil
