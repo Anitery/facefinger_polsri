@@ -29,7 +29,7 @@ def _generate_pin_dari_nim(nim_nip: str, db: Session, exclude_user_id: Optional[
     Perbaikannya: tetap mulai dari 4 digit terakhir (supaya PIN singkat
     seperti kebiasaan lama), tapi begitu ternyata sudah dipakai user
     lain, otomatis diperpanjang jadi 5, 6, 7 digit dst. dari belakang
-    NIM sampai ketemu yang belum dipakai siapapun.
+    NIM sampai ketemu yang belum dipakai siapapun DAN digit depannya bukan 0.
     """
     digits_only = re.sub(r"\D", "", nim_nip or "")
     if not digits_only:
@@ -37,6 +37,13 @@ def _generate_pin_dari_nim(nim_nip: str, db: Session, exclude_user_id: Optional[
 
     for panjang in range(4, len(digits_only) + 1):
         kandidat = digits_only[-panjang:]
+        # Kandidat yang diawali angka 0 (mis. "0026", "00026") DILEWATI: kolom
+        # ID Perangkat diperlakukan sebagai angka, sehingga "0026" akan
+        # tersimpan sebagai 26 (tidak sama dengan yang ditampilkan/dihitung).
+        # Digit terus ditambah dari belakang NIM sampai digit depannya bukan 0
+        # (mis. NIM ...700026 -> 0026 dan 00026 dilewati -> 700026).
+        if kandidat.startswith("0"):
+            continue
         q = db.query(User).filter(User.id_perangkat == int(kandidat))
         if exclude_user_id:
             q = q.filter(User.id != exclude_user_id)
@@ -248,30 +255,44 @@ def set_fingerprint_otomatis(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{user_id}/id-perangkat-otomatis")
-def set_id_perangkat_otomatis(user_id: int, db: Session = Depends(get_db)):
+def set_id_perangkat_otomatis(
+    user_id: int,
+    paksa: bool = Query(False, description="True = hitung ulang nomor kosong terkecil walau user sudah punya ID Perangkat (dipakai saat EDIT staff yang kolom ID Perangkat-nya tidak diubah)"),
+    db: Session = Depends(get_db),
+):
     """
-    Beri ID Perangkat otomatis (nomor kosong terkecil) untuk user non-mahasiswa
-    yang ID Perangkat-nya dikosongkan. Kalau user ini SUDAH punya ID Perangkat,
-    tidak diubah sama sekali (aman dipanggil berulang).
+    Beri ID Perangkat otomatis (nomor kosong terkecil) untuk user non-mahasiswa.
+
+    - paksa=False (default, dipakai saat TAMBAH): kalau user ini SUDAH punya
+      ID Perangkat, tidak diubah sama sekali (aman dipanggil berulang).
+    - paksa=True (dipakai saat EDIT ketika kolom ID Perangkat dibiarkan/dikosongkan):
+      ID Perangkat dihitung ulang jadi nomor kosong terkecil, dengan
+      mengabaikan ID milik user ini sendiri. Contoh: terpakai {1..5} dan user ini
+      ber-ID 20 -> menjadi 6. Kalau user ini ber-ID 3 dan 3 memang celah
+      terkecil, tetap 3.
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
-    if user.id_perangkat is not None:
+    if user.id_perangkat is not None and not paksa:
         return {
             "pesan": f"{user.nama} sudah punya ID Perangkat {user.id_perangkat}",
             "id_perangkat": user.id_perangkat,
             "dibuat": False,
+            "berubah": False,
         }
 
+    lama = user.id_perangkat
     pin = _id_perangkat_kosong_terkecil(db, exclude_user_id=user.id)
     user.id_perangkat = pin
     db.commit()
     return {
         "pesan": f"ID Perangkat {pin} disimpan untuk {user.nama}",
         "id_perangkat": pin,
-        "dibuat": True,
+        "dibuat": lama is None,
+        "berubah": lama != pin,
+        "sebelumnya": lama,
     }
 
 

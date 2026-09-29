@@ -74,11 +74,23 @@ for i in range(1, 9):
     })
 
 # ── Mahasiswa (90) ───────────────────────────────────────
-# Format NIM mengikuti contoh: 06233070 + 4 digit urut
-for i in range(1, 91):
+# NIM berurutan mulai dari 062330701501 (12 digit).
+# NIM yang sudah dipakai user asli di seed.py dicadangkan agar tidak bentrok.
+NIM_AWAL = 62330701501
+NIM_DICADANGKAN = {"062330701514"}  # Fatah Alfi Syahri (seed.py)
+
+nim_mahasiswa = []
+n = NIM_AWAL
+while len(nim_mahasiswa) < 90:
+    nim = str(n).zfill(12)  # zfill menjaga angka 0 di depan
+    if nim not in NIM_DICADANGKAN:
+        nim_mahasiswa.append(nim)
+    n += 1
+
+for nim in nim_mahasiswa:
     users_data.append({
         "nama": random_nama(used_names),
-        "nim_nip": f"06233070{i:04d}",
+        "nim_nip": nim,
         "role": "mahasiswa",
         "password": None,
     })

@@ -369,7 +369,7 @@
         <div class="mb-3" id="sectionFp">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             ID Perangkat  <small class="text-muted fw-normal">
-              (PIN yang didaftarkan ke X606-S saat sinkronisasi — kosongkan agar terisi otomatis dengan nomor kosong terkecil. Khusus mahasiswa diisi otomatis dari 4 digit terakhir NIM)
+              (PIN yang didaftarkan ke X606-S saat sinkronisasi — kosongkan atau biarkan tanpa diubah saat edit agar dirapikan otomatis ke nomor kosong terkecil; ubah nilainya untuk memakai nomor manual. Khusus mahasiswa diisi otomatis dari digit terakhir NIM, tanpa diawali angka 0)
             </small>
           </label>
           <input class="form-control" id="pIdPerangkat" type="number" min="1" placeholder="Kosongkan = otomatis (contoh manual: 20)">
@@ -535,6 +535,7 @@ const roleBadge = {
 const roleLabel = r => r === 'dosen_privilege' ? 'dosen' : (r || '');
 
 let editMode = false;
+let idPerangkatAsli = '';   // nilai ID Perangkat saat modal edit dibuka (untuk mendeteksi apakah kolom diubah)
 const USER_LIMIT = 50;
 
 // Status tiap tab: halaman aktif & data terakhir yang dimuat (paginasi terpisah per tab).
@@ -595,6 +596,7 @@ function togglePw(inputId, iconId) {
 
 function openModal(group) {
   editMode = false;
+  idPerangkatAsli = '';
   setRoleOptions(group || null);
   document.getElementById('editUserId').value   = '';
   document.getElementById('inputNama').value    = '';
@@ -628,6 +630,7 @@ function openEdit(u) {
   document.getElementById('inputRole').value    = u.role;
   document.getElementById('inputKelas').value   = u.kelas || '';
   document.getElementById('pIdPerangkat').value = u.id_perangkat || '';
+  idPerangkatAsli = u.id_perangkat ? String(u.id_perangkat) : '';
   document.getElementById('inputPassword').value = '';
   document.getElementById('alertModal').innerHTML = '';
   document.getElementById('modalUserTitle').innerHTML =
@@ -704,23 +707,33 @@ async function simpanUser() {
         const fpRes = await fetch(`/users/${saved.id}/fingerprint-otomatis`, { method: 'POST' });
         const fpData = await fpRes.json();
         if (fpRes.ok && fpData.diperpanjang) {
-          pesanTambahan = ` ID Perangkat otomatis diperpanjang jadi <strong>${fpData.id_perangkat}</strong> karena 4 digit terakhir NIM sudah dipakai mahasiswa lain.`;
+          pesanTambahan = ` ID Perangkat otomatis diperpanjang jadi <strong>${fpData.id_perangkat}</strong> karena 4 digit terakhir NIM sudah dipakai mahasiswa lain atau diawali angka 0.`;
+        } else if (fpRes.ok && editMode && String(fpData.id_perangkat) !== idPerangkatAsli) {
+          pesanTambahan = ` ID Perangkat otomatis dirapikan menjadi <strong>${fpData.id_perangkat}</strong> (mengikuti digit terakhir NIM).`;
         } else if (!fpRes.ok) {
           pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
         }
-      } else if (fpIdManual) {
+      } else if (fpIdManual && !(editMode && String(fpIdManual).trim() === idPerangkatAsli)) {
+        // ID Perangkat diisi manual (tambah), atau DIUBAH oleh user saat edit
+        // (mis. 20 -> 10): simpan persis nilai yang diinput.
         const fpRes = await fetch(`/users/${saved.id}/fingerprint?fingerprint_id=${fpIdManual}`, { method: 'PATCH' });
         if (!fpRes.ok) {
           const fpData = await fpRes.json();
           pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
         }
       } else {
-        // Non-mahasiswa & ID Perangkat dikosongkan -> server memilih nomor kosong terkecil.
-        // (Kalau user ini sudah punya ID Perangkat, server tidak mengubahnya.)
-        const fpRes = await fetch(`/users/${saved.id}/id-perangkat-otomatis`, { method: 'POST' });
+        // Non-mahasiswa:
+        //  - TAMBAH & kolom kosong  -> server memilih nomor kosong terkecil.
+        //  - EDIT & kolom dibiarkan (nilai sama seperti semula) atau dikosongkan
+        //    -> ID Perangkat dirapikan otomatis jadi nomor kosong terkecil
+        //       (mis. terpakai 1-5 dan user ber-ID 20 -> menjadi 6).
+        const url = `/users/${saved.id}/id-perangkat-otomatis` + (editMode ? '?paksa=true' : '');
+        const fpRes = await fetch(url, { method: 'POST' });
         const fpData = await fpRes.json();
-        if (fpRes.ok && fpData.dibuat) {
-          pesanTambahan = ` ID Perangkat otomatis diisi <strong>${fpData.id_perangkat}</strong>.`;
+        if (fpRes.ok && (fpData.dibuat || fpData.berubah)) {
+          pesanTambahan = editMode && fpData.berubah && !fpData.dibuat
+            ? ` ID Perangkat otomatis dirapikan dari <strong>${fpData.sebelumnya}</strong> menjadi <strong>${fpData.id_perangkat}</strong>.`
+            : ` ID Perangkat otomatis diisi <strong>${fpData.id_perangkat}</strong>.`;
         } else if (!fpRes.ok) {
           pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
         }

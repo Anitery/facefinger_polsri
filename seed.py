@@ -46,10 +46,12 @@ for r in ruangan_list:
 # ── Users ────────────────────────────────────────────────
 # ruangan_id=None artinya bisa akses semua ruangan
 users_data = [
-    {"nama": "Administrator",       "nim_nip": "ADMIN001",           "role": "admin",     "id_perangkat": 1,  "password": "admin123"},
-    {"nama": "Teknisi Lab",         "nim_nip": "TEKNISI001",         "role": "teknisi",   "id_perangkat": 2,  "password": "teknisi123"},
-    {"nama": "Dosen",               "nim_nip": "DOSEN001",           "role": "dosen",     "id_perangkat": 3,  "password": "dosen123"},
-    {"nama": "Fatah Alfi Syahri",   "nim_nip": "062330701514",       "role": "mahasiswa", "id_perangkat": 4,  "password": None},
+    {"nama": "Administrator",       "nim_nip": "ADMIN001",     "role": "admin",           "id_perangkat": 1, "password": "admin123"},
+    {"nama": "Teknisi Lab",         "nim_nip": "TEKNISI001",   "role": "teknisi",         "id_perangkat": 2, "password": "teknisi123"},
+    {"nama": "Dosen",               "nim_nip": "DOSEN001",     "role": "dosen",           "id_perangkat": 3, "password": "dosen123"},
+    {"nama": "Dosen Privilege",     "nim_nip": "DOSENPRIV001", "role": "dosen_privilege", "id_perangkat": 5, "password": "dosenpriv123"},
+    {"nama": "Anak Magang",         "nim_nip": "MAGANG001",    "role": "magang",          "id_perangkat": 6, "password": "magang123"},
+    {"nama": "Fatah Alfi Syahri",   "nim_nip": "062330701514", "role": "mahasiswa",       "id_perangkat": 4, "password": None},
 ]
 
 for u in users_data:
@@ -66,6 +68,8 @@ print(f"✓ {len(users_data)} user dibuat")
 db.close()
 print("\n✅ Seed selesai!")
 print("\nAkun login:")
-print("  Admin   → ADMIN001           | admin123")
-print("  Teknisi → TEKNISI001         | teknisi123")
-print("  Dosen   → DOSEN001           | dosen123")
+print("  Admin           → ADMIN001      | admin123")
+print("  Teknisi         → TEKNISI001    | teknisi123")
+print("  Dosen           → DOSEN001      | dosen123")
+print("  Dosen Privilege → DOSENPRIV001  | dosenpriv123")
+print("  Magang          → MAGANG001     | magang123")
