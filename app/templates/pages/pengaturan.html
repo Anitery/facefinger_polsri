@@ -4,432 +4,529 @@
 
 {% block extra_head %}
 <style>
-  .st-wrap { max-width: 860px; }
+  .st-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; max-width: 1080px; align-items: start; }
 
-  .st-group-label {
-    font-size: .72rem; font-weight: 700; color: #94a3b8;
-    text-transform: uppercase; letter-spacing: .06em;
-    margin: 26px 4px 8px;
+  /* ── Navigasi bagian (desktop) ── */
+  .st-nav { position: sticky; top: 84px; }
+  .st-nav a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 4px;
+    border-radius: 9px; color: #475569; font-size: .84rem; font-weight: 600; text-decoration: none;
+    transition: background .15s, color .15s;
   }
-  .st-group-label:first-of-type { margin-top: 0; }
+  .st-nav a i { font-size: 1rem; color: #94a3b8; }
+  .st-nav a:hover { background: #e2e8f0; color: var(--navy); }
+  .st-nav a.active { background: #fff; color: var(--navy); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .st-nav a.active i { color: var(--accent); }
 
+  /* ── Ringkasan status ── */
+  .st-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .st-chip {
+    display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 999px; padding: 6px 12px; font-size: .76rem; color: #475569; font-weight: 600;
+  }
+  .st-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+  .st-chip.ok .dot { background: #22c55e; }
+  .st-chip.warn .dot { background: #f59e0b; }
+  .st-chip.bad .dot { background: #ef4444; }
+
+  /* ── Bagian & kartu ── */
+  .st-section { scroll-margin-top: 84px; margin-bottom: 26px; }
+  .st-section-head { margin: 0 4px 10px; }
+  .st-section-head h2 { font-size: .95rem; font-weight: 700; color: var(--navy); margin: 0; }
+  .st-section-head p { font-size: .78rem; color: #64748b; margin: 2px 0 0; }
   .st-card { padding: 0; overflow: hidden; }
 
-  .st-row {
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 18px 20px;
-    border-bottom: 1px solid #f1f5f9;
-  }
+  .st-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 18px 20px; border-bottom: 1px solid #f1f5f9; }
   .st-row:last-child { border-bottom: none; }
-
-  .st-icon {
-    width: 42px; height: 42px; border-radius: 11px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.15rem; flex-shrink: 0;
-  }
-  .st-icon.blue  { background: #eff6ff; color: #1d4ed8; }
-  .st-icon.red   { background: #fee2e2; color: #b91c1c; }
+  .st-icon { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; }
+  .st-icon.blue { background: #eff6ff; color: #1d4ed8; }
+  .st-icon.red { background: #fee2e2; color: #b91c1c; }
   .st-icon.amber { background: #fef9c3; color: #a16207; }
   .st-icon.green { background: #dcfce7; color: #15803d; }
 
-  .st-body { flex: 1; min-width: 0; }
   .st-title { font-weight: 600; color: #1e293b; font-size: .9rem; margin: 0 0 3px; }
-  .st-desc  { font-size: .8rem; color: #64748b; margin: 0; line-height: 1.55; }
+  .st-desc { font-size: .8rem; color: #64748b; margin: 0; line-height: 1.55; }
   .st-desc strong { color: #334155; }
+  .st-more { margin-top: 6px; font-size: .78rem; }
+  .st-more summary { cursor: pointer; color: var(--accent); font-weight: 600; list-style: none; display: inline-flex; align-items: center; gap: 4px; }
+  .st-more summary::-webkit-details-marker { display: none; }
+  .st-more summary::after { content: "\F282"; font-family: "bootstrap-icons"; font-size: .65rem; transition: transform .2s; }
+  .st-more[open] summary::after { transform: rotate(180deg); }
+  .st-more p { margin: 6px 0 0; color: #64748b; line-height: 1.6; }
 
-  .st-control {
-    flex-shrink: 0; display: flex; flex-direction: column;
-    align-items: flex-end; gap: 6px; padding-top: 2px;
-  }
-
+  .st-control { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-top: 2px; }
   .st-switch.form-check { padding: 0; min-height: 0; margin: 0; }
-  .st-switch .form-check-input {
-    width: 2.6em; height: 1.4em; margin: 0; float: none; cursor: pointer;
-  }
-
-  .st-pill {
-    font-size: .68rem; font-weight: 600; padding: 2px 9px;
-    border-radius: 20px; white-space: nowrap;
-    background: #f1f5f9; color: #64748b;
-  }
+  .st-switch .form-check-input { width: 2.8em; height: 1.5em; margin: 0; float: none; cursor: pointer; }
+  .st-pill { font-size: .68rem; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; background: #f1f5f9; color: #64748b; }
   .st-pill.on-green { background: #dcfce7; color: #15803d; }
-  .st-pill.on-red   { background: #fee2e2; color: #b91c1c; }
+  .st-pill.on-red { background: #fee2e2; color: #b91c1c; }
   .st-pill.on-amber { background: #fef9c3; color: #a16207; }
-
   .st-warn { font-size: .78rem; padding: 7px 12px; margin: 10px 0 0; border-radius: 8px; }
 
-  .st-unit { width: 130px; }
-  .st-unit .form-control { font-weight: 600; text-align: right; }
-  .st-unit .input-group-text { font-size: .8rem; background: #f8fafc; color: #64748b; }
+  /* Input angka dengan tombol +/- */
+  .st-stepper { display: inline-flex; align-items: stretch; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #fff; }
+  .st-stepper button { border: 0; background: #f8fafc; width: 38px; color: #475569; font-size: 1rem; cursor: pointer; }
+  .st-stepper button:hover { background: #e2e8f0; }
+  .st-stepper input { width: 64px; border: 0; text-align: center; font-weight: 700; color: #1e293b; padding: 7px 0; -moz-appearance: textfield; }
+  .st-stepper input::-webkit-outer-spin-button, .st-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .st-stepper input:focus { outline: none; background: #f8fbff; }
+  .st-unit-lbl { font-size: .72rem; color: #64748b; }
 
-  .st-alat-list-item {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 6px 8px; border-radius: 8px;
+  /* ── Daftar alat ── */
+  .st-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .st-search { position: relative; flex: 1 1 200px; }
+  .st-search i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .85rem; }
+  .st-search input { padding-left: 32px; }
+  .st-alat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 12px; max-height: 340px; overflow-y: auto; padding: 2px; }
+  .st-alat {
+    display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1.5px solid #e2e8f0; border-radius: 11px;
+    cursor: pointer; background: #fff; transition: border-color .15s, background .15s; margin: 0;
   }
-  .st-alat-list-item:hover { background: #f8fafc; }
+  .st-alat:hover { border-color: #93c5fd; }
+  .st-alat.sel { border-color: var(--accent); background: #f0f7ff; }
+  .st-alat input { width: 1.1rem; height: 1.1rem; flex-shrink: 0; margin: 0; cursor: pointer; }
+  .st-alat-info { flex: 1; min-width: 0; }
+  .st-alat-name { font-size: .84rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-alat-loc { font-size: .72rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-empty { grid-column: 1 / -1; text-align: center; padding: 22px 0; font-size: .82rem; color: #94a3b8; }
+  .st-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 
-  .st-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-
+  /* ── Bar simpan ── */
   .st-savebar {
-    position: sticky; bottom: 0; z-index: 10;
-    margin-top: 24px; padding: 12px 0;
-    background: linear-gradient(to top, var(--bg-light) 70%, rgba(240,244,248,0));
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    position: sticky; bottom: 12px; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 14px; box-shadow: 0 6px 20px rgba(15,23,42,.1);
   }
+  .st-savebar .state { font-size: .8rem; color: #64748b; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .st-savebar .state .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+  .st-savebar.dirty .state { color: #a16207; font-weight: 600; }
+  .st-savebar.dirty .state .dot { background: #f59e0b; }
   #alertPengaturan .alert { margin: 0; }
 
+  /* ── Tablet ke bawah: nav jadi tab horizontal ── */
+  @media (max-width: 991.98px) {
+    .st-layout { grid-template-columns: 1fr; gap: 0; }
+    .st-nav { position: sticky; top: 60px; z-index: 5; display: flex; gap: 6px; overflow-x: auto; margin: -12px -12px 14px; padding: 10px 12px; background: var(--bg-light); scrollbar-width: none; }
+    .st-nav::-webkit-scrollbar { display: none; }
+    .st-nav a { margin: 0; white-space: nowrap; background: #fff; border: 1px solid #e2e8f0; padding: 7px 14px; border-radius: 999px; }
+    .st-nav a.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .st-nav a.active i { color: #fff; }
+  }
+
+  /* ── Mobile ── */
   @media (max-width: 575.98px) {
-    .st-row { flex-wrap: wrap; padding: 16px; }
-    .st-control {
-      width: 100%; flex-direction: row; align-items: center;
-      justify-content: space-between; padding-left: 56px;
-    }
-    .st-actions .btn { flex: 1 1 100%; }
+    .st-row { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 16px; }
+    .st-icon { width: 38px; height: 38px; font-size: 1.05rem; }
+    .st-control { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 0 0 50px; }
+    .st-row.st-input .st-control { justify-content: flex-start; gap: 10px; }
+    .st-stepper button { width: 44px; }
+    .st-stepper input { width: 72px; padding: 9px 0; }
+    .st-alat-grid { grid-template-columns: 1fr; max-height: 300px; }
+    .st-actions .btn { flex: 1 1 100%; padding: 9px 12px; }
+    .st-savebar { bottom: 8px; padding: 10px 12px; }
+    .st-savebar .btn { flex-shrink: 0; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="st-wrap">
+<div class="st-layout">
 
-  <p class="text-muted mb-3" style="font-size:.84rem;">
-    Atur perilaku akses biometrik, presensi, dan penghapusan otomatis pada alat.
-    Pengaturan di bawah baru berlaku setelah menekan <strong>Simpan Pengaturan</strong>,
-    kecuali bagian <em>per alat</em> yang langsung diterapkan.
-  </p>
+  <!-- Navigasi bagian -->
+  <nav class="st-nav" id="stNav" aria-label="Bagian pengaturan">
+    <a href="#sec-akses" class="active"><i class="bi bi-shield-check"></i>Akses &amp; Keamanan</a>
+    <a href="#sec-presensi"><i class="bi bi-clock-history"></i>Presensi</a>
+    <a href="#sec-hapus"><i class="bi bi-trash3"></i>Hapus Otomatis</a>
+  </nav>
 
-  <!-- ══════════ AKSES & KEAMANAN ══════════ -->
-  <div class="st-group-label">Akses &amp; Keamanan</div>
-  <div class="section-card st-card">
+  <div class="st-main">
 
-    <div class="st-row">
-      <div class="st-icon blue"><i class="bi bi-calendar-x"></i></div>
-      <div class="st-body">
-        <h6 class="st-title" id="lblJadwal">Validasi Jadwal</h6>
-        <p class="st-desc">
-          Saat aktif, mahasiswa hanya bisa akses saat ada jadwal KBM yang sesuai. Saat dimatikan,
-          semua scan biometrik (mahasiswa/dosen) langsung <strong>berhasil</strong> tanpa cek jadwal —
-          dan presensi otomatis <strong>tidak akan tercatat</strong> karena tidak ada jadwal untuk diacu.
-        </p>
-        <div id="warnJadwal" class="alert alert-warning st-warn" style="display:none;">
-          <i class="bi bi-exclamation-triangle me-1"></i>Nonaktif berarti siapa saja bisa akses kapan saja tanpa jadwal. Presensi otomatis juga berhenti tercatat.
-        </div>
-      </div>
-      <div class="st-control">
-        <div class="form-check form-switch st-switch">
-          <input class="form-check-input" type="checkbox" id="swWajibJadwal"
-                 aria-labelledby="lblJadwal" title="Wajibkan jadwal aktif untuk akses">
-        </div>
-        <span class="st-pill" id="pillJadwal" data-on="Wajib jadwal" data-off="Tanpa jadwal" data-on-class="on-green">—</span>
-      </div>
-    </div>
+    <p class="text-muted mb-3" style="font-size:.84rem;">
+      Atur perilaku akses biometrik, presensi, dan penghapusan otomatis pada alat. Perubahan baru berlaku setelah menekan
+      <strong>Simpan</strong>, kecuali bagian <em>Per Alat</em> yang langsung diterapkan.
+    </p>
 
-    <div class="st-row">
-      <div class="st-icon red"><i class="bi bi-tools"></i></div>
-      <div class="st-body">
-        <h6 class="st-title" id="lblPemeliharaan">Mode Pemeliharaan</h6>
-        <p class="st-desc">
-          Saat aktif, semua akses biometrik ditolak <strong>kecuali admin &amp; teknisi</strong> —
-          berguna saat kalibrasi ulang device atau perbaikan sistem tanpa mengunci diri sendiri keluar.
-        </p>
-        <div id="warnPemeliharaan" class="alert alert-danger st-warn" style="display:none;">
-          <i class="bi bi-exclamation-triangle me-1"></i>Semua mahasiswa dan dosen akan ditolak aksesnya selama mode ini aktif.
-        </div>
-      </div>
-      <div class="st-control">
-        <div class="form-check form-switch st-switch">
-          <input class="form-check-input" type="checkbox" id="swPemeliharaan"
-                 aria-labelledby="lblPemeliharaan" title="Aktifkan mode pemeliharaan">
-        </div>
-        <span class="st-pill" id="pillPemeliharaan" data-on="Aktif" data-off="Nonaktif" data-on-class="on-red">—</span>
-      </div>
-    </div>
+    <!-- Ringkasan status -->
+    <div class="st-summary" id="stSummary" aria-live="polite"></div>
 
-    <div class="st-row">
-      <div class="st-icon blue"><i class="bi bi-eye-slash"></i></div>
-      <div class="st-body">
-        <h6 class="st-title" id="lblIp">Privasi Alamat IP Perangkat</h6>
-        <p class="st-desc">
-          Saat aktif, IP address perangkat X606-S disembunyikan di dashboard untuk role selain admin/teknisi
-          (diganti jadi status "Terhubung"/"—"). Admin dan teknisi tetap melihat IP asli untuk keperluan troubleshooting.
-        </p>
-      </div>
-      <div class="st-control">
-        <div class="form-check form-switch st-switch">
-          <input class="form-check-input" type="checkbox" id="swSembunyikanIp"
-                 aria-labelledby="lblIp" title="Sembunyikan IP perangkat dari dosen/pengguna lain">
-        </div>
-        <span class="st-pill" id="pillIp" data-on="Disembunyikan" data-off="Terlihat" data-on-class="on-green">—</span>
-      </div>
-    </div>
+    <!-- ══════════ AKSES & KEAMANAN ══════════ -->
+    <section class="st-section" id="sec-akses">
+      <div class="st-section-head"><h2>Akses &amp; Keamanan</h2><p>Siapa yang boleh masuk dan apa yang terlihat.</p></div>
+      <div class="section-card st-card">
 
-  </div>
-
-  <!-- ══════════ PRESENSI ══════════ -->
-  <div class="st-group-label">Presensi &amp; Jendela Akses</div>
-  <div class="section-card st-card">
-
-    <div class="st-row">
-      <div class="st-icon blue"><i class="bi bi-clock-history"></i></div>
-      <div class="st-body">
-        <h6 class="st-title">Toleransi Keterlambatan Presensi</h6>
-        <p class="st-desc">
-          Berapa menit setelah jam mulai jadwal, mahasiswa masih dianggap "hadir" (bukan "terlambat")?
-        </p>
-      </div>
-      <div class="st-control">
-        <div class="input-group input-group-sm st-unit">
-          <input type="number" min="0" class="form-control" id="inToleransi" aria-label="Toleransi keterlambatan (menit)">
-          <span class="input-group-text">menit</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="st-row">
-      <div class="st-icon green"><i class="bi bi-door-open"></i></div>
-      <div class="st-body">
-        <h6 class="st-title">Toleransi Masuk Lebih Awal</h6>
-        <p class="st-desc">
-          Berapa menit sebelum jam mulai jadwal, alat sudah mengizinkan mahasiswa scan &amp; masuk ruangan?
-          Contoh: jadwal jam 15:00 dengan toleransi 15 menit → mahasiswa sudah bisa masuk sejak jam 14:45.
-          Ini hanya memperlebar jendela akses, <strong>tidak mengubah</strong> status presensi (tetap
-          dihitung dari jam mulai jadwal yang asli, bukan dari toleransi ini).
-        </p>
-      </div>
-      <div class="st-control">
-        <div class="input-group input-group-sm st-unit">
-          <input type="number" min="0" class="form-control" id="inToleransiAwal" aria-label="Toleransi masuk lebih awal (menit)">
-          <span class="input-group-text">menit</span>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ══════════ PENGHAPUSAN OTOMATIS ══════════ -->
-  <div class="st-group-label">Penghapusan Otomatis dari Alat</div>
-  <div class="section-card st-card">
-
-    <div class="st-row">
-      <div class="st-icon amber"><i class="bi bi-shield-lock-fill"></i></div>
-      <div class="st-body">
-        <h6 class="st-title" id="lblHapusGlobal">Semua Alat</h6>
-        <p class="st-desc">
-          Sistem normalnya menghapus otomatis akses fisik user dari alat kalau jadwalnya sudah tidak
-          ada lagi (lihat catatan "self-healing" di halaman Sync Biometrik). Saat toggle ini
-          <strong>aktif</strong>, penghapusan otomatis itu <strong>dimatikan untuk SEMUA alat</strong> —
-          data user di alat tidak akan terhapus lagi walau tidak ada jadwal, sampai toggle ini
-          dimatikan kembali. User baru tetap bisa ditambah/dikirim seperti biasa; ini cuma mematikan
-          proses "hapus"-nya saja.
-        </p>
-        <div id="warnNonaktifHapusGlobal" class="alert alert-warning st-warn" style="display:none;">
-          <i class="bi bi-exclamation-triangle me-1"></i>Semua alat berhenti menghapus user otomatis walau jadwalnya sudah habis — pastikan ini memang disengaja.
-        </div>
-      </div>
-      <div class="st-control">
-        <div class="form-check form-switch st-switch">
-          <input class="form-check-input" type="checkbox" id="swNonaktifHapusGlobal"
-                 aria-labelledby="lblHapusGlobal" title="Nonaktifkan penghapusan otomatis untuk semua alat">
-        </div>
-        <span class="st-pill" id="pillHapusGlobal" data-on="Dimatikan" data-off="Normal" data-on-class="on-amber">—</span>
-      </div>
-    </div>
-
-    <div class="st-row">
-      <div class="st-icon amber"><i class="bi bi-router-fill"></i></div>
-      <div class="st-body">
-        <h6 class="st-title">Per Alat</h6>
-        <p class="st-desc">
-          Kalau cuma ingin mematikan penghapusan otomatis untuk 1 atau beberapa alat tertentu saja
-          (bukan semua), pilih di bawah ini. Tidak berlaku kalau toggle "Semua Alat" di atas sedang
-          aktif — toggle global selalu menang. Tombol di bagian ini <strong>langsung diterapkan</strong>
-          tanpa perlu menekan Simpan Pengaturan.
-        </p>
-
-        <div class="dropdown mt-3">
-          <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex justify-content-between align-items-center w-100" type="button"
-                  id="dropdownRuanganNH" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
-                  style="max-width:420px;">
-            <span><i class="bi bi-router me-1"></i><span id="labelDropdownRuanganNH">Pilih ruangan / alat...</span></span>
-          </button>
-          <div class="dropdown-menu p-2" aria-labelledby="dropdownRuanganNH" style="max-height:300px;overflow-y:auto;min-width:320px;max-width:420px;">
-            <div class="d-flex align-items-center border-bottom pb-2 mb-2 px-2">
-              <input type="checkbox" class="form-check-input me-2 mt-0" id="chkSemuaRuanganNH" onchange="toggleSemuaRuanganNH(this.checked)">
-              <label for="chkSemuaRuanganNH" class="fw-bold mb-0" style="font-size:.82rem;cursor:pointer;">Pilih Semua</label>
+        <div class="st-row">
+          <div class="st-icon blue"><i class="bi bi-calendar-x"></i></div>
+          <div>
+            <h6 class="st-title" id="lblJadwal">Validasi Jadwal</h6>
+            <p class="st-desc">Mahasiswa hanya bisa akses saat ada jadwal KBM yang sesuai.</p>
+            <details class="st-more">
+              <summary>Selengkapnya</summary>
+              <p>Saat dimatikan, semua scan biometrik (mahasiswa/dosen) langsung <strong>berhasil</strong> tanpa cek jadwal, dan presensi otomatis <strong>tidak akan tercatat</strong> karena tidak ada jadwal untuk diacu.</p>
+            </details>
+            <div id="warnJadwal" class="alert alert-warning st-warn" style="display:none;">
+              <i class="bi bi-exclamation-triangle me-1"></i>Nonaktif berarti siapa saja bisa akses kapan saja tanpa jadwal. Presensi otomatis juga berhenti tercatat.
             </div>
-            <div id="daftarRuanganNHBody">
-              <div class="text-center py-3 text-muted" style="font-size:.82rem;">Memuat daftar ruangan...</div>
+          </div>
+          <div class="st-control">
+            <div class="form-check form-switch st-switch">
+              <input class="form-check-input" type="checkbox" id="swWajibJadwal" aria-labelledby="lblJadwal" title="Wajibkan jadwal aktif untuk akses">
             </div>
+            <span class="st-pill" id="pillJadwal" data-on="Wajib jadwal" data-off="Tanpa jadwal" data-on-class="on-green">—</span>
           </div>
         </div>
 
-        <div class="st-actions">
-          <button class="btn btn-sm btn-warning" onclick="terapkanNonaktifHapusPerRuangan(true)">
-            <i class="bi bi-slash-circle me-1"></i>Nonaktifkan untuk yang Dipilih
-          </button>
-          <button class="btn btn-sm btn-outline-secondary" onclick="terapkanNonaktifHapusPerRuangan(false)">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Normal untuk yang Dipilih
-          </button>
-          <button class="btn btn-sm btn-outline-success" onclick="aktifkanSemuaAlat()">
-            <i class="bi bi-check2-all me-1"></i>Aktifkan Semua
-          </button>
+        <div class="st-row">
+          <div class="st-icon red"><i class="bi bi-tools"></i></div>
+          <div>
+            <h6 class="st-title" id="lblPemeliharaan">Mode Pemeliharaan</h6>
+            <p class="st-desc">Tolak semua akses biometrik <strong>kecuali admin &amp; teknisi</strong>.</p>
+            <details class="st-more">
+              <summary>Selengkapnya</summary>
+              <p>Berguna saat kalibrasi ulang device atau perbaikan sistem tanpa mengunci diri sendiri keluar.</p>
+            </details>
+            <div id="warnPemeliharaan" class="alert alert-danger st-warn" style="display:none;">
+              <i class="bi bi-exclamation-triangle me-1"></i>Semua mahasiswa dan dosen akan ditolak aksesnya selama mode ini aktif.
+            </div>
+          </div>
+          <div class="st-control">
+            <div class="form-check form-switch st-switch">
+              <input class="form-check-input" type="checkbox" id="swPemeliharaan" aria-labelledby="lblPemeliharaan" title="Aktifkan mode pemeliharaan">
+            </div>
+            <span class="st-pill" id="pillPemeliharaan" data-on="Aktif" data-off="Nonaktif" data-on-class="on-red">—</span>
+          </div>
         </div>
-        <div id="alertNonaktifHapusPerRuangan" class="mt-2"></div>
+
+        <div class="st-row">
+          <div class="st-icon blue"><i class="bi bi-eye-slash"></i></div>
+          <div>
+            <h6 class="st-title" id="lblIp">Privasi Alamat IP Perangkat</h6>
+            <p class="st-desc">Sembunyikan IP perangkat X606-S dari role selain admin/teknisi.</p>
+            <details class="st-more">
+              <summary>Selengkapnya</summary>
+              <p>IP diganti menjadi status "Terhubung"/"—" di dashboard. Admin dan teknisi tetap melihat IP asli untuk keperluan troubleshooting.</p>
+            </details>
+          </div>
+          <div class="st-control">
+            <div class="form-check form-switch st-switch">
+              <input class="form-check-input" type="checkbox" id="swSembunyikanIp" aria-labelledby="lblIp" title="Sembunyikan IP perangkat dari dosen/pengguna lain">
+            </div>
+            <span class="st-pill" id="pillIp" data-on="Disembunyikan" data-off="Terlihat" data-on-class="on-green">—</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════ PRESENSI ══════════ -->
+    <section class="st-section" id="sec-presensi">
+      <div class="st-section-head"><h2>Presensi &amp; Jendela Akses</h2><p>Batas waktu hadir dan masuk ruangan.</p></div>
+      <div class="section-card st-card">
+
+        <div class="st-row st-input">
+          <div class="st-icon blue"><i class="bi bi-clock-history"></i></div>
+          <div>
+            <h6 class="st-title" id="lblTol">Toleransi Keterlambatan Presensi</h6>
+            <p class="st-desc">Berapa menit setelah jam mulai jadwal mahasiswa masih dianggap "hadir" (bukan "terlambat")?</p>
+          </div>
+          <div class="st-control">
+            <div class="st-stepper">
+              <button type="button" data-step="-1" data-target="inToleransi" aria-label="Kurangi">−</button>
+              <input type="number" min="0" inputmode="numeric" id="inToleransi" aria-labelledby="lblTol">
+              <button type="button" data-step="1" data-target="inToleransi" aria-label="Tambah">+</button>
+            </div>
+            <span class="st-unit-lbl">menit</span>
+          </div>
+        </div>
+
+        <div class="st-row st-input">
+          <div class="st-icon green"><i class="bi bi-door-open"></i></div>
+          <div>
+            <h6 class="st-title" id="lblTolAwal">Toleransi Masuk Lebih Awal</h6>
+            <p class="st-desc">Berapa menit sebelum jam mulai alat sudah mengizinkan scan &amp; masuk ruangan?</p>
+            <details class="st-more">
+              <summary>Selengkapnya</summary>
+              <p>Contoh: jadwal jam 15:00 dengan toleransi 15 menit → mahasiswa sudah bisa masuk sejak 14:45. Ini hanya memperlebar jendela akses, <strong>tidak mengubah</strong> status presensi (tetap dihitung dari jam mulai jadwal asli).</p>
+            </details>
+          </div>
+          <div class="st-control">
+            <div class="st-stepper">
+              <button type="button" data-step="-1" data-target="inToleransiAwal" aria-label="Kurangi">−</button>
+              <input type="number" min="0" inputmode="numeric" id="inToleransiAwal" aria-labelledby="lblTolAwal">
+              <button type="button" data-step="1" data-target="inToleransiAwal" aria-label="Tambah">+</button>
+            </div>
+            <span class="st-unit-lbl">menit</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════ PENGHAPUSAN OTOMATIS ══════════ -->
+    <section class="st-section" id="sec-hapus">
+      <div class="st-section-head"><h2>Penghapusan Otomatis dari Alat</h2><p>Kontrol pembersihan user di perangkat saat jadwal berakhir.</p></div>
+      <div class="section-card st-card">
+
+        <div class="st-row">
+          <div class="st-icon amber"><i class="bi bi-shield-lock-fill"></i></div>
+          <div>
+            <h6 class="st-title" id="lblHapusGlobal">Semua Alat</h6>
+            <p class="st-desc">Matikan penghapusan otomatis untuk <strong>semua alat</strong> sekaligus.</p>
+            <details class="st-more">
+              <summary>Selengkapnya</summary>
+              <p>Normalnya sistem menghapus akses fisik user dari alat kalau jadwalnya sudah tidak ada (lihat catatan "self-healing" di halaman Sync Biometrik). Saat aktif, proses hapus dimatikan di semua alat sampai toggle ini dimatikan lagi. User baru tetap bisa ditambah/dikirim seperti biasa.</p>
+            </details>
+            <div id="warnNonaktifHapusGlobal" class="alert alert-warning st-warn" style="display:none;">
+              <i class="bi bi-exclamation-triangle me-1"></i>Semua alat berhenti menghapus user otomatis walau jadwalnya sudah habis — pastikan ini memang disengaja.
+            </div>
+          </div>
+          <div class="st-control">
+            <div class="form-check form-switch st-switch">
+              <input class="form-check-input" type="checkbox" id="swNonaktifHapusGlobal" aria-labelledby="lblHapusGlobal" title="Nonaktifkan penghapusan otomatis untuk semua alat">
+            </div>
+            <span class="st-pill" id="pillHapusGlobal" data-on="Dimatikan" data-off="Normal" data-on-class="on-amber">—</span>
+          </div>
+        </div>
+
+        <div class="st-row" style="grid-template-columns:42px minmax(0,1fr);">
+          <div class="st-icon amber"><i class="bi bi-router-fill"></i></div>
+          <div>
+            <h6 class="st-title">Per Alat</h6>
+            <p class="st-desc">Pilih alat tertentu saja. Toggle "Semua Alat" selalu menang. Bagian ini <strong>langsung diterapkan</strong> tanpa menekan Simpan.</p>
+
+            <div class="st-tools">
+              <div class="st-search">
+                <i class="bi bi-search"></i>
+                <input type="search" class="form-control form-control-sm" id="cariAlatNH" placeholder="Cari ruangan / alat..." aria-label="Cari alat">
+              </div>
+              <div class="form-check mb-0 d-flex align-items-center gap-2">
+                <input type="checkbox" class="form-check-input mt-0" id="chkSemuaRuanganNH" onchange="toggleSemuaRuanganNH(this.checked)">
+                <label for="chkSemuaRuanganNH" class="mb-0 fw-semibold" style="font-size:.8rem;cursor:pointer;white-space:nowrap;">Pilih semua</label>
+              </div>
+              <span class="st-pill" id="labelDropdownRuanganNH">Belum ada dipilih</span>
+            </div>
+
+            <div class="st-alat-grid" id="daftarRuanganNHBody">
+              <div class="st-empty">Memuat daftar ruangan...</div>
+            </div>
+
+            <div class="st-actions">
+              <button class="btn btn-sm btn-warning" onclick="terapkanNonaktifHapusPerRuangan(true)">
+                <i class="bi bi-slash-circle me-1"></i>Nonaktifkan yang Dipilih
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="terapkanNonaktifHapusPerRuangan(false)">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Normal
+              </button>
+              <button class="btn btn-sm btn-outline-success" onclick="aktifkanSemuaAlat()">
+                <i class="bi bi-check2-all me-1"></i>Aktifkan Semua
+              </button>
+            </div>
+            <div id="alertNonaktifHapusPerRuangan" class="mt-2"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════ SIMPAN ══════════ -->
+    <div class="st-savebar" id="stSavebar">
+      <div class="state"><span class="dot"></span><span id="stSaveText">Semua perubahan tersimpan</span></div>
+      <div class="d-flex align-items-center gap-2">
+        <div id="alertPengaturan"></div>
+        <button class="btn btn-primary" id="btnSimpan" onclick="simpanPengaturan()" disabled>
+          <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
       </div>
     </div>
 
   </div>
-
-  <!-- ══════════ SIMPAN ══════════ -->
-  <div class="st-savebar">
-    <button class="btn btn-primary" onclick="simpanPengaturan()">
-      <i class="bi bi-check-lg me-1"></i>Simpan Pengaturan
-    </button>
-    <div id="alertPengaturan"></div>
-  </div>
-
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+const $ = id => document.getElementById(id);
+let snapshot = '';
+
+function ambilNilai() {
+  return JSON.stringify([
+    $('swWajibJadwal').checked, $('swSembunyikanIp').checked, $('swPemeliharaan').checked,
+    $('swNonaktifHapusGlobal').checked, parseInt($('inToleransi').value) || 0, parseInt($('inToleransiAwal').value) || 0,
+  ]);
+}
+
+function perbaruiDirty() {
+  const dirty = snapshot !== '' && ambilNilai() !== snapshot;
+  $('stSavebar').classList.toggle('dirty', dirty);
+  $('btnSimpan').disabled = !dirty;
+  $('stSaveText').textContent = dirty ? 'Ada perubahan belum disimpan' : 'Semua perubahan tersimpan';
+}
+
 async function loadPengaturan() {
   const res = await fetch('/pengaturan/');
   const p = await res.json();
-  document.getElementById('swWajibJadwal').checked = p.wajib_jadwal;
-  document.getElementById('swSembunyikanIp').checked = p.sembunyikan_ip;
-  document.getElementById('swPemeliharaan').checked = p.mode_pemeliharaan;
-  document.getElementById('swNonaktifHapusGlobal').checked = p.nonaktifkan_hapus_otomatis_global;
-  document.getElementById('inToleransi').value = p.toleransi_keterlambatan_menit;
-  document.getElementById('inToleransiAwal').value = p.toleransi_masuk_awal_menit;
+  $('swWajibJadwal').checked = p.wajib_jadwal;
+  $('swSembunyikanIp').checked = p.sembunyikan_ip;
+  $('swPemeliharaan').checked = p.mode_pemeliharaan;
+  $('swNonaktifHapusGlobal').checked = p.nonaktifkan_hapus_otomatis_global;
+  $('inToleransi').value = p.toleransi_keterlambatan_menit;
+  $('inToleransiAwal').value = p.toleransi_masuk_awal_menit;
   toggleWarnings();
+  snapshot = ambilNilai();
+  perbaruiDirty();
 }
 
-// Perbarui label status (pill) di samping tiap switch.
 function perbaruiPill(pillId, switchId) {
-  const pill = document.getElementById(pillId);
-  const on = document.getElementById(switchId).checked;
+  const pill = $(pillId), on = $(switchId).checked;
   pill.textContent = on ? pill.dataset.on : pill.dataset.off;
   pill.classList.remove('on-green', 'on-red', 'on-amber');
   if (on) pill.classList.add(pill.dataset.onClass);
 }
 
-function toggleWarnings() {
-  document.getElementById('warnJadwal').style.display = document.getElementById('swWajibJadwal').checked ? 'none' : 'block';
-  document.getElementById('warnPemeliharaan').style.display = document.getElementById('swPemeliharaan').checked ? 'block' : 'none';
-  document.getElementById('warnNonaktifHapusGlobal').style.display = document.getElementById('swNonaktifHapusGlobal').checked ? 'block' : 'none';
+function perbaruiRingkasan() {
+  const jadwal = $('swWajibJadwal').checked, mnt = $('swPemeliharaan').checked;
+  const ip = $('swSembunyikanIp').checked, hapus = $('swNonaktifHapusGlobal').checked;
+  const chips = [
+    [jadwal ? 'ok' : 'warn', jadwal ? 'Validasi jadwal aktif' : 'Tanpa validasi jadwal'],
+    [mnt ? 'bad' : 'ok', mnt ? 'Mode pemeliharaan' : 'Akses normal'],
+    [ip ? 'ok' : '', ip ? 'IP disembunyikan' : 'IP terlihat'],
+    [hapus ? 'warn' : 'ok', hapus ? 'Hapus otomatis dimatikan' : 'Hapus otomatis normal'],
+  ];
+  $('stSummary').innerHTML = chips.map(([c, t]) => `<span class="st-chip ${c}"><span class="dot"></span>${t}</span>`).join('');
+}
 
+function toggleWarnings() {
+  $('warnJadwal').style.display = $('swWajibJadwal').checked ? 'none' : 'block';
+  $('warnPemeliharaan').style.display = $('swPemeliharaan').checked ? 'block' : 'none';
+  $('warnNonaktifHapusGlobal').style.display = $('swNonaktifHapusGlobal').checked ? 'block' : 'none';
   perbaruiPill('pillJadwal', 'swWajibJadwal');
   perbaruiPill('pillPemeliharaan', 'swPemeliharaan');
   perbaruiPill('pillIp', 'swSembunyikanIp');
   perbaruiPill('pillHapusGlobal', 'swNonaktifHapusGlobal');
+  perbaruiRingkasan();
+  perbaruiDirty();
 }
 
-document.getElementById('swWajibJadwal').addEventListener('change', toggleWarnings);
-document.getElementById('swPemeliharaan').addEventListener('change', toggleWarnings);
-document.getElementById('swNonaktifHapusGlobal').addEventListener('change', toggleWarnings);
-document.getElementById('swSembunyikanIp').addEventListener('change', toggleWarnings);
+['swWajibJadwal', 'swPemeliharaan', 'swNonaktifHapusGlobal', 'swSembunyikanIp'].forEach(id => $(id).addEventListener('change', toggleWarnings));
+['inToleransi', 'inToleransiAwal'].forEach(id => $(id).addEventListener('input', perbaruiDirty));
+
+// Tombol +/- pada input angka
+document.querySelectorAll('.st-stepper button').forEach(btn => btn.addEventListener('click', () => {
+  const inp = $(btn.dataset.target);
+  inp.value = Math.max(0, (parseInt(inp.value) || 0) + parseInt(btn.dataset.step));
+  perbaruiDirty();
+}));
 
 async function simpanPengaturan() {
-  const alertEl = document.getElementById('alertPengaturan');
+  const alertEl = $('alertPengaturan');
   const body = {
-    wajib_jadwal: document.getElementById('swWajibJadwal').checked,
-    sembunyikan_ip: document.getElementById('swSembunyikanIp').checked,
-    mode_pemeliharaan: document.getElementById('swPemeliharaan').checked,
-    nonaktifkan_hapus_otomatis_global: document.getElementById('swNonaktifHapusGlobal').checked,
-    toleransi_keterlambatan_menit: parseInt(document.getElementById('inToleransi').value) || 0,
-    toleransi_masuk_awal_menit: parseInt(document.getElementById('inToleransiAwal').value) || 0,
+    wajib_jadwal: $('swWajibJadwal').checked,
+    sembunyikan_ip: $('swSembunyikanIp').checked,
+    mode_pemeliharaan: $('swPemeliharaan').checked,
+    nonaktifkan_hapus_otomatis_global: $('swNonaktifHapusGlobal').checked,
+    toleransi_keterlambatan_menit: parseInt($('inToleransi').value) || 0,
+    toleransi_masuk_awal_menit: parseInt($('inToleransiAwal').value) || 0,
   };
 
   if (body.mode_pemeliharaan && !confirm('Aktifkan mode pemeliharaan? Semua mahasiswa & dosen akan ditolak aksesnya sampai dimatikan lagi.')) {
-    document.getElementById('swPemeliharaan').checked = false;
-    toggleWarnings();
-    return;
+    $('swPemeliharaan').checked = false; toggleWarnings(); return;
   }
   if (!body.wajib_jadwal && !confirm('Matikan validasi jadwal? Semua orang bisa akses kapan saja tanpa jadwal, dan presensi otomatis berhenti tercatat.')) {
-    document.getElementById('swWajibJadwal').checked = true;
-    toggleWarnings();
-    return;
+    $('swWajibJadwal').checked = true; toggleWarnings(); return;
   }
   if (body.nonaktifkan_hapus_otomatis_global && !confirm('Nonaktifkan penghapusan otomatis untuk SEMUA alat? Data user tidak akan dihapus lagi walau jadwalnya sudah habis, sampai toggle ini dimatikan kembali.')) {
-    document.getElementById('swNonaktifHapusGlobal').checked = false;
-    toggleWarnings();
-    return;
+    $('swNonaktifHapusGlobal').checked = false; toggleWarnings(); return;
   }
 
+  $('btnSimpan').disabled = true;
   const res = await fetch('/pengaturan/', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (res.ok) {
-    alertEl.innerHTML = '<div class="alert alert-success py-2"><i class="bi bi-check-circle me-1"></i>Pengaturan tersimpan!</div>';
-    setTimeout(() => alertEl.innerHTML = '', 2000);
+    snapshot = ambilNilai();
+    perbaruiDirty();
+    alertEl.innerHTML = '<span class="text-success fw-semibold" style="font-size:.8rem;"><i class="bi bi-check-circle me-1"></i>Tersimpan</span>';
+    setTimeout(() => alertEl.innerHTML = '', 2500);
   } else {
     const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
-    alertEl.innerHTML = `<div class="alert alert-danger py-2">${err.detail}</div>`;
+    alertEl.innerHTML = `<span class="text-danger fw-semibold" style="font-size:.8rem;">${err.detail}</span>`;
+    perbaruiDirty();
   }
 }
+
+/* ==================== NAVIGASI BAGIAN (scroll-spy) ==================== */
+const navLinks = document.querySelectorAll('#stNav a');
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id));
+  });
+}, { rootMargin: '-20% 0px -65% 0px' });
+document.querySelectorAll('.st-section').forEach(s => io.observe(s));
+navLinks.forEach(a => a.addEventListener('click', ev => {
+  ev.preventDefault();
+  document.querySelector(a.getAttribute('href')).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
 
 /* ==================== NONAKTIFKAN HAPUS OTOMATIS: PER RUANGAN ==================== */
+let daftarAlat = [];
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderDaftarAlat() {
+  const body = $('daftarRuanganNHBody');
+  const q = $('cariAlatNH').value.trim().toLowerCase();
+  const terpilihSebelumnya = new Set(Array.from(document.querySelectorAll('.chkRuanganNH:checked')).map(c => c.value));
+  const tampil = daftarAlat.filter(r => !q || (r.nama + ' ' + (r.lokasi || '')).toLowerCase().includes(q));
+
+  if (!daftarAlat.length) { body.innerHTML = '<div class="st-empty">Belum ada ruangan/alat terdaftar</div>'; return; }
+  if (!tampil.length) { body.innerHTML = '<div class="st-empty">Tidak ada alat yang cocok</div>'; return; }
+
+  body.innerHTML = tampil.map(r => {
+    const sel = terpilihSebelumnya.has(String(r.id));
+    return `
+    <label class="st-alat ${sel ? 'sel' : ''}" for="chkRuanganNH${r.id}">
+      <input type="checkbox" class="form-check-input chkRuanganNH" id="chkRuanganNH${r.id}" value="${r.id}" ${sel ? 'checked' : ''} onchange="perbaruiLabelDropdownRuanganNH()">
+      <div class="st-alat-info">
+        <div class="st-alat-name">${esc(r.nama)}</div>
+        <div class="st-alat-loc">${esc(r.lokasi) || '—'}</div>
+      </div>
+      ${r.nonaktifkan_hapus_otomatis ? '<span class="st-pill on-amber">Nonaktif</span>' : '<span class="st-pill on-green">Normal</span>'}
+    </label>`;
+  }).join('');
+  perbaruiLabelDropdownRuanganNH();
+}
 
 async function loadDaftarRuanganNH() {
-  const body = document.getElementById('daftarRuanganNHBody');
+  const body = $('daftarRuanganNHBody');
   try {
     const res = await fetch('/ruangan/?include_inactive=true');
-    const daftar = await res.json();
-    if (!daftar.length) {
-      body.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:.82rem;">Belum ada ruangan/alat terdaftar</div>';
-      return;
-    }
-    body.innerHTML = daftar.map(r => `
-      <div class="st-alat-list-item">
-        <div class="form-check flex-grow-1 mb-0" style="min-width:0;">
-          <input type="checkbox" class="form-check-input chkRuanganNH" id="chkRuanganNH${r.id}" value="${r.id}" onchange="perbaruiLabelDropdownRuanganNH()">
-          <label class="form-check-label" for="chkRuanganNH${r.id}" style="font-size:.85rem;cursor:pointer;">
-            ${r.nama}${r.lokasi ? ` <span class="text-muted">(${r.lokasi})</span>` : ''}
-          </label>
-        </div>
-        ${r.nonaktifkan_hapus_otomatis
-          ? '<span class="st-pill on-amber">Nonaktif</span>'
-          : '<span class="st-pill on-green">Normal</span>'}
-      </div>`).join('');
-    perbaruiLabelDropdownRuanganNH();
+    daftarAlat = await res.json();
+    renderDaftarAlat();
   } catch (e) {
-    body.innerHTML = `<div class="text-center py-3 text-danger" style="font-size:.82rem;">Gagal memuat daftar ruangan: ${e}</div>`;
+    body.innerHTML = `<div class="st-empty text-danger">Gagal memuat daftar ruangan: ${esc(e)}</div>`;
   }
 }
+
+$('cariAlatNH').addEventListener('input', renderDaftarAlat);
 
 function toggleSemuaRuanganNH(checked) {
   document.querySelectorAll('.chkRuanganNH').forEach(chk => chk.checked = checked);
   perbaruiLabelDropdownRuanganNH();
 }
 
+// Nama fungsi dipertahankan agar kompatibel; kini memperbarui penghitung & sorotan kartu.
 function perbaruiLabelDropdownRuanganNH() {
   const semuaChk = document.querySelectorAll('.chkRuanganNH');
   const terpilih = Array.from(semuaChk).filter(chk => chk.checked);
-  const label = document.getElementById('labelDropdownRuanganNH');
-  const chkSemua = document.getElementById('chkSemuaRuanganNH');
-
-  if (!terpilih.length) {
-    label.textContent = 'Pilih ruangan / alat...';
-  } else if (terpilih.length === semuaChk.length) {
-    label.textContent = `Semua alat dipilih (${terpilih.length})`;
-  } else if (terpilih.length <= 2) {
-    label.textContent = terpilih.map(chk => {
-      const lbl = document.querySelector(`label[for="${chk.id}"]`);
-      return lbl ? lbl.textContent.trim() : chk.value;
-    }).join(', ');
-  } else {
-    label.textContent = `${terpilih.length} alat dipilih`;
-  }
-
+  semuaChk.forEach(chk => chk.closest('.st-alat').classList.toggle('sel', chk.checked));
+  $('labelDropdownRuanganNH').textContent = terpilih.length ? `${terpilih.length} dipilih` : 'Belum ada dipilih';
+  const chkSemua = $('chkSemuaRuanganNH');
   chkSemua.checked = semuaChk.length > 0 && terpilih.length === semuaChk.length;
   chkSemua.indeterminate = terpilih.length > 0 && terpilih.length < semuaChk.length;
 }
 
 async function terapkanNonaktifHapusPerRuangan(nonaktifkan, idsOverride) {
-  const alertEl = document.getElementById('alertNonaktifHapusPerRuangan');
+  const alertEl = $('alertNonaktifHapusPerRuangan');
   const ids = idsOverride || Array.from(document.querySelectorAll('.chkRuanganNH:checked')).map(chk => parseInt(chk.value));
 
   if (!ids.length) {
-    alertEl.innerHTML = '<div class="alert alert-danger py-2">Pilih minimal 1 ruangan/alat.</div>';
+    alertEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">Pilih minimal 1 ruangan/alat.</div>';
     return;
   }
 
@@ -444,28 +541,24 @@ async function terapkanNonaktifHapusPerRuangan(nonaktifkan, idsOverride) {
     });
     const data = await res.json();
     if (!res.ok) {
-      alertEl.innerHTML = `<div class="alert alert-danger py-2">${data.detail || 'Gagal menyimpan.'}</div>`;
+      alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-0">${esc(data.detail || 'Gagal menyimpan.')}</div>`;
       return;
     }
-    alertEl.innerHTML = `<div class="alert alert-success py-2">${data.length} alat berhasil diperbarui.</div>`;
+    alertEl.innerHTML = `<div class="alert alert-success py-2 mb-0">${data.length} alat berhasil diperbarui.</div>`;
     setTimeout(() => alertEl.innerHTML = '', 2500);
     loadDaftarRuanganNH();
   } catch (e) {
-    alertEl.innerHTML = `<div class="alert alert-danger py-2">Gagal menghubungi server: ${e}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-danger py-2 mb-0">Gagal menghubungi server: ${esc(e)}</div>`;
   }
 }
 
 async function aktifkanSemuaAlat() {
-  // Shortcut: kembalikan SEMUA alat yang terdaftar ke normal (penghapusan
-  // otomatis aktif lagi), tanpa perlu centang satu-satu dulu.
-  const alertEl = document.getElementById('alertNonaktifHapusPerRuangan');
-  const semuaIds = Array.from(document.querySelectorAll('.chkRuanganNH')).map(chk => parseInt(chk.value));
-
+  const alertEl = $('alertNonaktifHapusPerRuangan');
+  const semuaIds = daftarAlat.map(r => r.id);
   if (!semuaIds.length) {
-    alertEl.innerHTML = '<div class="alert alert-danger py-2">Belum ada ruangan/alat terdaftar.</div>';
+    alertEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">Belum ada ruangan/alat terdaftar.</div>';
     return;
   }
-
   await terapkanNonaktifHapusPerRuangan(false, semuaIds);
 }
 
