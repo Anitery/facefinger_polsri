@@ -309,13 +309,13 @@
       </div>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen'] %}
       <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Dashboard
       </a>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen'] %}
       <a href="/dashboard/log-akses" class="nav-link {% if active=='log_akses' %}active{% endif %}">
         <i class="bi bi-list-ul"></i> Log Akses
       </a>
@@ -327,7 +327,7 @@
       </a>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'dosen'] %}
+      {% if user and user.role in ['admin', 'dosen_privilege', 'dosen'] %}
       <div class="nav-section mt-3">Perkuliahan</div>
       <a href="/dashboard/jadwal" class="nav-link {% if active=='jadwal' %}active{% endif %}">
         <i class="bi bi-calendar3"></i> Jadwal Ruangan
@@ -337,7 +337,7 @@
       </a>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'teknisi', 'dosen'] %}
+      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen'] %}
       <div class="nav-section mt-3">Manajemen Pengguna</div>
       {% if user.role in ['admin', 'teknisi'] %}
       <a href="/dashboard/biometrik" class="nav-link {% if active=='biometrik' %}active{% endif %}">
@@ -441,7 +441,7 @@
             <div class="user-avatar">{{ user.nama[0]|upper }}</div>
             <div class="user-text d-none d-sm-block">
               <div class="u-name">{{ user.nama }}</div>
-              <div class="u-role">{{ user.role }}</div>
+              <div class="u-role">{{ user.role|replace('_', ' ') }}</div>
             </div>
             <i class="bi bi-chevron-down d-none d-sm-block ms-1" style="font-size:.65rem; color:#94a3b8;"></i>
           </button>

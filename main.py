@@ -93,6 +93,8 @@ def redirect_default_page(role: str) -> str:
     """Halaman default setelah login, sesuai role."""
     if role == "admin":
         return "/dashboard"
+    elif role == "dosen_privilege":
+        return "/dashboard"
     elif role == "dosen":
         return "/dashboard/jadwal"
     elif role == "teknisi":
@@ -189,7 +191,7 @@ def dashboard_jadwal(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "dosen"):
+    if user["role"] not in ("admin", "dosen_privilege", "dosen"):
         return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/jadwal.html",
@@ -202,7 +204,7 @@ def dashboard_absensi(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "dosen"):
+    if user["role"] not in ("admin", "dosen_privilege", "dosen"):
         return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/absensi.html",
@@ -239,7 +241,7 @@ def dashboard_pengguna(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "dosen", "teknisi", "magang"):
+    if user["role"] not in ("admin", "dosen_privilege", "dosen", "teknisi", "magang"):
         return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/pengguna.html",
@@ -308,7 +310,7 @@ def cetak_laporan_bulanan(
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    if user["role"] not in ("admin", "dosen"):
+    if user["role"] not in ("admin", "dosen_privilege", "dosen"):
         return RedirectResponse(redirect_default_page(user["role"]), status_code=302)
 
     from sqlalchemy.orm import joinedload
@@ -399,7 +401,7 @@ def cetak_laporan_bulanan(
         dosen_user_grp = None
         if dosen_nama_grp != "-":
             dosen_user_grp = db.query(User).filter(
-                User.nama == dosen_nama_grp, User.role == "dosen"
+                User.nama == dosen_nama_grp, User.role.in_(["dosen", "dosen_privilege"])
             ).first()
 
         # ── PERUBAHAN: Gunakan variabel limit_baris alih-alih hardcode 25 ──

@@ -15,6 +15,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 ROLE_LABEL = {
     "admin":    "Administrator",
+    "dosen_privilege": "Dosen Privilege",
     "teknisi":  "Teknisi Lab",
     "dosen":    "Dosen",
     "mahasiswa":"Mahasiswa",

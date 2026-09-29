@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, cast, String
 from pydantic import BaseModel
 from typing import List, Optional
 import json
@@ -48,6 +48,25 @@ def _generate_pin_dari_nim(nim_nip: str, db: Session, exclude_user_id: Optional[
         f"Tidak bisa membuat ID Perangkat unik dari NIM {nim_nip} — kemungkinan "
         f"NIM ini sendiri sudah pernah dipakai user lain. Isi ID Perangkat manual."
     )
+
+
+def _id_perangkat_kosong_terkecil(db: Session, exclude_user_id: Optional[int] = None) -> int:
+    """
+    Cari ID Perangkat (PIN) terkecil yang belum dipakai siapapun, mulai dari 1.
+    Contoh: terpakai {1,2,3,4,5}        -> 6
+            terpakai {1,2,3,4,5,20}     -> 6, lalu 7, 8, ... (20 tidak dilewati/terganggu)
+            terpakai {1,2,4}            -> 3 (celah kosong diisi dulu)
+    Dipakai untuk staff (admin/dosen/teknisi/magang) yang ID Perangkat-nya
+    dikosongkan saat ditambahkan.
+    """
+    q = db.query(User.id_perangkat).filter(User.id_perangkat.isnot(None))
+    if exclude_user_id:
+        q = q.filter(User.id != exclude_user_id)
+    terpakai = {r[0] for r in q.all()}
+    kandidat = 1
+    while kandidat in terpakai:
+        kandidat += 1
+    return kandidat
 
 
 def _hapus_akses_fisik_dari_semua_device(user: User, db: Session, hapus_template_db: bool):
@@ -102,10 +121,17 @@ class FaceEncodingPayload(BaseModel):
     encoding: List[float]
 
 # --- Ranks & Permissions Constants ---
-ROLE_ORDER = {"admin": 0, "teknisi": 1, "dosen": 2, "magang": 3, "mahasiswa": 4}
+# Tier role (atas -> bawah):
+# 1. admin  2. dosen_privilege  3. teknisi  4. dosen  5. magang  6. mahasiswa
+ROLE_ORDER = {
+    "admin": 0, "dosen_privilege": 1, "teknisi": 2,
+    "dosen": 3, "magang": 4, "mahasiswa": 5,
+}
 
 ROLE_ALLOWED_TO_CREATE = {
-    "admin":   {"admin", "teknisi", "dosen", "magang", "mahasiswa"},
+    "admin":   {"admin", "dosen_privilege", "teknisi", "dosen", "magang", "mahasiswa"},
+    # Dosen privilege: mengelola dosen, magang, dan mahasiswa.
+    "dosen_privilege": {"dosen", "magang", "mahasiswa"},
     "dosen":   {"mahasiswa"},
     "teknisi": {"dosen"},
     # Magang: sesuai batasan aksesnya, hanya boleh menginput data mahasiswa.
@@ -113,7 +139,8 @@ ROLE_ALLOWED_TO_CREATE = {
 }
 
 ROLE_ALLOWED_TO_MODIFY = {
-    "admin":   {"admin", "teknisi", "dosen", "magang", "mahasiswa"},
+    "admin":   {"admin", "dosen_privilege", "teknisi", "dosen", "magang", "mahasiswa"},
+    "dosen_privilege": {"dosen", "magang", "mahasiswa"},
     "dosen":   {"mahasiswa"},
     "teknisi": {"dosen"},
     "magang":  {"mahasiswa"},
@@ -217,6 +244,34 @@ def set_fingerprint_otomatis(user_id: int, db: Session = Depends(get_db)):
         "pesan": f"ID Perangkat {pin} disimpan untuk {user.nama}",
         "id_perangkat": pin,
         "diperpanjang": len(pin) > 4,
+    }
+
+
+@router.post("/{user_id}/id-perangkat-otomatis")
+def set_id_perangkat_otomatis(user_id: int, db: Session = Depends(get_db)):
+    """
+    Beri ID Perangkat otomatis (nomor kosong terkecil) untuk user non-mahasiswa
+    yang ID Perangkat-nya dikosongkan. Kalau user ini SUDAH punya ID Perangkat,
+    tidak diubah sama sekali (aman dipanggil berulang).
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+
+    if user.id_perangkat is not None:
+        return {
+            "pesan": f"{user.nama} sudah punya ID Perangkat {user.id_perangkat}",
+            "id_perangkat": user.id_perangkat,
+            "dibuat": False,
+        }
+
+    pin = _id_perangkat_kosong_terkecil(db, exclude_user_id=user.id)
+    user.id_perangkat = pin
+    db.commit()
+    return {
+        "pesan": f"ID Perangkat {pin} disimpan untuk {user.nama}",
+        "id_perangkat": pin,
+        "dibuat": True,
     }
 
 
@@ -369,6 +424,58 @@ def naikkan_tingkat_kelas(
     }
 
 
+# ── Pengurutan kolom tabel Pengguna ─────────────────────────────────────────
+# Kolom yang boleh dipakai untuk sort_by. Tanpa sort_by, urutan default
+# (role → kelas → nama) tetap dipakai persis seperti sebelumnya.
+SORTABLE_COLUMNS = {"nama", "nim_nip", "role", "kelas", "id_perangkat", "fingerprint", "status"}
+
+
+def _natural_key(teks: str):
+    """
+    Kunci urutan "alami": angka dibandingkan sebagai angka, huruf tidak
+    peduli besar/kecil. Contoh kelas: 1CA < 2CF < 10CA < 8TIN diurutkan
+    per tingkat dulu (1, 2, 8, 10), baru kode hurufnya. Tiap bagian diberi
+    penanda tipe (0=angka, 1=huruf) supaya tidak pernah membandingkan int vs str.
+    """
+    bagian = re.findall(r"\d+|\D+", teks or "")
+    return [(0, int(b), "") if b.isdigit() else (1, 0, b.casefold()) for b in bagian]
+
+
+def _nilai_sort(u, kolom: str, jumlah_finger: dict):
+    """Nilai pembanding untuk 1 user. Return None = 'kosong' (selalu ditaruh di akhir)."""
+    if kolom == "nama":
+        return (u.nama or "").casefold() or None
+    if kolom == "nim_nip":
+        return _natural_key(u.nim_nip) if u.nim_nip else None
+    if kolom == "role":
+        return ROLE_ORDER.get(u.role, 99)
+    if kolom == "kelas":
+        return _natural_key(u.kelas.strip()) if u.kelas and u.kelas.strip() else None
+    if kolom == "id_perangkat":
+        return u.id_perangkat  # int atau None
+    if kolom == "fingerprint":
+        return jumlah_finger.get(u.id, 0)
+    if kolom == "status":
+        return 1 if u.aktif else 0
+    return None
+
+
+def _urutkan_users(users: list, kolom: str, arah: str, jumlah_finger: dict) -> list:
+    """
+    Urutkan berdasarkan 1 kolom. Aturan:
+    - Nilai kosong (mis. ID Perangkat 'Belum diset', kelas kosong) SELALU di
+      akhir, baik naik maupun turun — supaya data yang berisi tidak tenggelam.
+    - Sort Python bersifat stabil, jadi user dengan nilai sama tetap mengikuti
+      urutan default (role → kelas → nama) yang sudah terpasang sebelumnya.
+    """
+    terisi, kosong = [], []
+    for u in users:
+        v = _nilai_sort(u, kolom, jumlah_finger)
+        (kosong if v is None else terisi).append((v, u))
+    terisi.sort(key=lambda t: t[0], reverse=(arah == "desc"))
+    return [u for _, u in terisi] + [u for _, u in kosong]
+
+
 @router.get("/")
 def get_users(
     request: Request,  # <-- Tambahkan parameter request di sini
@@ -378,6 +485,8 @@ def get_users(
     kelas:            Optional[str] = None,
     fingerprint:      Optional[str] = Query(None, description="Filter: 'ada', 'belum', atau 'ganda' (>1 jari)"),
     search:           Optional[str] = None,
+    sort_by:          Optional[str] = Query(None, description="Urutkan berdasarkan kolom: nama, nim_nip, role, kelas, id_perangkat, fingerprint, status. Kosong = urutan default."),
+    sort_dir:         str = Query("asc", pattern="^(asc|desc)$", description="Arah urutan: 'asc' (naik) atau 'desc' (turun)"),
     limit:            int = Query(50, ge=1, le=200),
     page:             int = Query(1,  ge=1),
     db: Session = Depends(get_db)
@@ -398,13 +507,18 @@ def get_users(
     if kelas:
         q = q.filter(User.kelas == kelas)
     if search:
-        q = q.filter(
-            User.nama.ilike(f"%{search}%") |
-            User.nim_nip.ilike(f"%{search}%") |
-            User.kelas.ilike(f"%{search}%")
-        )
+        # Buang awalan "#" karena di tampilan ID Perangkat ditulis "#1514",
+        # sedangkan di database nilainya hanya angka 1514.
+        kw = search.strip().lstrip("#")
+        if kw:
+            q = q.filter(
+                User.nama.ilike(f"%{kw}%") |
+                User.nim_nip.ilike(f"%{kw}%") |
+                User.kelas.ilike(f"%{kw}%") |
+                cast(User.id_perangkat, String).ilike(f"%{kw}%")
+            )
 
-    # --- FIX 4: Sembunyikan Role Admin dari Dosen dan Teknisi ---
+    # --- FIX 4: Sembunyikan Role Admin dari Dosen, Dosen Privilege, dan Teknisi ---
     try:
         from app.services.auth_service import decode_session_token
         token = request.cookies.get("session_token")
@@ -416,7 +530,7 @@ def get_users(
         viewer_role = "admin"
 
     # Filter query database agar admin tidak di-load sama sekali
-    if viewer_role in ("dosen", "teknisi"):
+    if viewer_role in ("dosen", "teknisi", "dosen_privilege"):
         q = q.filter(User.role != "admin")
     # -------------------------------------------------------------
 
@@ -452,7 +566,12 @@ def get_users(
         u.kelas or "",
         u.nama or ""
     ))
-    
+
+    # Urutan khusus dari klik header kolom (opsional). Diterapkan SESUDAH urutan
+    # default di atas, sehingga default tetap jadi tie-breaker.
+    if sort_by in SORTABLE_COLUMNS:
+        all_users = _urutkan_users(all_users, sort_by, sort_dir, jumlah_finger_per_user)
+
     total  = len(all_users)
     offset = (page - 1) * limit
     users  = all_users[offset: offset + limit]
@@ -516,7 +635,12 @@ def create_user(
         role=payload.role,
         kelas=payload.kelas if hasattr(payload, 'kelas') else None, 
         aktif=True,
-        password_hash=_hash_pw(payload.password) if getattr(payload, 'password', None) else None,
+        # Non-mahasiswa: kalau password dikosongkan, pakai NIM/NIP sebagai password awal.
+        # Mahasiswa tidak butuh password (login tidak dipakai), jadi dibiarkan kosong.
+        password_hash=(
+            _hash_pw(payload.password) if getattr(payload, 'password', None)
+            else (_hash_pw(payload.nim_nip) if payload.role != "mahasiswa" else None)
+        ),
     )
     
     db.add(user)
@@ -546,6 +670,9 @@ def update_user(
         
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(target, field, value)
+    # Mis. mahasiswa diubah jadi staff: dia belum punya password, jadi beri default NIM/NIP.
+    if target.role != "mahasiswa" and not target.password_hash and target.nim_nip:
+        target.password_hash = _hash_pw(target.nim_nip)
         
     db.commit()
     db.refresh(target)

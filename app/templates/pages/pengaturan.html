@@ -2,139 +2,293 @@
 {% block title %}Pengaturan Sistem{% endblock %}
 {% block page_title %}Pengaturan Sistem{% endblock %}
 
+{% block extra_head %}
+<style>
+  .st-wrap { max-width: 860px; }
+
+  .st-group-label {
+    font-size: .72rem; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: .06em;
+    margin: 26px 4px 8px;
+  }
+  .st-group-label:first-of-type { margin-top: 0; }
+
+  .st-card { padding: 0; overflow: hidden; }
+
+  .st-row {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .st-row:last-child { border-bottom: none; }
+
+  .st-icon {
+    width: 42px; height: 42px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem; flex-shrink: 0;
+  }
+  .st-icon.blue  { background: #eff6ff; color: #1d4ed8; }
+  .st-icon.red   { background: #fee2e2; color: #b91c1c; }
+  .st-icon.amber { background: #fef9c3; color: #a16207; }
+  .st-icon.green { background: #dcfce7; color: #15803d; }
+
+  .st-body { flex: 1; min-width: 0; }
+  .st-title { font-weight: 600; color: #1e293b; font-size: .9rem; margin: 0 0 3px; }
+  .st-desc  { font-size: .8rem; color: #64748b; margin: 0; line-height: 1.55; }
+  .st-desc strong { color: #334155; }
+
+  .st-control {
+    flex-shrink: 0; display: flex; flex-direction: column;
+    align-items: flex-end; gap: 6px; padding-top: 2px;
+  }
+
+  .st-switch.form-check { padding: 0; min-height: 0; margin: 0; }
+  .st-switch .form-check-input {
+    width: 2.6em; height: 1.4em; margin: 0; float: none; cursor: pointer;
+  }
+
+  .st-pill {
+    font-size: .68rem; font-weight: 600; padding: 2px 9px;
+    border-radius: 20px; white-space: nowrap;
+    background: #f1f5f9; color: #64748b;
+  }
+  .st-pill.on-green { background: #dcfce7; color: #15803d; }
+  .st-pill.on-red   { background: #fee2e2; color: #b91c1c; }
+  .st-pill.on-amber { background: #fef9c3; color: #a16207; }
+
+  .st-warn { font-size: .78rem; padding: 7px 12px; margin: 10px 0 0; border-radius: 8px; }
+
+  .st-unit { width: 130px; }
+  .st-unit .form-control { font-weight: 600; text-align: right; }
+  .st-unit .input-group-text { font-size: .8rem; background: #f8fafc; color: #64748b; }
+
+  .st-alat-list-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 6px 8px; border-radius: 8px;
+  }
+  .st-alat-list-item:hover { background: #f8fafc; }
+
+  .st-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+  .st-savebar {
+    position: sticky; bottom: 0; z-index: 10;
+    margin-top: 24px; padding: 12px 0;
+    background: linear-gradient(to top, var(--bg-light) 70%, rgba(240,244,248,0));
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  #alertPengaturan .alert { margin: 0; }
+
+  @media (max-width: 575.98px) {
+    .st-row { flex-wrap: wrap; padding: 16px; }
+    .st-control {
+      width: 100%; flex-direction: row; align-items: center;
+      justify-content: space-between; padding-left: 56px;
+    }
+    .st-actions .btn { flex: 1 1 100%; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="st-wrap">
 
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-calendar-x me-2 text-primary"></i>Validasi Jadwal</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Saat aktif, mahasiswa hanya bisa akses saat ada jadwal KBM yang sesuai. Saat dimatikan,
-    semua scan biometrik (mahasiswa/dosen) langsung <strong>berhasil</strong> tanpa cek jadwal —
-    dan presensi otomatis <strong>tidak akan tercatat</strong> karena tidak ada jadwal untuk diacu.
-  </p>
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="swWajibJadwal" style="width:2.5em;height:1.4em;">
-    <label class="form-check-label ms-2 fw-bold" for="swWajibJadwal" style="font-size:.85rem;">Wajibkan jadwal aktif untuk akses</label>
-  </div>
-  <div id="warnJadwal" class="alert alert-warning py-2 mt-2 mb-0" style="display:none;font-size:.8rem;">
-    <i class="bi bi-exclamation-triangle me-1"></i>Nonaktif berarti siapa saja bisa akses kapan saja tanpa jadwal. Presensi otomatis juga berhenti tercatat.
-  </div>
-</div>
-
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-eye-slash me-2 text-primary"></i>Privasi Alamat IP Perangkat</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Saat aktif, IP address perangkat X606-S disembunyikan di dashboard untuk role selain admin/teknisi
-    (diganti jadi status "Terhubung"/"—"). Admin dan teknisi tetap melihat IP asli untuk keperluan troubleshooting.
-  </p>
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="swSembunyikanIp" style="width:2.5em;height:1.4em;">
-    <label class="form-check-label ms-2 fw-bold" for="swSembunyikanIp" style="font-size:.85rem;">Sembunyikan IP perangkat dari dosen/pengguna lain</label>
-  </div>
-</div>
-
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-tools me-2 text-danger"></i>Mode Pemeliharaan</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Saat aktif, semua akses biometrik ditolak <strong>kecuali admin &amp; teknisi</strong> —
-    berguna saat kalibrasi ulang device atau perbaikan sistem tanpa mengunci diri sendiri keluar.
-  </p>
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="swPemeliharaan" style="width:2.5em;height:1.4em;">
-    <label class="form-check-label ms-2 fw-bold" for="swPemeliharaan" style="font-size:.85rem;">Aktifkan mode pemeliharaan</label>
-  </div>
-  <div id="warnPemeliharaan" class="alert alert-danger py-2 mt-2 mb-0" style="display:none;font-size:.8rem;">
-    <i class="bi bi-exclamation-triangle me-1"></i>Semua mahasiswa dan dosen akan ditolak aksesnya selama mode ini aktif.
-  </div>
-</div>
-
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Nonaktifkan Penghapusan Otomatis dari Alat (Semua Alat)</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Sistem normalnya menghapus otomatis akses fisik user dari alat kalau jadwalnya sudah tidak
-    ada lagi (lihat catatan "self-healing" di halaman Sync Biometrik). Saat toggle ini
-    <strong>aktif</strong>, penghapusan otomatis itu <strong>dimatikan untuk SEMUA alat</strong> —
-    data user di alat tidak akan terhapus lagi walau tidak ada jadwal, sampai toggle ini
-    dimatikan kembali. User baru tetap bisa ditambah/dikirim seperti biasa; ini cuma mematikan
-    proses "hapus"-nya saja.
-  </p>
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="swNonaktifHapusGlobal" style="width:2.5em;height:1.4em;">
-    <label class="form-check-label ms-2 fw-bold" for="swNonaktifHapusGlobal" style="font-size:.85rem;">Nonaktifkan penghapusan otomatis untuk semua alat</label>
-  </div>
-  <div id="warnNonaktifHapusGlobal" class="alert alert-warning py-2 mt-2 mb-0" style="display:none;font-size:.8rem;">
-    <i class="bi bi-exclamation-triangle me-1"></i>Semua alat berhenti menghapus user otomatis walau jadwalnya sudah habis — pastikan ini memang disengaja.
-  </div>
-</div>
-
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-router-fill me-2 text-warning"></i>Nonaktifkan Penghapusan Otomatis per Alat</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Kalau cuma ingin mematikan penghapusan otomatis untuk 1 atau beberapa alat tertentu saja
-    (bukan semua), pilih di bawah ini. Tidak berlaku kalau toggle "Semua Alat" di atas sedang
-    aktif — toggle global selalu menang.
+  <p class="text-muted mb-3" style="font-size:.84rem;">
+    Atur perilaku akses biometrik, presensi, dan penghapusan otomatis pada alat.
+    Pengaturan di bawah baru berlaku setelah menekan <strong>Simpan Pengaturan</strong>,
+    kecuali bagian <em>per alat</em> yang langsung diterapkan.
   </p>
 
-  <div class="dropdown mb-2">
-    <button class="btn btn-outline-secondary dropdown-toggle d-flex justify-content-between align-items-center w-100" type="button"
-            id="dropdownRuanganNH" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
-            style="max-width:420px;">
-      <span><i class="bi bi-router me-1"></i><span id="labelDropdownRuanganNH">Pilih ruangan / alat...</span></span>
-    </button>
-    <div class="dropdown-menu p-2" aria-labelledby="dropdownRuanganNH" style="max-height:300px;overflow-y:auto;min-width:320px;max-width:420px;">
-      <div class="d-flex align-items-center border-bottom pb-2 mb-2">
-        <input type="checkbox" class="form-check-input me-2" id="chkSemuaRuanganNH" onchange="toggleSemuaRuanganNH(this.checked)">
-        <label for="chkSemuaRuanganNH" class="fw-bold mb-0" style="font-size:.82rem;cursor:pointer;">Pilih Semua</label>
+  <!-- ══════════ AKSES & KEAMANAN ══════════ -->
+  <div class="st-group-label">Akses &amp; Keamanan</div>
+  <div class="section-card st-card">
+
+    <div class="st-row">
+      <div class="st-icon blue"><i class="bi bi-calendar-x"></i></div>
+      <div class="st-body">
+        <h6 class="st-title" id="lblJadwal">Validasi Jadwal</h6>
+        <p class="st-desc">
+          Saat aktif, mahasiswa hanya bisa akses saat ada jadwal KBM yang sesuai. Saat dimatikan,
+          semua scan biometrik (mahasiswa/dosen) langsung <strong>berhasil</strong> tanpa cek jadwal —
+          dan presensi otomatis <strong>tidak akan tercatat</strong> karena tidak ada jadwal untuk diacu.
+        </p>
+        <div id="warnJadwal" class="alert alert-warning st-warn" style="display:none;">
+          <i class="bi bi-exclamation-triangle me-1"></i>Nonaktif berarti siapa saja bisa akses kapan saja tanpa jadwal. Presensi otomatis juga berhenti tercatat.
+        </div>
       </div>
-      <div id="daftarRuanganNHBody">
-        <div class="text-center py-3 text-muted" style="font-size:.82rem;">Memuat daftar ruangan...</div>
+      <div class="st-control">
+        <div class="form-check form-switch st-switch">
+          <input class="form-check-input" type="checkbox" id="swWajibJadwal"
+                 aria-labelledby="lblJadwal" title="Wajibkan jadwal aktif untuk akses">
+        </div>
+        <span class="st-pill" id="pillJadwal" data-on="Wajib jadwal" data-off="Tanpa jadwal" data-on-class="on-green">—</span>
       </div>
     </div>
+
+    <div class="st-row">
+      <div class="st-icon red"><i class="bi bi-tools"></i></div>
+      <div class="st-body">
+        <h6 class="st-title" id="lblPemeliharaan">Mode Pemeliharaan</h6>
+        <p class="st-desc">
+          Saat aktif, semua akses biometrik ditolak <strong>kecuali admin &amp; teknisi</strong> —
+          berguna saat kalibrasi ulang device atau perbaikan sistem tanpa mengunci diri sendiri keluar.
+        </p>
+        <div id="warnPemeliharaan" class="alert alert-danger st-warn" style="display:none;">
+          <i class="bi bi-exclamation-triangle me-1"></i>Semua mahasiswa dan dosen akan ditolak aksesnya selama mode ini aktif.
+        </div>
+      </div>
+      <div class="st-control">
+        <div class="form-check form-switch st-switch">
+          <input class="form-check-input" type="checkbox" id="swPemeliharaan"
+                 aria-labelledby="lblPemeliharaan" title="Aktifkan mode pemeliharaan">
+        </div>
+        <span class="st-pill" id="pillPemeliharaan" data-on="Aktif" data-off="Nonaktif" data-on-class="on-red">—</span>
+      </div>
+    </div>
+
+    <div class="st-row">
+      <div class="st-icon blue"><i class="bi bi-eye-slash"></i></div>
+      <div class="st-body">
+        <h6 class="st-title" id="lblIp">Privasi Alamat IP Perangkat</h6>
+        <p class="st-desc">
+          Saat aktif, IP address perangkat X606-S disembunyikan di dashboard untuk role selain admin/teknisi
+          (diganti jadi status "Terhubung"/"—"). Admin dan teknisi tetap melihat IP asli untuk keperluan troubleshooting.
+        </p>
+      </div>
+      <div class="st-control">
+        <div class="form-check form-switch st-switch">
+          <input class="form-check-input" type="checkbox" id="swSembunyikanIp"
+                 aria-labelledby="lblIp" title="Sembunyikan IP perangkat dari dosen/pengguna lain">
+        </div>
+        <span class="st-pill" id="pillIp" data-on="Disembunyikan" data-off="Terlihat" data-on-class="on-green">—</span>
+      </div>
+    </div>
+
   </div>
 
-  <div class="d-flex gap-2 flex-wrap">
-    <button class="btn btn-sm btn-warning" onclick="terapkanNonaktifHapusPerRuangan(true)">
-      <i class="bi bi-slash-circle me-1"></i>Nonaktifkan untuk yang Dipilih
+  <!-- ══════════ PRESENSI ══════════ -->
+  <div class="st-group-label">Presensi &amp; Jendela Akses</div>
+  <div class="section-card st-card">
+
+    <div class="st-row">
+      <div class="st-icon blue"><i class="bi bi-clock-history"></i></div>
+      <div class="st-body">
+        <h6 class="st-title">Toleransi Keterlambatan Presensi</h6>
+        <p class="st-desc">
+          Berapa menit setelah jam mulai jadwal, mahasiswa masih dianggap "hadir" (bukan "terlambat")?
+        </p>
+      </div>
+      <div class="st-control">
+        <div class="input-group input-group-sm st-unit">
+          <input type="number" min="0" class="form-control" id="inToleransi" aria-label="Toleransi keterlambatan (menit)">
+          <span class="input-group-text">menit</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="st-row">
+      <div class="st-icon green"><i class="bi bi-door-open"></i></div>
+      <div class="st-body">
+        <h6 class="st-title">Toleransi Masuk Lebih Awal</h6>
+        <p class="st-desc">
+          Berapa menit sebelum jam mulai jadwal, alat sudah mengizinkan mahasiswa scan &amp; masuk ruangan?
+          Contoh: jadwal jam 15:00 dengan toleransi 15 menit → mahasiswa sudah bisa masuk sejak jam 14:45.
+          Ini hanya memperlebar jendela akses, <strong>tidak mengubah</strong> status presensi (tetap
+          dihitung dari jam mulai jadwal yang asli, bukan dari toleransi ini).
+        </p>
+      </div>
+      <div class="st-control">
+        <div class="input-group input-group-sm st-unit">
+          <input type="number" min="0" class="form-control" id="inToleransiAwal" aria-label="Toleransi masuk lebih awal (menit)">
+          <span class="input-group-text">menit</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ PENGHAPUSAN OTOMATIS ══════════ -->
+  <div class="st-group-label">Penghapusan Otomatis dari Alat</div>
+  <div class="section-card st-card">
+
+    <div class="st-row">
+      <div class="st-icon amber"><i class="bi bi-shield-lock-fill"></i></div>
+      <div class="st-body">
+        <h6 class="st-title" id="lblHapusGlobal">Semua Alat</h6>
+        <p class="st-desc">
+          Sistem normalnya menghapus otomatis akses fisik user dari alat kalau jadwalnya sudah tidak
+          ada lagi (lihat catatan "self-healing" di halaman Sync Biometrik). Saat toggle ini
+          <strong>aktif</strong>, penghapusan otomatis itu <strong>dimatikan untuk SEMUA alat</strong> —
+          data user di alat tidak akan terhapus lagi walau tidak ada jadwal, sampai toggle ini
+          dimatikan kembali. User baru tetap bisa ditambah/dikirim seperti biasa; ini cuma mematikan
+          proses "hapus"-nya saja.
+        </p>
+        <div id="warnNonaktifHapusGlobal" class="alert alert-warning st-warn" style="display:none;">
+          <i class="bi bi-exclamation-triangle me-1"></i>Semua alat berhenti menghapus user otomatis walau jadwalnya sudah habis — pastikan ini memang disengaja.
+        </div>
+      </div>
+      <div class="st-control">
+        <div class="form-check form-switch st-switch">
+          <input class="form-check-input" type="checkbox" id="swNonaktifHapusGlobal"
+                 aria-labelledby="lblHapusGlobal" title="Nonaktifkan penghapusan otomatis untuk semua alat">
+        </div>
+        <span class="st-pill" id="pillHapusGlobal" data-on="Dimatikan" data-off="Normal" data-on-class="on-amber">—</span>
+      </div>
+    </div>
+
+    <div class="st-row">
+      <div class="st-icon amber"><i class="bi bi-router-fill"></i></div>
+      <div class="st-body">
+        <h6 class="st-title">Per Alat</h6>
+        <p class="st-desc">
+          Kalau cuma ingin mematikan penghapusan otomatis untuk 1 atau beberapa alat tertentu saja
+          (bukan semua), pilih di bawah ini. Tidak berlaku kalau toggle "Semua Alat" di atas sedang
+          aktif — toggle global selalu menang. Tombol di bagian ini <strong>langsung diterapkan</strong>
+          tanpa perlu menekan Simpan Pengaturan.
+        </p>
+
+        <div class="dropdown mt-3">
+          <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex justify-content-between align-items-center w-100" type="button"
+                  id="dropdownRuanganNH" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                  style="max-width:420px;">
+            <span><i class="bi bi-router me-1"></i><span id="labelDropdownRuanganNH">Pilih ruangan / alat...</span></span>
+          </button>
+          <div class="dropdown-menu p-2" aria-labelledby="dropdownRuanganNH" style="max-height:300px;overflow-y:auto;min-width:320px;max-width:420px;">
+            <div class="d-flex align-items-center border-bottom pb-2 mb-2 px-2">
+              <input type="checkbox" class="form-check-input me-2 mt-0" id="chkSemuaRuanganNH" onchange="toggleSemuaRuanganNH(this.checked)">
+              <label for="chkSemuaRuanganNH" class="fw-bold mb-0" style="font-size:.82rem;cursor:pointer;">Pilih Semua</label>
+            </div>
+            <div id="daftarRuanganNHBody">
+              <div class="text-center py-3 text-muted" style="font-size:.82rem;">Memuat daftar ruangan...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="st-actions">
+          <button class="btn btn-sm btn-warning" onclick="terapkanNonaktifHapusPerRuangan(true)">
+            <i class="bi bi-slash-circle me-1"></i>Nonaktifkan untuk yang Dipilih
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="terapkanNonaktifHapusPerRuangan(false)">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Normal untuk yang Dipilih
+          </button>
+          <button class="btn btn-sm btn-outline-success" onclick="aktifkanSemuaAlat()">
+            <i class="bi bi-check2-all me-1"></i>Aktifkan Semua
+          </button>
+        </div>
+        <div id="alertNonaktifHapusPerRuangan" class="mt-2"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ SIMPAN ══════════ -->
+  <div class="st-savebar">
+    <button class="btn btn-primary" onclick="simpanPengaturan()">
+      <i class="bi bi-check-lg me-1"></i>Simpan Pengaturan
     </button>
-    <button class="btn btn-sm btn-outline-secondary" onclick="terapkanNonaktifHapusPerRuangan(false)">
-      <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Normal untuk yang Dipilih
-    </button>
-    <button class="btn btn-sm btn-outline-success" onclick="aktifkanSemuaAlat()">
-      <i class="bi bi-check2-all me-1"></i>Aktifkan Semua
-    </button>
+    <div id="alertPengaturan"></div>
   </div>
-  <div id="alertNonaktifHapusPerRuangan" class="mt-2"></div>
+
 </div>
-
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-clock-history me-2 text-primary"></i>Toleransi Keterlambatan Presensi</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Berapa menit setelah jam mulai jadwal, mahasiswa masih dianggap "hadir" (bukan "terlambat")?
-  </p>
-  <div class="d-flex align-items-center gap-2">
-    <input type="number" min="0" class="form-control" id="inToleransi" style="width:100px;">
-    <span class="text-muted" style="font-size:.85rem;">menit</span>
-  </div>
-</div>
-
-<div class="section-card p-4 mb-3">
-  <h6 class="fw-bold mb-1"><i class="bi bi-door-open me-2 text-primary"></i>Toleransi Masuk Lebih Awal</h6>
-  <p class="text-muted mb-3" style="font-size:.82rem;">
-    Berapa menit sebelum jam mulai jadwal, alat sudah mengizinkan mahasiswa scan &amp; masuk ruangan?
-    Contoh: jadwal jam 15:00 dengan toleransi 15 menit → mahasiswa sudah bisa masuk sejak jam 14:45.
-    Ini hanya memperlebar jendela akses, <strong>tidak mengubah</strong> status presensi (tetap
-    dihitung dari jam mulai jadwal yang asli, bukan dari toleransi ini).
-  </p>
-  <div class="d-flex align-items-center gap-2">
-    <input type="number" min="0" class="form-control" id="inToleransiAwal" style="width:100px;">
-    <span class="text-muted" style="font-size:.85rem;">menit</span>
-  </div>
-</div>
-
-<div id="alertPengaturan" class="mb-3"></div>
-<button class="btn btn-primary" onclick="simpanPengaturan()">
-  <i class="bi bi-check-lg me-1"></i>Simpan Pengaturan
-</button>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -151,15 +305,30 @@ async function loadPengaturan() {
   toggleWarnings();
 }
 
+// Perbarui label status (pill) di samping tiap switch.
+function perbaruiPill(pillId, switchId) {
+  const pill = document.getElementById(pillId);
+  const on = document.getElementById(switchId).checked;
+  pill.textContent = on ? pill.dataset.on : pill.dataset.off;
+  pill.classList.remove('on-green', 'on-red', 'on-amber');
+  if (on) pill.classList.add(pill.dataset.onClass);
+}
+
 function toggleWarnings() {
   document.getElementById('warnJadwal').style.display = document.getElementById('swWajibJadwal').checked ? 'none' : 'block';
   document.getElementById('warnPemeliharaan').style.display = document.getElementById('swPemeliharaan').checked ? 'block' : 'none';
   document.getElementById('warnNonaktifHapusGlobal').style.display = document.getElementById('swNonaktifHapusGlobal').checked ? 'block' : 'none';
+
+  perbaruiPill('pillJadwal', 'swWajibJadwal');
+  perbaruiPill('pillPemeliharaan', 'swPemeliharaan');
+  perbaruiPill('pillIp', 'swSembunyikanIp');
+  perbaruiPill('pillHapusGlobal', 'swNonaktifHapusGlobal');
 }
 
 document.getElementById('swWajibJadwal').addEventListener('change', toggleWarnings);
 document.getElementById('swPemeliharaan').addEventListener('change', toggleWarnings);
 document.getElementById('swNonaktifHapusGlobal').addEventListener('change', toggleWarnings);
+document.getElementById('swSembunyikanIp').addEventListener('change', toggleWarnings);
 
 async function simpanPengaturan() {
   const alertEl = document.getElementById('alertPengaturan');
@@ -190,7 +359,7 @@ async function simpanPengaturan() {
 
   const res = await fetch('/pengaturan/', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (res.ok) {
-    alertEl.innerHTML = '<div class="alert alert-success py-2">Pengaturan tersimpan!</div>';
+    alertEl.innerHTML = '<div class="alert alert-success py-2"><i class="bi bi-check-circle me-1"></i>Pengaturan tersimpan!</div>';
     setTimeout(() => alertEl.innerHTML = '', 2000);
   } else {
     const err = await res.json().catch(() => ({detail: 'Gagal menyimpan.'}));
@@ -210,7 +379,7 @@ async function loadDaftarRuanganNH() {
       return;
     }
     body.innerHTML = daftar.map(r => `
-      <div class="d-flex align-items-center justify-content-between py-1">
+      <div class="st-alat-list-item">
         <div class="form-check flex-grow-1 mb-0" style="min-width:0;">
           <input type="checkbox" class="form-check-input chkRuanganNH" id="chkRuanganNH${r.id}" value="${r.id}" onchange="perbaruiLabelDropdownRuanganNH()">
           <label class="form-check-label" for="chkRuanganNH${r.id}" style="font-size:.85rem;cursor:pointer;">
@@ -218,8 +387,8 @@ async function loadDaftarRuanganNH() {
           </label>
         </div>
         ${r.nonaktifkan_hapus_otomatis
-          ? '<span style="background:#fef9c3;color:#a16207;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:600;white-space:nowrap;">Nonaktif</span>'
-          : '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:600;white-space:nowrap;">Normal</span>'}
+          ? '<span class="st-pill on-amber">Nonaktif</span>'
+          : '<span class="st-pill on-green">Normal</span>'}
       </div>`).join('');
     perbaruiLabelDropdownRuanganNH();
   } catch (e) {

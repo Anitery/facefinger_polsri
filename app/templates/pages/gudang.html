@@ -4,58 +4,60 @@
 
 {% block extra_head %}
 <style>
-  /* Tab menu gudang — dibuat lebih tegas & jelas (bukan cuma garis bawah tipis) */
+  /* Tab menu Gudang.
+     Tombol dengan ukuran TETAP (tidak melebar mengikuti layar); jika tidak muat, otomatis turun ke baris berikut. */
   .gudang-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    background: transparent;
-    border: none;
-    padding: 0;
+    justify-content: flex-start;
+    gap: 10px;
     list-style: none;
+    padding: 0;
+    margin: 0;
+    border: none;
   }
-  .gudang-tabs .nav-item {
-    flex: 1 1 160px;
-  }
+  .gudang-tabs .nav-item { flex: 0 0 auto; }
   .gudang-tabs .nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 190px;
+    height: 44px;
+    padding: 6px 12px;
     border: 2px solid #dbe3ee;
     border-radius: 10px;
+    background: #fff;
     color: #475569;
     font-weight: 600;
     font-size: .85rem;
-    padding: 10px 14px;
-    width: 100%;
+    line-height: 1.15;
     text-align: center;
-    background: #fff;
+    white-space: normal;
     transition: all .18s ease;
-    white-space: nowrap;
   }
+  .gudang-tabs .nav-link i { margin: 0 !important; font-size: 1rem; flex-shrink: 0; }
   .gudang-tabs .nav-link:hover {
     border-color: #1F3864;
     color: #1F3864;
     background: #f5f8fc;
+    transform: translateY(-1px);
   }
   .gudang-tabs .nav-link.active {
     background: #1F3864;
     border-color: #1F3864;
     color: #fff;
     box-shadow: 0 3px 8px rgba(31,56,100,.28);
+    transform: none;
   }
-  /* Tablet: 2 kolom biar tidak terlalu sempit */
-  @media (max-width: 767.98px) {
-    .gudang-tabs .nav-item { flex: 1 1 calc(50% - 4px); }
-  }
-  /* Mobile: full-width 1 kolom, teks rata tengah tetap (lebih mudah disentuh) */
-  @media (max-width: 575.98px) {
-    .gudang-tabs { flex-direction: column; gap: 8px; }
-    .gudang-tabs .nav-item { flex: 1 1 auto; }
-    .gudang-tabs .nav-link {
-      text-align: left;
-      padding: 12px 16px;
-      font-size: .88rem;
-      display: flex;
-      align-items: center;
-    }
+
+  /* Layar sangat sempit (HP kecil): 2 tombol per baris, ukuran tetap proporsional */
+  @media (max-width: 419.98px) {
+    .gudang-tabs .nav-item,
+    .gudang-tabs .nav-link { width: calc(50vw - 30px); max-width: 190px; }
+    .gudang-tabs--sub .nav-item,
+    .gudang-tabs--sub .nav-link { width: calc(50vw - 30px); max-width: 220px; }
+    .gudang-tabs--sub .nav-link { height: 52px; font-size: .75rem; padding: 4px 8px; }
   }
 </style>
 {% endblock %}

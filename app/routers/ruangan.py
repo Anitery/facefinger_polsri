@@ -87,7 +87,7 @@ def tambah_pj(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    if user.role not in ("dosen", "teknisi", "admin"):
+    if user.role not in ("dosen", "dosen_privilege", "teknisi", "admin"):
         raise HTTPException(
             status_code=400,
             detail="Hanya dosen/teknisi/admin yang bisa jadi penanggung jawab"

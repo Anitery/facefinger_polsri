@@ -207,7 +207,7 @@ def cek_akses_device(
 
     mhs_ids = [m.id for m in jadwal.mahasiswa_diizinkan]
 
-    if role == "dosen":
+    if role in ("dosen", "dosen_privilege"):
         return True, f"Dosen — {jadwal.nama_kegiatan}", jadwal
 
     if not mhs_ids:

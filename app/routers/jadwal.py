@@ -182,7 +182,7 @@ def get_jadwal_hari_ini_semua_ruangan(db: Session = Depends(get_db)):
 @router.get("/dosen-list")
 def get_dosen_list(db: Session = Depends(get_db)):
     dosens = db.query(User).filter(
-        User.role == "dosen", User.aktif == True
+        User.role.in_(["dosen", "dosen_privilege"]), User.aktif == True
     ).order_by(User.nama).all()
     return [{"id": d.id, "nama": d.nama, "nim_nip": d.nim_nip} for d in dosens]
 
@@ -253,7 +253,7 @@ def create_jadwal(
 def toggle_aktif_jadwal(jadwal_id: int, request: Request, db: Session = Depends(get_db)):
     """Aktifkan atau nonaktifkan jadwal (Admin / Dosen pengampu)."""
     current = get_current_user_session(request)
-    if current["role"] not in ("admin", "dosen"):
+    if current["role"] not in ("admin", "dosen_privilege", "dosen"):
         raise HTTPException(403, "Tidak diizinkan")
         
     jadwal = db.query(JadwalRuangan).filter(JadwalRuangan.id == jadwal_id).first()

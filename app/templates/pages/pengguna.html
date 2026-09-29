@@ -4,64 +4,175 @@
 
 {% block extra_head %}
 <style>
-  /* ══════ Tab menu Staff / Mahasiswa — gaya sama dengan halaman Gudang & Biometrik ══════ */
+  /* Tab menu Staff / Mahasiswa.
+     Tombol dengan ukuran TETAP (tidak melebar mengikuti layar); jika tidak muat, otomatis turun ke baris berikut. */
   .clear-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    justify-content: flex-start;
+    gap: 10px;
     list-style: none;
     padding: 0;
     margin: 0;
+    border: none;
   }
-  .clear-tabs .nav-item { flex: 1 1 160px; }
+  .clear-tabs .nav-item { flex: 0 0 auto; }
   .clear-tabs .nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 190px;
+    height: 44px;
+    padding: 6px 12px;
     border: 2px solid #dbe3ee;
     border-radius: 10px;
+    background: #fff;
     color: #475569;
     font-weight: 600;
     font-size: .85rem;
-    padding: 10px 14px;
-    width: 100%;
+    line-height: 1.15;
     text-align: center;
-    background: #fff;
+    white-space: normal;
     transition: all .18s ease;
-    white-space: nowrap;
   }
+  .clear-tabs .nav-link i { margin: 0 !important; font-size: 1rem; flex-shrink: 0; }
   .clear-tabs .nav-link:hover {
     border-color: #1F3864;
     color: #1F3864;
     background: #f5f8fc;
+    transform: translateY(-1px);
   }
   .clear-tabs .nav-link.active {
     background: #1F3864;
     border-color: #1F3864;
     color: #fff;
     box-shadow: 0 3px 8px rgba(31,56,100,.28);
+    transform: none;
   }
-  .clear-tabs .tab-count {
-    background: #e2e8f0;
-    color: #334155;
-    font-size: .7rem;
-    font-weight: 700;
+
+  /* Badge role magang: magenta */
+  .badge.bg-magenta { background-color: #c2189b !important; color: #fff; }
+
+  /* Layar sangat sempit (HP kecil): 2 tombol per baris, ukuran tetap proporsional */
+  @media (max-width: 419.98px) {
+    .clear-tabs .nav-item,
+    .clear-tabs .nav-link { width: calc(50vw - 30px); max-width: 190px; }
+    .clear-tabs--sub .nav-item,
+    .clear-tabs--sub .nav-link { width: calc(50vw - 30px); max-width: 220px; }
+    .clear-tabs--sub .nav-link { height: 52px; font-size: .75rem; padding: 4px 8px; }
+  }
+
+  /* ===== Tabel pengguna ===== */
+  .tbl-users {
+    table-layout: fixed;
+    min-width: 940px;
+    border-collapse: separate;
+    border-spacing: 0;
+    --bs-table-hover-bg: #eef4ff;
+    --bs-table-bg-state: transparent;
+  }
+
+  /* Lebar kolom: Nama fleksibel, sisanya tetap */
+  .tbl-users th:nth-child(1) { width: 56px; }
+  .tbl-users th:nth-child(3) { width: 160px; }  /* NIM / NIP */
+  .tbl-users th:nth-child(4) { width: 110px; }  /* Kelas / Role */
+  .tbl-users th:nth-child(5) { width: 175px; }  /* ID Perangkat */
+  .tbl-users th:nth-child(6) { width: 130px; }  /* Fingerprint */
+  .tbl-users th:nth-child(7) { width: 100px; }  /* Status */
+  .tbl-users th:nth-child(8) { width: 160px; }  /* Aksi */
+
+  /* Header */
+  .tbl-users thead th {
+    background: #1F3864 !important;
+    color: #fff !important;
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: .85rem .9rem;
+    border: 0 !important;
     vertical-align: middle;
+    white-space: nowrap;
+    transition: background-color .15s ease;
   }
-  .clear-tabs .nav-link.active .tab-count {
-    background: rgba(255,255,255,.22);
-    color: #fff;
+  .tbl-users thead th small {
+    color: rgba(255,255,255,.6) !important;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
   }
-  @media (max-width: 767.98px) {
-    .clear-tabs .nav-item { flex: 1 1 calc(50% - 4px); }
+
+  /* Header yang bisa diurutkan */
+  .tbl-users thead th.th-sort { cursor: pointer; user-select: none; }
+  .tbl-users thead th.th-sort .sort-ico {
+    font-size: .7rem;
+    margin-left: 6px;
+    color: rgba(255,255,255,.4);
+    transition: color .15s ease;
   }
-  @media (max-width: 575.98px) {
-    .clear-tabs { flex-direction: column; gap: 8px; }
-    .clear-tabs .nav-item { flex: 1 1 auto; }
-    .clear-tabs .nav-link {
-      text-align: left;
-      padding: 12px 16px;
-      font-size: .88rem;
-      display: flex;
-      align-items: center;
-    }
+  .tbl-users thead th.th-sort:hover { background: #2b4a80 !important; }
+  .tbl-users thead th.th-sort:hover .sort-ico { color: rgba(255,255,255,.9); }
+  .tbl-users thead th.th-sort:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: -2px;
+  }
+  .tbl-users thead th.th-sort.sort-aktif {
+    background: #2f5597 !important;
+    color: #fff !important;
+    box-shadow: inset 0 -3px 0 #fbbf24;
+  }
+  .tbl-users thead th.th-sort.sort-aktif .sort-ico { color: #fbbf24; }
+
+  /* Isi tabel */
+  .tbl-users tbody td {
+    padding: .7rem .9rem;
+    font-size: .85rem;
+    color: #334155;
+    border: 0;
+    border-bottom: 1px solid #eef1f6;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tbl-users tbody tr:nth-child(even) > td { background-color: #f8fafc; }
+  .tbl-users tbody tr:hover > td {
+    background-color: #eef4ff;
+    box-shadow: none;
+  }
+  .tbl-users tbody tr:last-child > td { border-bottom: 0; }
+
+  /* NIM / ID perangkat: gaya monospace netral, bukan pink bawaan Bootstrap */
+  .tbl-users code {
+    background: #f1f5f9;
+    color: #1e293b;
+    padding: .15rem .5rem;
+    border-radius: 6px;
+    font-size: .76rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Badge status */
+  .tbl-users .badge-ok,
+  .tbl-users .badge-no {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+  }
+  .tbl-users .badge-ok { background: #dcfce7; color: #15803d; }
+  .tbl-users .badge-no { background: #f1f5f9; color: #64748b; }
+
+  /* Tombol aksi seragam (hanya di tabel desktop) */
+  .tbl-users .btn-sm {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
   }
 </style>
 {% endblock %}
@@ -69,14 +180,14 @@
 {% block content %}
 
 {# Magang hanya mengurus data mahasiswa, jadi tab Staff tidak ditampilkan untuknya. #}
-{% set showStaff = user.role in ('admin', 'teknisi', 'dosen') %}
+{% set showStaff = user.role in ('admin', 'dosen_privilege', 'teknisi', 'dosen') %}
 
 {# Panel isi satu tab. g = 'staff' atau 'mahasiswa'. ID elemen diberi akhiran -staff / -mahasiswa. #}
 {% macro panel(g, role) %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <p class="text-muted mb-0" style="font-size:.84rem;">
     {% if g == 'staff' %}
-    Admin, Teknisi, Dosen, dan Magang — pengelola sistem Smart Door Lock Teknik Komputer Polsri.
+    Admin, Dosen Privilege, Teknisi, Dosen, dan Magang — pengelola sistem Smart Door Lock Teknik Komputer Polsri.
     {% else %}
     Mahasiswa Teknik Komputer Polsri pengguna akses pintu.
     {% endif %}
@@ -87,11 +198,11 @@
       <i class="bi bi-arrow-up-circle me-1"></i>Naikkan Tingkat Kelas
     </button>
     {% endif %}
-    {% if g == 'staff' and role in ('admin', 'teknisi') %}
+    {% if g == 'staff' and role in ('admin', 'dosen_privilege', 'teknisi') %}
     <button class="btn btn-primary btn-sm" onclick="openModal('staff')">
       <i class="bi bi-plus-lg me-1"></i>Tambah Staff
     </button>
-    {% elif g == 'mahasiswa' and role in ('admin', 'dosen', 'magang') %}
+    {% elif g == 'mahasiswa' and role in ('admin', 'dosen_privilege', 'dosen', 'magang') %}
     <button class="btn btn-primary btn-sm" onclick="openModal('mahasiswa')">
       <i class="bi bi-plus-lg me-1"></i>Tambah Mahasiswa
     </button>
@@ -101,18 +212,19 @@
 
 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
   <div class="d-flex flex-wrap gap-2 align-items-center">
-    <div class="input-group" style="max-width:280px;">
+    <div class="input-group" style="max-width:340px;">
       <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
       <input type="text" class="form-control" id="search-{{ g }}"
-             placeholder="{% if g == 'staff' %}Cari nama atau NIP...{% else %}Cari nama, NIM, atau kelas...{% endif %}">
+             placeholder="{% if g == 'staff' %}Cari nama, NIP, atau ID perangkat...{% else %}Cari nama, NIM, kelas, atau ID perangkat...{% endif %}">
     </div>
     {% if g == 'staff' %}
     <select class="form-select form-select-sm" id="filterRole-staff" style="max-width:160px;">
       <option value="">Semua Role</option>
-      <option value="dosen">Dosen</option>
-      <option value="teknisi">Teknisi</option>
-      <option value="magang">Magang</option>
       {% if role == 'admin' %}<option value="admin">Admin</option>{% endif %}
+      <option value="dosen_privilege">Dosen Privilege</option>
+      <option value="teknisi">Teknisi</option>
+      <option value="dosen">Dosen</option>
+      <option value="magang">Magang</option>
     </select>
     {% else %}
     <select class="form-select form-select-sm" id="filterKelas-mahasiswa" style="max-width:150px;">
@@ -141,16 +253,16 @@
 
 <div class="tbl-wrap d-none d-md-block mb-2">
   <div style="overflow-x:auto;">
-    <table class="table table-hover table-bordered align-middle mb-0" style="min-width:680px;">
-      <thead class="table-light">
+    <table class="table table-hover align-middle mb-0 tbl-users">
+      <thead id="thead-{{ g }}">
         <tr>
           <th class="text-center">No</th>
-          <th>Nama</th>
-          <th>{% if g == 'staff' %}NIP{% else %}NIM{% endif %}</th>
-          {% if g == 'staff' %}<th>Role</th>{% else %}<th>Kelas</th>{% endif %}
-          <th>ID Perangkat <small class="text-muted fw-normal">(PIN X606-S)</small></th>
-          <th>Fingerprint</th>
-          <th>Status</th>
+          <th class="th-sort" data-sort="nama" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','nama')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','nama')}">Nama <i class="bi bi-arrow-down-up sort-ico"></i></th>
+          <th class="th-sort" data-sort="nim_nip" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','nim_nip')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','nim_nip')}">{% if g == 'staff' %}NIP{% else %}NIM{% endif %} <i class="bi bi-arrow-down-up sort-ico"></i></th>
+          {% if g == 'staff' %}<th class="th-sort" data-sort="role" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','role')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','role')}">Role <i class="bi bi-arrow-down-up sort-ico"></i></th>{% else %}<th class="th-sort" data-sort="kelas" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','kelas')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','kelas')}">Kelas <i class="bi bi-arrow-down-up sort-ico"></i></th>{% endif %}
+          <th class="th-sort" data-sort="id_perangkat" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','id_perangkat')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','id_perangkat')}">ID Perangkat <small>(PIN X606-S)</small> <i class="bi bi-arrow-down-up sort-ico"></i></th>
+          <th class="th-sort" data-sort="fingerprint" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','fingerprint')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','fingerprint')}">Fingerprint <i class="bi bi-arrow-down-up sort-ico"></i></th>
+          <th class="th-sort" data-sort="status" tabindex="0" role="button" aria-sort="none" title="Klik untuk mengurutkan" onclick="setSort('{{ g }}','status')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSort('{{ g }}','status')}">Status <i class="bi bi-arrow-down-up sort-ico"></i></th>
           <th style="text-align:center;">Aksi</th>
         </tr>
       </thead>
@@ -181,14 +293,12 @@
   <li class="nav-item" role="presentation">
     <button class="nav-link active" id="tabbtn-staff" data-bs-toggle="tab" data-bs-target="#tab-staff" type="button">
       <i class="bi bi-person-badge me-1"></i>Staff / Pengelola
-      <span class="badge rounded-pill tab-count ms-1" id="count-staff"></span>
     </button>
   </li>
   {% endif %}
   <li class="nav-item" role="presentation">
     <button class="nav-link {% if not showStaff %}active{% endif %}" id="tabbtn-mahasiswa" data-bs-toggle="tab" data-bs-target="#tab-mahasiswa" type="button">
       <i class="bi bi-mortarboard me-1"></i>Mahasiswa
-      <span class="badge rounded-pill tab-count ms-1" id="count-mahasiswa"></span>
     </button>
   </li>
 </ul>
@@ -224,13 +334,18 @@
           <label class="form-label fw-bold" style="font-size:.85rem;">NIM / NIP</label>
           <input type="text" class="form-control" id="inputNimNip">
         </div>
-        
+
         <div class="mb-3">
           <label class="form-label fw-bold" style="font-size:.85rem;">Role</label>
           <select class="form-select" id="inputRole" onchange="toggleKelasField()">
             {% if user.role == 'admin' %}
               <option value="admin">Admin</option>
+              <option value="dosen_privilege">Dosen Privilege</option>
               <option value="teknisi">Teknisi</option>
+              <option value="dosen">Dosen</option>
+              <option value="magang">Magang</option>
+              <option value="mahasiswa">Mahasiswa</option>
+            {% elif user.role == 'dosen_privilege' %}
               <option value="dosen">Dosen</option>
               <option value="magang">Magang</option>
               <option value="mahasiswa">Mahasiswa</option>
@@ -243,7 +358,7 @@
             {% endif %}
           </select>
         </div>
-        
+
         <div class="mb-3" id="kelasFieldWrap" style="display:none;">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             Kelas <small class="text-muted fw-normal">(contoh: 6CC, 6CM)</small>
@@ -254,21 +369,21 @@
         <div class="mb-3" id="sectionFp">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             ID Perangkat  <small class="text-muted fw-normal">
-              (PIN yang didaftarkan ke X606-S saat sinkronisasi — khusus mahasiswa diisi otomatis dari 4 digit terakhir NIM)
+              (PIN yang didaftarkan ke X606-S saat sinkronisasi — kosongkan agar terisi otomatis dengan nomor kosong terkecil. Khusus mahasiswa diisi otomatis dari 4 digit terakhir NIM)
             </small>
           </label>
-          <input class="form-control" id="pIdPerangkat" type="number" placeholder="Contoh: 20">
+          <input class="form-control" id="pIdPerangkat" type="number" min="1" placeholder="Kosongkan = otomatis (contoh manual: 20)">
         </div>
         <div class="mb-3" id="sectionPw">
           <label class="form-label fw-bold" style="font-size:.85rem;">
             Password
             <small class="text-muted fw-normal" id="pwHint">
-              (wajib untuk admin/teknisi/dosen)
+              (kosongkan = otomatis sama dengan NIP)
             </small>
           </label>
           <div class="input-group">
             <input type="password" class="form-control" id="inputPassword"
-                  placeholder="Minimal 6 karakter">
+                  placeholder="Kosongkan = sama dengan NIP">
             <button class="btn btn-outline-secondary" type="button"
                   onclick="togglePw('inputPassword','eyePw')">
               <i class="bi bi-eye" id="eyePw"></i>
@@ -395,20 +510,23 @@
 {% block extra_js %}
 <script>
 const roleBadge = {
-  admin:     'bg-danger',
-  teknisi:   'bg-warning text-dark',
-  dosen:     'bg-primary',
-  magang:    'bg-info text-dark',
-  mahasiswa: 'bg-secondary',
+  admin:           'bg-danger',
+  dosen_privilege: 'bg-primary',        // sama dengan dosen (privilege disembunyikan)
+  teknisi:         'bg-warning text-dark',
+  dosen:           'bg-primary',
+  magang:          'bg-magenta',
+  mahasiswa:       'bg-secondary',
 };
+// Label tampilan role: dosen_privilege ditampilkan sebagai "dosen" saja
+const roleLabel = r => r === 'dosen_privilege' ? 'dosen' : (r || '');
 
 let editMode = false;
 const USER_LIMIT = 50;
 
 // Status tiap tab: halaman aktif & data terakhir yang dimuat (paginasi terpisah per tab).
 const GROUPS = {
-  staff:     { page: 1, list: [], enabled: false },
-  mahasiswa: { page: 1, list: [], enabled: true  },
+  staff:     { page: 1, list: [], enabled: false, sortBy: '', sortDir: 'asc' },
+  mahasiswa: { page: 1, list: [], enabled: true,  sortBy: '', sortDir: 'asc' },
 };
 
 // Daftar role di modal Tambah/Edit disimpan sekali, lalu disaring sesuai tab.
@@ -428,7 +546,8 @@ function setRoleOptions(group) {
 
 const myRole = "{{ user.role }}";
 const ROLE_MODIFY_PERMISSION = {
-  admin:   ["admin", "teknisi", "dosen", "magang", "mahasiswa"],
+  admin:   ["admin", "dosen_privilege", "teknisi", "dosen", "magang", "mahasiswa"],
+  dosen_privilege: ["dosen", "magang", "mahasiswa"],
   dosen:   ["mahasiswa"],
   teknisi: ["dosen"],
   magang:  ["mahasiswa"],
@@ -449,6 +568,8 @@ function toggleKelasField() {
   // (admin/teknisi/dosen) tetap isi manual karena tidak semua NIP
   // formatnya konsisten.
   document.getElementById('sectionFp').style.display = isMahasiswa ? 'none' : 'block';
+  // Mahasiswa tidak butuh password, jadi field-nya disembunyikan.
+  document.getElementById('sectionPw').style.display = isMahasiswa ? 'none' : 'block';
 }
 
 function togglePw(inputId, iconId) {
@@ -464,12 +585,12 @@ function openModal(group) {
   document.getElementById('editUserId').value   = '';
   document.getElementById('inputNama').value    = '';
   document.getElementById('inputNimNip').value  = '';
-  
+
   const inputRole = document.getElementById('inputRole');
   if (inputRole.options.length > 0) {
-    inputRole.selectedIndex = 0; 
+    inputRole.selectedIndex = 0;
   }
-  
+
   document.getElementById('inputKelas').value   = '';
   document.getElementById('pIdPerangkat').value = '';
   document.getElementById('inputPassword').value = '';
@@ -477,9 +598,9 @@ function openModal(group) {
   document.getElementById('modalUserTitle').innerHTML =
     '<i class="bi bi-person-plus me-2"></i>' +
     (group === 'mahasiswa' ? 'Tambah Mahasiswa' : group === 'staff' ? 'Tambah Staff' : 'Tambah Pengguna');
-  document.getElementById('pwHint').textContent = '(wajib untuk admin/teknisi/dosen)';
+  document.getElementById('pwHint').textContent = '(kosongkan = otomatis sama dengan NIP)';
   document.getElementById('pwEditNote').style.display = 'none';
-  
+
   toggleKelasField();
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 }
@@ -499,7 +620,7 @@ function openEdit(u) {
     '<i class="bi bi-pencil me-2"></i>Edit Pengguna';
   document.getElementById('pwHint').textContent = '(opsional — kosongkan jika tidak diubah)';
   document.getElementById('pwEditNote').style.display = 'block';
-  
+
   toggleKelasField();
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 }
@@ -524,7 +645,7 @@ async function simpanUser() {
     nim_nip: nimNip,
     role: role,
     kelas: document.getElementById('inputKelas').value.trim() || null,
-    password: document.getElementById('inputPassword').value || null,
+    password: role === 'mahasiswa' ? null : (document.getElementById('inputPassword').value || null),
   };
 
   if (!body.nama || !body.nim_nip) {
@@ -579,6 +700,16 @@ async function simpanUser() {
           const fpData = await fpRes.json();
           pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
         }
+      } else {
+        // Non-mahasiswa & ID Perangkat dikosongkan -> server memilih nomor kosong terkecil.
+        // (Kalau user ini sudah punya ID Perangkat, server tidak mengubahnya.)
+        const fpRes = await fetch(`/users/${saved.id}/id-perangkat-otomatis`, { method: 'POST' });
+        const fpData = await fpRes.json();
+        if (fpRes.ok && fpData.dibuat) {
+          pesanTambahan = ` ID Perangkat otomatis diisi <strong>${fpData.id_perangkat}</strong>.`;
+        } else if (!fpRes.ok) {
+          pesanTambahan = ` <span class="text-danger">Namun ID Perangkat GAGAL diset: ${fpData.detail}</span>`;
+        }
       }
     } catch(e) { console.warn('Gagal set fingerprint:', e); }
 
@@ -586,10 +717,10 @@ async function simpanUser() {
       <div class="alert alert-success py-2">
         ${editMode ? 'Data berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!'}${pesanTambahan}
       </div>`;
-      
+
     // Refresh tabel (tetap di halaman yang sama saat edit, kembali ke 1 saat tambah)
     refreshSetelahSimpan(role);
-    
+
     setTimeout(() => {
       bootstrap.Modal.getInstance(document.getElementById('modalUser')).hide();
       alertEl.innerHTML = '';
@@ -820,6 +951,8 @@ async function loadUsers(group, page = 1) {
   if (role)        url += `&role=${encodeURIComponent(role)}`;
   if (kelas)       url += `&kelas=${encodeURIComponent(kelas)}`;
   if (fingerprint) url += `&fingerprint=${encodeURIComponent(fingerprint)}`;
+  // Urutan kolom (kosong = urutan default dari server)
+  if (st.sortBy)   url += `&sort_by=${encodeURIComponent(st.sortBy)}&sort_dir=${st.sortDir}`;
 
   try {
     const res  = await fetch(url);
@@ -828,12 +961,6 @@ async function loadUsers(group, page = 1) {
     const pg = json.pagination || {};
     renderUsers(group);
     renderPaginasiPengguna(group, pg);
-
-    // Badge jumlah di judul tab hanya diperbarui saat tidak ada filter
-    // aktif, supaya angkanya selalu berarti "total" bukan "hasil filter".
-    const tanpaFilter = !keyword && !role && !kelas && !fingerprint && !showInactive;
-    const badge = el('count', group);
-    if (badge && tanpaFilter) badge.textContent = pg.total ?? '';
   } catch(e) {
     console.error(`Gagal load users (${group}):`, e);
     el('bodyDesktop', group).innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat data</td></tr>';
@@ -841,7 +968,33 @@ async function loadUsers(group, page = 1) {
   }
 }
 
+// Klik header kolom: 1x = naik (A→Z / kecil→besar), 2x = turun, 3x = kembali ke urutan default.
+// Pengurutan dilakukan di server supaya berlaku untuk SELURUH data, bukan hanya halaman yang tampil.
+function setSort(group, kolom) {
+  const st = GROUPS[group];
+  if (!st) return;
+  if (st.sortBy !== kolom)          { st.sortBy = kolom; st.sortDir = 'asc';  }
+  else if (st.sortDir === 'asc')    { st.sortDir = 'desc'; }
+  else                              { st.sortBy = '';      st.sortDir = 'asc'; }
+  updateSortIcons(group);
+  loadUsers(group, 1);
+}
+
+function updateSortIcons(group) {
+  const st = GROUPS[group];
+  document.querySelectorAll(`#thead-${group} th.th-sort`).forEach(th => {
+    const aktif = th.dataset.sort === st.sortBy;
+    const ico = th.querySelector('.sort-ico');
+    th.classList.toggle('sort-aktif', aktif);
+    th.setAttribute('aria-sort', !aktif ? 'none' : (st.sortDir === 'asc' ? 'ascending' : 'descending'));
+    ico.className = 'bi sort-ico ' + (!aktif ? 'bi-arrow-down-up'
+                    : (st.sortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'));
+  });
+}
+
 function resetFilterPengguna(group) {
+  GROUPS[group].sortBy = ''; GROUPS[group].sortDir = 'asc';
+  updateSortIcons(group);
   el('search', group).value = '';
   if (el('filterRole', group))  el('filterRole', group).value = '';
   if (el('filterKelas', group)) el('filterKelas', group).value = '';
@@ -966,17 +1119,17 @@ function buatBarisDesktop(list, startIndex, group) {
       ? '<span class="badge-ok">Aktif</span>'
       : '<span class="badge-no">Nonaktif</span>';
     const kolomKhusus = group === 'staff'
-      ? `<td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span></td>`
+      ? `<td><span class="badge ${roleBadge[u.role]||'bg-secondary'}">${roleLabel(u.role)}</span></td>`
       : `<td>${u.kelas || '<span class="text-muted" style="font-size:.78rem;">—</span>'}</td>`;
 
     return `
     <tr style="${!u.aktif ? 'opacity:.55;' : ''}">
       <td class="text-center text-muted" style="font-size:.75rem;">${startIndex + i + 1}</td>
       <td><strong style="font-size:.85rem;">${u.nama}</strong></td>
-      <td><code style="font-size:.78rem;">${u.nim_nip}</code></td>
+      <td><code>${u.nim_nip}</code></td>
       ${kolomKhusus}
       <td>${u.id_perangkat
-        ? `<code style="font-size:.75rem;">#${u.id_perangkat}</code>`
+        ? `<code>#${u.id_perangkat}</code>`
         : '<span class="text-muted" style="font-size:.75rem;">Belum diset</span>'}</td>
       <td>${badgeFingerprint(u, false)}</td>
       <td>${statusBadge}</td>
@@ -1010,7 +1163,7 @@ function buatBarisMobile(list, startIndex, group) {
           ${group === 'mahasiswa' && u.kelas ? `<div style="font-size:.74rem;color:#64748b;">Kelas: <strong>${u.kelas}</strong></div>` : ''}
         </div>
         <div class="d-flex flex-column align-items-end gap-1">
-          ${group === 'staff' ? `<span class="badge ${roleBadge[u.role]||'bg-secondary'}">${u.role}</span>` : ''}
+          ${group === 'staff' ? `<span class="badge ${roleBadge[u.role]||'bg-secondary'}">${roleLabel(u.role)}</span>` : ''}
           ${statusBadge}
         </div>
       </div>
@@ -1034,6 +1187,7 @@ function renderUsers(group) {
 
   const list = st.list.filter(u => {
     if (myRole === 'dosen' && u.role === 'admin') return false;
+    if (myRole === 'dosen_privilege' && u.role === 'admin') return false;
     if (myRole === 'teknisi' && u.role === 'admin') return false;
     // Magang: aksesnya cuma seputar data mahasiswa (lihat batasan role).
     if (myRole === 'magang' && u.role !== 'mahasiswa') return false;

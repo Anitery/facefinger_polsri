@@ -448,20 +448,25 @@ async function loadLog() {
   } catch(e) { console.error("Error loadLog:", e); }
 }
 
+// Kartu "Total Pengguna Aktif" menampilkan jumlah SELURUH user aktif di database.
+// Diambil dari pagination.total milik API (dihitung di server), jadi tidak
+// tergantung batas limit per halaman. limit=1 dipakai supaya payload kecil.
 async function loadTotalPengguna() {
   try {
-    const r = await fetch('/users/');
-    let data = await r.json();
-    
-    // --- Cek apakah data adalah array ---
-    if (!Array.isArray(data)) {
-      console.warn("Users API tidak merespons array. Respons:", data);
-      data = data.data || data.items || [];
+    const r = await fetch('/users/?limit=1&page=1&include_inactive=false');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const res = await r.json();
+
+    let total;
+    if (res && res.pagination && typeof res.pagination.total === 'number') {
+      total = res.pagination.total;
+    } else {
+      // Fallback bila format respons berbeda (mis. API mengembalikan array biasa)
+      const arr = Array.isArray(res) ? res : (res.data || res.items || []);
+      total = arr.filter(u => u.aktif).length;
+      console.warn("Users API tanpa pagination.total, memakai fallback:", res);
     }
-    // ------------------------------------
-    
-    document.getElementById('statPengguna').textContent =
-      data.filter(u => u.aktif).length;
+    document.getElementById('statPengguna').textContent = total;
   } catch(e) { console.error("Error loadTotalPengguna:", e); }
 }
 

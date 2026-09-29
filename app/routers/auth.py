@@ -46,7 +46,7 @@ def cek_jadwal_aktif(ruangan_id: int, user_id: int, role: str, db: Session):
     mahasiswa_ids = [m.id for m in jadwal.mahasiswa_diizinkan]
 
     # Dosen — cek apakah dosen pengampu jadwal ini
-    if role == "dosen":
+    if role in ("dosen", "dosen_privilege"):
         return True, f"Dosen — {jadwal.nama_kegiatan}", jadwal
 
     # Mahasiswa — cek terdaftar di jadwal
