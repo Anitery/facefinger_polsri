@@ -100,9 +100,9 @@ def redirect_default_page(role: str) -> str:
     elif role == "teknisi":
         return "/dashboard/ruangan"
     elif role == "magang":
-        # Magang tidak punya akses Dashboard/Ruangan/Jadwal — tugas
-        # utamanya menginput data mahasiswa, jadi diarahkan ke situ.
-        return "/dashboard/pengguna"
+        # Magang boleh membuka Dashboard, tetapi tampilannya dibatasi
+        # (hanya Identitas Ruangan dan Log Akses Hari Ini).
+        return "/dashboard"
     return "/dashboard"
 
 def get_ruangan_list(db):
@@ -217,6 +217,8 @@ def dashboard_log_akses(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    if user["role"] == "magang":
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/log_akses.html",
         context={"active": "log_akses", "user": user,
@@ -254,6 +256,8 @@ def dashboard_inventaris(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    if user["role"] == "magang":
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/inventaris.html",
         context={"active": "inventaris", "user": user,
@@ -265,6 +269,8 @@ def dashboard_kamera(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    if user["role"] == "magang":
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/kamera.html",
         context={"active": "kamera", "user": user,
@@ -449,6 +455,8 @@ def dashboard_status_lab(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    if user["role"] == "magang":
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/status_lab.html",
         context={"active": "status_lab", "user": user,
@@ -462,6 +470,8 @@ def dashboard_gudang(request: Request, db: Session = Depends(get_db)):
     user = get_session(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    if user["role"] == "magang":
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(
         request=request, name="pages/gudang.html",
         context={"active": "gudang", "user": user,

@@ -309,7 +309,7 @@
       </div>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen'] %}
+      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen', 'magang'] %}
       <a href="/dashboard" class="nav-link {% if active=='dashboard' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Dashboard
       </a>
@@ -337,7 +337,7 @@
       </a>
       {% endif %}
 
-      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen'] %}
+      {% if user and user.role in ['admin', 'dosen_privilege', 'teknisi', 'dosen', 'magang'] %}
       <div class="nav-section mt-3">Manajemen Pengguna</div>
       {% if user.role in ['admin', 'teknisi'] %}
       <a href="/dashboard/biometrik" class="nav-link {% if active=='biometrik' %}active{% endif %}">
@@ -416,7 +416,8 @@
 
       <div class="topbar-right">
         {% if user %}
-        <!-- Notifikasi -->
+        {% if user.role != 'magang' %}
+        <!-- Notifikasi (tidak ditampilkan untuk Magang: tautannya ke Log Akses lengkap) -->
         <div class="dropdown">
           <button class="notif-btn" id="notifBtn" data-bs-toggle="dropdown" aria-label="Notifikasi">
             <i class="bi bi-bell"></i>
@@ -434,6 +435,7 @@
             <div id="notifList" class="list-unstyled mb-0"></div>
           </ul>
         </div>
+        {% endif %}
 
         <!-- Profil -->
         <div class="dropdown">
@@ -568,6 +570,7 @@ let lastLogId   = 0;
 let unreadCount = 0;
 
 async function checkNotif() {
+  if (!document.getElementById('notifBtn')) return; // Magang: tidak ada lonceng notifikasi
   try {
     const rid = getRuanganId();
     const url = rid ? `/log-akses/?ruangan_id=${rid}&limit=10` : `/log-akses/?limit=10`;

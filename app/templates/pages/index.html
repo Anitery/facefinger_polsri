@@ -65,6 +65,7 @@
       </div>
     </div>
 
+    {% if user.role != 'magang' %}
     <div class="section-card p-3 mb-3 bg-white rounded shadow-sm" id="cardInfoDevice">
       <h6 class="fw-bold mb-3" style="color:#1e293b;font-size:.9rem;">
         <i class="bi bi-router me-2 text-primary"></i>Info Device
@@ -82,6 +83,7 @@
         <div class="text-muted text-center py-3">Memuat...</div>
       </div>
     </div>
+    {% endif %}
   </div>
 
   <div class="col-12 col-xl-7">
@@ -90,9 +92,11 @@
         <h6 class="mb-0 fw-bold" style="font-size:.9rem;color:#1e293b;">
           <i class="bi bi-activity me-2 text-primary"></i>Log Akses Hari Ini
         </h6>
+        {% if user.role != 'magang' %}
         <a href="/dashboard/log-akses" class="btn btn-sm btn-outline-primary" style="font-size:.73rem;">
           Lihat Semua
         </a>
+        {% endif %}
       </div>
       
       <div class="table-responsive">
@@ -118,6 +122,8 @@
 
 {% block extra_js %}
 <script>
+const IS_MAGANG = "{{ user.role }}" === "magang";
+
 // --- LOGIKA HARI LIBUR ---
 let hariLiburDashboard = {}; // { "2026-07-17": "Hari Kemerdekaan", ... }
 
@@ -173,6 +179,85 @@ function formatLantai(l) {
   return 'Lantai ' + l;
 }
 // --------------------------------------------------------
+// Render kartu Identitas Ruangan (dipakai Dashboard biasa & Dashboard Magang)
+function renderIdentitasRuangan(identitas) {
+  const card   = document.getElementById('cardIdentitasRuangan');
+  const box    = document.getElementById('infoIdentitasRuangan');
+  const pjList = identitas.penanggung_jawab || [];
+  if (identitas.nama && identitas.nama !== '—') {
+    card.style.display = 'block';
+    box.innerHTML = `
+      <div class="d-flex justify-content-between align-items-start">
+        <span class="text-muted" style="min-width:90px;">Nama</span>
+        <span class="fw-bold text-end">${identitas.nama}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted" style="min-width:90px;">Lokasi</span>
+        <span>${identitas.lokasi || '—'}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span class="text-muted" style="min-width:90px;">Lantai</span>
+        <span>${formatLantai(identitas.lantai)}</span>
+      </div>
+      <div class="d-flex justify-content-between align-items-start">
+        <span class="text-muted" style="min-width:90px;">Penanggung Jawab</span>
+        <div class="text-end">
+          ${pjList.length
+            ? pjList.map(p =>
+                `<div>
+                  <span class="fw-bold" style="font-size:.82rem;">${p.nama}</span>
+                  <span class="text-muted" style="font-size:.7rem;"> (${p.role})</span>
+                </div>`
+              ).join('')
+            : '<span class="text-muted">Belum ditentukan</span>'
+          }
+        </div>
+      </div>`;
+    return true;
+  }
+  card.style.display = 'none';
+  return false;
+}
+
+function setStatusDevice(aktif) {
+  const el = document.getElementById('statusDevice');
+  if (!el) return;
+  if (aktif === null) { el.innerHTML = '<span class="text-muted">—</span>'; return; }
+  el.innerHTML = aktif
+    ? '<span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size:0.7rem;"></i>Online</span>'
+    : '<span class="text-danger"><i class="bi bi-circle-fill me-1" style="font-size:0.7rem;"></i>Offline</span>';
+}
+
+// Dashboard khusus Magang: Identitas Ruangan + Status Device (tanpa detail device & jadwal)
+async function loadIdentitasMagang() {
+  const rid  = getRuanganId();
+  const card = document.getElementById('cardIdentitasRuangan');
+  const box  = document.getElementById('infoIdentitasRuangan');
+  const pesan = (teks) => {
+    card.style.display = 'block';
+    box.innerHTML = `<div class="text-muted text-center py-3">${teks}</div>`;
+  };
+
+  if (!rid) {
+    setStatusDevice(null);
+    pesan('Pilih ruangan pada dropdown di atas untuk melihat identitas ruangan.');
+    return;
+  }
+  try {
+    const r = await fetch(`/device-bridge/status-public?ruangan_id=${rid}&role=magang`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    setStatusDevice(!!data.bridge_aktif);
+    if (!renderIdentitasRuangan(data.identitas_ruangan || {})) {
+      pesan('Data ruangan tidak ditemukan.');
+    }
+  } catch (e) {
+    console.error('Error loadIdentitasMagang:', e);
+    setStatusDevice(false);
+    pesan('Gagal memuat identitas ruangan.');
+  }
+}
+
 async function loadDeviceInfo() {
   const rid = getRuanganId();
   if (!rid) {
@@ -192,40 +277,7 @@ async function loadDeviceInfo() {
     const data = await r.json();
 
     // Render Identitas Ruangan
-    const identitas = data.identitas_ruangan || {};
-    const pjList    = identitas.penanggung_jawab || [];
-    if (identitas.nama && identitas.nama !== '—') {
-      document.getElementById('cardIdentitasRuangan').style.display = 'block';
-      document.getElementById('infoIdentitasRuangan').innerHTML = `
-        <div class="d-flex justify-content-between align-items-start">
-          <span class="text-muted" style="min-width:90px;">Nama</span>
-          <span class="fw-bold text-end">${identitas.nama}</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted" style="min-width:90px;">Lokasi</span>
-          <span>${identitas.lokasi || '—'}</span>
-        </div>
-        <div class="d-flex justify-content-between">
-          <span class="text-muted" style="min-width:90px;">Lantai</span>
-          <span>${formatLantai(identitas.lantai)}</span>
-        </div>
-        <div class="d-flex justify-content-between align-items-start">
-          <span class="text-muted" style="min-width:90px;">Penanggung Jawab</span>
-          <div class="text-end">
-            ${pjList.length
-              ? pjList.map(p =>
-                  `<div>
-                    <span class="fw-bold" style="font-size:.82rem;">${p.nama}</span>
-                    <span class="text-muted" style="font-size:.7rem;"> (${p.role})</span>
-                  </div>`
-                ).join('')
-              : '<span class="text-muted">Belum ditentukan</span>'
-            }
-          </div>
-        </div>`;
-    } else {
-      document.getElementById('cardIdentitasRuangan').style.display = 'none';
-    }
+    renderIdentitasRuangan(data.identitas_ruangan || {});
 
     document.getElementById('statusDevice').innerHTML =
       data.bridge_aktif 
@@ -403,13 +455,30 @@ async function bukaPintuManual() {
   }
 }
 
+async function hitungAksesHariIni(ruanganParam, today) {
+  const total = async (status) => {
+    const r = await fetch(
+      `/log-akses/?${ruanganParam}status=${status}&tanggal_dari=${today}&tanggal_sampai=${today}&limit=1`
+    );
+    const j = await r.json();
+    return (j.pagination && j.pagination.total) || 0;
+  };
+  try {
+    const [ok, no] = await Promise.all([total('berhasil'), total('ditolak')]);
+    document.getElementById('statBerhasil').textContent = ok;
+    document.getElementById('statDitolak').textContent  = no;
+  } catch (e) { console.error('Error hitungAksesHariIni:', e); }
+}
+
 async function loadLog() {
   const rid = getRuanganId();
-  if (!rid) return;
+  // Magang: "Semua Ruangan" tetap menampilkan log hari ini dari seluruh ruangan
+  if (!rid && !IS_MAGANG) return;
   try {
     const today = getTodayLocal();
+    const ruanganParam = rid ? `ruangan_id=${rid}&` : '';
     const r = await fetch(
-      `/log-akses/?ruangan_id=${rid}&tanggal_dari=${today}&tanggal_sampai=${today}&limit=15`
+      `/log-akses/?${ruanganParam}tanggal_dari=${today}&tanggal_sampai=${today}&limit=15`
     );
     let data = await r.json();
 
@@ -420,10 +489,8 @@ async function loadLog() {
     }
     // ------------------------------------
 
-    document.getElementById('statBerhasil').textContent =
-      data.filter(l => l.status === 'berhasil').length;
-    document.getElementById('statDitolak').textContent =
-      data.filter(l => l.status === 'ditolak').length;
+    // Hitungan hari ini diambil dari total di server (bukan dari 15 baris tabel)
+    hitungAksesHariIni(ruanganParam, today);
 
     const tbody = document.getElementById('logBody');
     if (!data.length) {
@@ -473,19 +540,30 @@ async function loadTotalPengguna() {
 // PERBAIKAN 2: Fungsi loadTotalPengguna() duplikat di bawah sini sudah dihapus
 
 // Inisialisasi awal
-loadHariLiburDashboard().then(() => {
-  loadDeviceInfo();    // baru load device info setelah hari libur siap
-});
-loadLog();
-loadTotalPengguna();
+if (IS_MAGANG) {
+  // Magang: kartu statistik + Identitas Ruangan + Log Akses Hari Ini
+  loadIdentitasMagang();
+  loadLog();
+  loadTotalPengguna();
+  setInterval(loadIdentitasMagang, 30000);
+  setInterval(loadLog, 30000);
+  setInterval(loadTotalPengguna, 30000);
+  window.addEventListener('ruanganChanged', () => { loadIdentitasMagang(); loadLog(); });
+} else {
+  loadHariLiburDashboard().then(() => {
+    loadDeviceInfo();    // baru load device info setelah hari libur siap
+  });
+  loadLog();
+  loadTotalPengguna();
 
-// Auto-refresh data tiap 30 detik
-setInterval(loadDeviceInfo, 30000);
-setInterval(loadLog, 30000);
+  // Auto-refresh data tiap 30 detik
+  setInterval(loadDeviceInfo, 30000);
+  setInterval(loadLog, 30000);
 
-// Reload hari libur 1x per jam (antisipasi jaga-jaga kalau server live lama)
-setInterval(loadHariLiburDashboard, 3600000);
+  // Reload hari libur 1x per jam (antisipasi jaga-jaga kalau server live lama)
+  setInterval(loadHariLiburDashboard, 3600000);
 
-window.addEventListener('ruanganChanged', () => { loadDeviceInfo(); loadLog(); });
+  window.addEventListener('ruanganChanged', () => { loadDeviceInfo(); loadLog(); });
+}
 </script>
 {% endblock %}

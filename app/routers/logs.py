@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from typing import Optional, List
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from pydantic import BaseModel
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -22,6 +22,21 @@ def get_current_role(request: Request) -> str:
         raise HTTPException(status_code=401, detail="Sesi tidak valid")
     user = decode_session_token(token)
     return user["role"]
+
+
+def get_optional_role(request: Request) -> Optional[str]:
+    """Role dari token sesi, atau None bila tidak ada/tidak valid (tanpa melempar error)."""
+    from app.services.auth_service import decode_session_token
+    token = request.cookies.get("session_token")
+    if not token:
+        return None
+    user = decode_session_token(token)
+    return user.get("role") if user else None
+
+
+def wib_today_str() -> str:
+    """Tanggal hari ini (YYYY-MM-DD) berbasis WIB (UTC+7)."""
+    return datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
 
 
 # ==========================================
@@ -66,6 +81,7 @@ class BulkDeletePayload(BaseModel):
 
 @router.get("/", response_model=PaginatedAccessLogResponse)
 def get_logs(
+    request:        Request,
     ruangan_id:     Optional[int] = Query(None),
     status:         Optional[str] = Query(None),
     metode:         Optional[str] = Query(None),
@@ -76,6 +92,13 @@ def get_logs(
     db: Session = Depends(get_db)
 ):
     """Mengambil data log akses dengan filter dan paginasi."""
+    # Magang hanya boleh melihat log akses HARI INI — dipaksa di server
+    # agar tidak bisa dilewati dengan mengubah parameter tanggal di URL.
+    if get_optional_role(request) == "magang":
+        hari_ini       = wib_today_str()
+        tanggal_dari   = hari_ini
+        tanggal_sampai = hari_ini
+
     q = db.query(AccessLog).options(joinedload(AccessLog.user))
 
     if ruangan_id:
@@ -186,6 +209,7 @@ def hapus_satu(log_id: int, request: Request, db: Session = Depends(get_db)):
 
 @router.get("/export/excel")
 def export_excel(
+    request:        Request,
     ruangan_id:     Optional[int] = Query(None),
     status:         Optional[str] = Query(None),
     metode:         Optional[str] = Query(None),
@@ -193,6 +217,9 @@ def export_excel(
     tanggal_sampai: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    if get_optional_role(request) == "magang":
+        raise HTTPException(status_code=403, detail="Peran Magang tidak dapat mengekspor log akses")
+
     q = db.query(AccessLog).options(joinedload(AccessLog.user))
     if ruangan_id:
         q = q.filter(AccessLog.ruangan_id == ruangan_id)

@@ -939,11 +939,18 @@ def bridge_heartbeat(
 
 @router.get("/status-public")
 def bridge_status_public(
+    request: Request,
     ruangan_id: int,
     role: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """Status bridge + info device ringkas dan identitas ruangan untuk dashboard sipil."""
+    # Role Magang diambil dari sesi (bukan dari query param yang bisa dipalsukan):
+    # hanya identitas ruangan yang boleh dilihat, tanpa info device & jadwal.
+    from app.services.auth_service import decode_session_token
+    _tok  = request.cookies.get("session_token")
+    _sess = decode_session_token(_tok) if _tok else None
+    is_magang = bool(_sess and _sess.get("role") == "magang")
     hb = db.query(BridgeHeartbeat).filter(
         BridgeHeartbeat.ruangan_id == ruangan_id
     ).order_by(
@@ -999,6 +1006,17 @@ def bridge_status_public(
         AccessLog.ruangan_id == ruangan_id,
         func.date(AccessLog.waktu_akses) == func.date(datetime.now(timezone.utc).astimezone(WIB))
     ).count()
+
+    if is_magang:
+        return {
+            "bridge_aktif": bridge_aktif,
+            "identitas_ruangan": {
+                "nama":             ruangan.nama if ruangan else "—",
+                "lokasi":           ruangan.lokasi if ruangan else "—",
+                "lantai":           getattr(ruangan, "lantai", None) if ruangan else None,
+                "penanggung_jawab": pj_list,
+            },
+        }
 
     return {
         "bridge_aktif": bridge_aktif,

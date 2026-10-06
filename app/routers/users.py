@@ -663,7 +663,7 @@ def get_users(
         viewer_role = "admin"
 
     # Filter query database agar admin tidak di-load sama sekali
-    if viewer_role in ("dosen", "teknisi", "dosen_privilege"):
+    if viewer_role in ("dosen", "teknisi", "dosen_privilege", "magang"):
         q = q.filter(User.role != "admin")
     # -------------------------------------------------------------
 

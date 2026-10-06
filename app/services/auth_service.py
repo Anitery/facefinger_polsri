@@ -6,7 +6,7 @@ from fastapi import Request, HTTPException
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-ganti-di-production")
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
-ALLOWED_ROLES = {"admin", "dosen_privilege", "teknisi", "dosen"}
+ALLOWED_ROLES = {"admin", "dosen_privilege", "teknisi", "dosen", "magang"}
 
 
 def hash_password(password: str) -> str:

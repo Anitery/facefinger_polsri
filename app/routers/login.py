@@ -18,6 +18,7 @@ ROLE_LABEL = {
     "dosen_privilege": "Dosen Privilege",
     "teknisi":  "Teknisi Lab",
     "dosen":    "Dosen",
+    "magang":   "Magang",
     "mahasiswa":"Mahasiswa",
 }
 
@@ -68,7 +69,7 @@ def login_post(
             context={"error": "NIM/NIP atau password salah"}
         )
 
-    # Cek role — hanya admin, teknisi, dosen yang boleh masuk dashboard
+    # Cek role — hanya admin, dosen_privilege, teknisi, dosen, dan magang yang boleh masuk dashboard
     if user.role not in ALLOWED_ROLES:
         return templates.TemplateResponse(
             request=request,
